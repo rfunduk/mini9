@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en-us">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width">
+
+    <title>{{ TITLE }}</title>
+    <meta name="title" content="{{ TITLE }}">
+
+    <style>
+        body {
+            margin: 0px;
+            padding: 0px;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            min-width: 100vw;
+        }
+        canvas.game_canvas {
+            border: 0px none;
+            background-color: black;
+            display: block;
+            outline: none;
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        canvas.game_canvas.cursor_hidden {
+            cursor: none;
+        }
+        #status {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: visible;
+        }
+        #status.hidden {
+            visibility: hidden;
+        }
+        #status-progress {
+            width: 200px;
+            height: 8px;
+            background-color: white;
+            padding: 4px;
+            overflow: hidden;
+        }
+        #status-progress-bar {
+            height: 100%;
+            background-color: black;
+            width: 0%;
+            transition: width 0.2s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas class="game_canvas" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <div id="status">
+        <div id="status-progress">
+            <div id="status-progress-bar"></div>
+        </div>
+    </div>
+    <script type="text/javascript" src="odin.js"></script>
+    <script>
+        const canvas = document.getElementById('canvas')
+        let romData = null
+        const odinMem = new odin.WasmMemoryInterface()
+        odinMem.setIntSize(4)
+        const odinImp = odin.setupDefaultImports(odinMem)
+
+        // expose js functions to odin
+        odinImp.expose = odinImp.expose || {}
+        odinImp.expose.web_set_cursor_visible = (yn) => canvas.classList[yn ? 'remove' : 'add']('cursor_hidden')
+        odinImp.expose.web_get_rom_size = () => romData ? romData.length : 0
+        odinImp.expose.web_load_rom_data = (ptr) => romData ? odinMem.loadBytes(ptr, romData.length).set(romData) : null
+
+        // file sizes for progress calculation
+        const WASM_SIZE = -1
+        const ROM_SIZE = -1
+        const TOTAL_SIZE = WASM_SIZE + ROM_SIZE
+
+        var Module = {
+            instantiateWasm: (baseImports, successCallback) => {
+                const imports = { ...odinImp, ...baseImports }
+
+                const statusElement = document.getElementById('status')
+                const progressBar = document.getElementById('status-progress-bar')
+                const loaded = { rom: 0, wasm: 0, total: 0 }
+
+                function updateProgress() {
+                    const progress = (loaded.total / TOTAL_SIZE) * 100
+                    progressBar.style.width = `${progress}%`
+                }
+
+                function makeStreamer(which) {
+                    return response => {
+                        if (!response.ok) { throw new Error(`Failed to fetch ROM: ${response.status}`) }
+                        const reader = response.body.getReader()
+                        const stream = new ReadableStream({
+                            start(controller) {
+                                function pump() {
+                                    return reader.read().then(({ done, value }) => {
+                                        if (done) {
+                                            totalLoaded = TOTAL_SIZE
+                                            updateProgress()
+                                            controller.close()
+                                            return
+                                        }
+
+                                        loaded[which] += value.byteLength
+                                        loaded.total = loaded.rom + loaded.wasm
+                                        updateProgress()
+
+                                        controller.enqueue(value)
+                                        return pump()
+                                    })
+                                }
+                                return pump()
+                            }
+                        })
+                        return new Response(stream, { headers: response.headers })
+                    }
+                }
+
+                const romFetch = fetch("cart.rom").then(makeStreamer("rom")).then(async response =>
+                    romData = new Uint8Array(await response.arrayBuffer())
+                )
+
+                const wasmFetch = fetch("index.wasm").then(makeStreamer("wasm")).then(response =>
+                    WebAssembly.instantiateStreaming(response, imports)
+                )
+
+                Promise.all([romFetch, wasmFetch]).then(([_, output]) => {
+                    const e = output.instance.exports
+                    odinMem.setExports(e)
+                    odinMem.setMemory(e.memory)
+                    successCallback(output.instance)
+
+                    // calls any procedure marked with @init
+                    e._start()
+
+                    // see source/main_web/main_web.odin for main_start,
+                    // main_update and main_end.
+                    e.main_start()
+
+                    function send_resize() {
+                        e.web_window_size_changed(window.innerWidth, window.innerHeight)
+                        setTimeout(() => canvas.focus(), 100)
+                    }
+
+                    window.addEventListener('resize', function (event) { send_resize() }, true)
+
+                    // also regain focus on fullscreen changes
+                    document.addEventListener('fullscreenchange', function () {
+                        setTimeout(() => canvas.focus(), 100)
+                    })
+
+                    // and on any click in the document (for itch.io UI interactions)
+                    document.addEventListener('click', function () {
+                        setTimeout(() => canvas.focus(), 50)
+                    })
+
+                    // this can probably be done better: ideally we'd feed the
+                    // initial size to `main_start`. but there seems to be a
+                    // race condition. `canvas` doesn't have it's correct size yet.
+                    send_resize()
+
+                    // runs the "main loop".
+                    function do_main_update() {
+                        if (!e.main_update()) {
+                            e.main_end()
+
+                            // calls procedures marked with @fini
+                            e._end()
+                            return
+                        }
+                        window.requestAnimationFrame(do_main_update)
+                    }
+
+                    window.requestAnimationFrame(do_main_update)
+
+                    // focus the canvas for keyboard input
+                    canvas.focus()
+
+                    // hide loading screen
+                    statusElement.classList.add('hidden')
+
+                    return output.instance.exports
+                });
+            },
+            print: (function () {
+                return function (text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ')
+                    console.log(text)
+                }
+            })(),
+            canvas: (function () {
+                return document.getElementById("canvas")
+            })()
+        }
+    </script>
+
+    {{{ SCRIPT }}}
+</body>
+
+</html>

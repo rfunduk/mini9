@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+MRUBY_VERSION="fafb52d72a2c09b6979c32ea5b97ce6f1af6a53d" # ideally 3.4.0 but it prevents loading any bytecode
+EMSDK_VERSION="4.0.13"
+
+ENGINE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+
+echo -e "\n\n\n*** Installing development deps..."
+
+# emscripten
+echo -e "\n\nEmscripten"
+echo "=========="
+if [ -d "$ENGINE_DIR/vendor/emsdk" ]; then
+    echo "emscripten already exists, updating..."
+    (cd $ENGINE_DIR/vendor/emsdk && git fetch --tags && git checkout $EMSDK_VERSION)
+else
+    echo "Cloning emscripten..."
+    git clone --branch $EMSDK_VERSION https://github.com/emscripten-core/emsdk.git $ENGINE_DIR/vendor/emsdk
+fi
+export EMSDK_QUIET=1
+echo "Installing and activating emscripten..."
+cd $ENGINE_DIR/vendor/emsdk
+./emsdk install latest
+./emsdk activate latest
+source $ENGINE_DIR/vendor/emsdk/emsdk_env.sh
+
+# mruby
+echo -e "\n\nmruby"
+echo "====="
+if [ -d "$ENGINE_DIR/vendor/mruby" ]; then
+    echo "mruby already exists, updating..."
+    (cd $ENGINE_DIR/vendor/mruby && git fetch --tags && git checkout $MRUBY_VERSION)
+else
+    echo "Cloning mruby..."
+    git clone https://github.com/mruby/mruby.git $ENGINE_DIR/vendor/mruby
+    (cd $ENGINE_DIR/vendor/mruby && git checkout $MRUBY_VERSION)
+fi
+echo "Building mruby..."
+cd $ENGINE_DIR/vendor/mruby
+export MRUBY_CONFIG="$ENGINE_DIR/mruby.rb"
+rake

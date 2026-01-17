@@ -1,0 +1,32 @@
+# ENGINE native=rl.Vector2 ruby=Vector2
+
+class Vector2
+  ZERO = v2(0)
+  ONE = v2(1)
+
+  UP = N = v2(0, -1)
+  DOWN = S = v2(0, 1)
+  LEFT = W = v2(-1, 0)
+  RIGHT = E = v2(1, 0)
+
+  UP_LEFT = NW = v2(-1, -1)
+  UP_RIGHT = NE = v2(1, -1)
+  DOWN_LEFT = SW = v2(-1, 1)
+  DOWN_RIGHT = SE = v2(1, 1)
+
+  CARDINALS = [N, E, S, W]
+  COMPASS = [N, NE, E, SE, S, SW, W, NW]
+
+  def clone = v2(x, y)
+
+  def xx = v2(x, x)
+  def yy = v2(y, y)
+  def yx = v2(y, x)
+
+  def *(other) = other.is_a?(Numeric) ? _multiply_scalar(other.to_f) : _multiply(other)
+  def /(other) = other.is_a?(Numeric) ? _divide_scalar(other.to_f) : _divide(other)
+  def ==(other) = other.is_a?(self.class) ? x == other.x && y == other.y : false
+
+  def to_s = "Vector2(#{x}, #{y})"
+  alias_method :inspect, :to_s
+end

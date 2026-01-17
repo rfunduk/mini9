@@ -1,0 +1,5 @@
+build/**
+**/*__generated*
+vendor/*
+mruby.rb.lock
+*.rom

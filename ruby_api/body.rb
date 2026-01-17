@@ -1,0 +1,19 @@
+# ENGINE native=Body ruby=Body
+
+class Body
+  LAYER_1 = 1
+  LAYER_2 = 2
+  LAYER_3 = 4
+  LAYER_4 = 8
+  LAYER_5 = 16
+  LAYER_6 = 32
+  LAYER_7 = 64
+  LAYER_8 = 128
+  LAYER_9 = 256
+  LAYER_10 = 512
+  LAYER_11 = 1024
+  LAYER_12 = 2048
+  LAYER_13 = 4096
+  LAYER_14 = 8192
+  LAYER_15 = 16384
+end

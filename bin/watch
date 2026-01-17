@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+what=$1
+
+build() {
+  bin/build.py $what
+  echo -e "\nWatching $what...\n"
+}
+
+build
+
+fswatch -o source/ ruby_api/ --exclude='.*__generated.*' | while read; do build; done
