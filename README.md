@@ -1,12 +1,12 @@
 # MINI9
 
-Here we have a game... ... I want to say 'framework'...? Size-wise it's bigger than [pico](https://www.lexaloffle.com/pico-8.php), but not much. And limitations-wise, there certainly are some, but more than [8](https://www.lexaloffle.com/pico-8.php)... see what I'm getting at?
+Here we have a game... ... I want to say 'framework'...? Yes, a **game framework**. Size-wise I'd describe it as bigger than [pico](https://www.lexaloffle.com/pico-8.php), but not much. And limitations-wise, there certainly are some, but less than [8](https://www.lexaloffle.com/pico-8.php)... see what I'm getting at?
 
 ## But really what is it?
 
-I really like pico8 but I'm old and I just want to do whatever I want, right? I like limitations but it's just too much. I want to make art in aseprite and just load it up. I absolutely cannot make a decent sound effect or music to save my life in pico8. Also lua is not really my speed; it's fine, just, I would rather not.
+I really like pico8 but I'm old and I just want to do whatever I want, see? I like limitations but it's just too much. I want to make art in aseprite and just load it up. I absolutely cannot make a decent sound effect or music to save my life in pico8. Also lua is not really my speed; it's fine, but I would rather not.
 
-So here we have a _slightly larger_ game framework thing. It's written in [Odin](https://odin-lang.org) and uses [Ruby](https://www.ruby-lang.org/) as the game language (actually [mruby](https://mruby.org/) so no gems/etc).
+So here we have a _slightly larger_, _slightly more flexible_ thing. It's written in [Odin](https://odin-lang.org) and uses [Ruby](https://www.ruby-lang.org/) as the game language (actually [mruby](https://mruby.org/) so no gems/etc).
 
 **Note to self**: Really need a couple examples.
 
