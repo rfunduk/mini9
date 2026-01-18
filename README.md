@@ -36,9 +36,9 @@ See below for how to build & run that.
 
 ### Install dependencies
 
-- `python3` in `PATH` is required.
 - `ruby` in `PATH` is required.
 - `odin` in `PATH` is required.
+- `python3` in `PATH` is required <small>(it seems it didn't occur to me to write the build script in Ruby...)</small>
 - [`mruby`](https://mruby.org/) is needed, via: `bin/setup`
 - Emscripten is how the web magic works, also via: `bin/setup`
 
