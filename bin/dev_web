@@ -6,12 +6,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
 
 EXAMPLE=$1
 
-EXAMPLE=${EXAMPLE#$DIR/}
-
-if [[ -z "$EXAMPLE" ]] || [[ ! "$EXAMPLE" =~ ^games/ ]]; then
-    EXAMPLE="games/test_game"
-fi
-
 echo "Building+opening $EXAMPLE..."
 
 build/debug/mini9 package --web --source $EXAMPLE --output build/carts/
@@ -26,10 +20,10 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-# python -m http.server 8888 -d . &
+# python3 -m http.server 8888 -d . &
 # simple, eh? but it's nice to not have to worry about caching, so...
 
-python -c "
+python3 -c "
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
 from signal import SIGINT, signal

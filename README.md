@@ -29,20 +29,19 @@ end
 
 See below for how to build & run that.
 
-...I realise there should probably be API docs because otherwise it'll be near impossible to go further than this. It's similar to pico8 but not _that_ similar.
+...I realise there needs to be API docs because otherwise it'll be near impossible to go further than this. It's similar to pico8 but not _that_ similar.
 
 
 ## More specific details on how to get going.
 
 ### Install dependencies
 
-- `ruby` in `PATH` is required.
 - `odin` in `PATH` is required.
-- `python3` in `PATH` is required <small>(it seems it didn't occur to me to write the build script in Ruby...)</small>
-- [`mruby`](https://mruby.org/) is needed, via: `bin/setup`
+- `ruby` in `PATH` is required.
+- [`mruby`](https://mruby.org/) is needed, run: `bin/setup`
 - Emscripten is how the web magic works, also via: `bin/setup`
 
-Eventually I'll put up releases in this repo, but for now you need all that to get this going.
+I should put up releases in this repo, but for now you need all that to get this going.
 
 Hopefully goes without saying I have no idea if any of this works on Windows and I provide no consideration whatsoever for that case, so sorry.
 
@@ -50,38 +49,39 @@ Hopefully goes without saying I have no idea if any of this works on Windows and
 ### Build (`debug` or `release`)
 
 ```bash
-bin/build.py debug
+bin/build debug
 ```
 
 ### Run your game
 
 ```bash
-build/debug/mini9 path/to/game/dir
+build/debug/mini9 path/to/mygame
 ```
 
 ### Try it in browser
 
+This handy little script relies on `python3` in `PATH` for the webserver.
+
 ```bash
-bin/dev_web path/to/game/dir
+bin/dev_web path/to/mygame
 ```
 
 ### Package a 'cart'
 
 ```bash
 build/debug/mini9 package \
-  --source path/to/game \
+  --source path/to/mygame \
   --output .
-build/debug/mini9 game.rom
+build/debug/mini9 mygame.rom
 ```
 
 ### Package for web
 
 ```bash
 build/debug/mini9 package --web \
-  --source path/to/game \
+  --source path/to/mygame \
   --output .
-bash -c "cd game && python3 -m http.server"
-# visit http://localhost:8080
+# ./mygame contains index.html, etc
 ```
 
 ## Misc

@@ -3,7 +3,7 @@
 what=$1
 
 build() {
-  bin/build.py $what
+  bin/build $what
   echo -e "\nWatching $what...\n"
 }
 

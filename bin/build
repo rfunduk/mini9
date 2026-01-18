@@ -1,0 +1,184 @@
+#!/usr/bin/env ruby
+
+require "optparse"
+require "pathname"
+require "digest"
+require "fileutils"
+
+SRC_DIR = File.absolute_path("./source")
+
+TARGET = ARGV[0] || "release"
+unless %w[debug release].include?(TARGET)
+  puts "Invalid target. Choose 'debug' or 'release'."
+  exit 1
+end
+
+def ruby_api_files
+  return $ruby_api_files if $ruby_api_files
+
+  ruby_api_dir = File.join(SRC_DIR, "../ruby_api")
+  ruby_files = Dir.glob(File.join(ruby_api_dir, "*.rb"))
+  $ruby_api_files = []
+
+  ruby_files.each do |ruby_file|
+    api_name = Pathname.new(ruby_file).basename(".rb").to_s
+
+    auto = "load"
+    odin_file = File.join(SRC_DIR, "engine_#{api_name}.odin")
+    if File.exist?(odin_file)
+      odin_content = File.read(odin_file)
+      auto = "init" if odin_content.include?("setup_#{api_name} ::")
+    end
+
+    first_line = File.open(ruby_file, &:readline)
+    native, ruby = nil, nil
+    if first_line =~ /^# ENGINE native=([.a-zA-Z0-9_]+) ruby=([.a-zA-Z0-9_]+)/
+      native, ruby = $1, $2
+    end
+
+    $ruby_api_files << [api_name, auto, [native, ruby]]
+  end
+
+  $ruby_api_files = $ruby_api_files.sort_by(&:first)
+end
+
+def engine_methods
+  return $engine_methods if $engine_methods
+
+  puts "  Scanning for @engine_method functions..."
+  $engine_methods = []
+
+  Dir.glob(File.join(SRC_DIR, "*.odin")).each do |odin_file|
+    lines = File.read(odin_file).split("\n")
+    lines.each_with_index do |line, i|
+      next unless line.include?("@engine_method:")
+
+      name_match = line.match(/name="([^"]+)"/)
+      arity_match = line.match(/arity=(-?\d+)/)
+
+      if name_match && arity_match && i + 1 < lines.length
+        method_name = name_match[1]
+        arity = arity_match[1].to_i
+        next_line = lines[i + 1]
+
+        if next_line =~ /(\w+)\s*::\s*proc\s*"c"/
+          func_name = $1
+          $engine_methods << [method_name, func_name, arity]
+        end
+      end
+    end
+  end
+
+  $engine_methods
+end
+
+def maybe_build_tools
+  prev_digest_path = "bin/__rb2bin__generated.digest"
+  prev_digest = File.exist?(prev_digest_path) ? File.read(prev_digest_path) : nil
+  current_digest = Digest::SHA256.file("bin/rb2bin.odin").hexdigest
+
+  if prev_digest != current_digest
+    puts "Re-building tools..."
+
+    Dir.glob("bin/*.odin").map { Pathname.new(_1) }.each do |tool|
+      print "  #{tool.basename(".odin")}"
+
+      result = system(
+        "odin", "build", tool.to_s, "-file",
+        "-out:bin/__#{tool.basename(".odin")}__generated",
+        "-collection:lib=lib",
+        "-define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a",
+        "-strict-style", "-vet",
+        out: File::NULL, err: File::NULL
+      )
+
+      raise "Unable to generate bytecode -- #{result}" unless result
+      File.write(prev_digest_path, current_digest)
+      puts "\tOK\n"
+    end
+  end
+end
+
+def generate
+  ruby_api_files.each do |api_name, _, _|
+    puts "  Generating bytecode for #{api_name}..."
+
+    convert_cmd = [
+      "bin/__rb2bin__generated",
+      "ruby_api/#{api_name}.rb",
+      "ruby_api/#{api_name.gsub(/^_+|_+$/, "")}__generated.bin"
+    ]
+    convert_cmd << "--debug" if TARGET == "debug"
+
+    result = system(*convert_cmd, out: File::NULL, err: File::NULL)
+    raise "Unable to generate bytecode" unless result
+  end
+
+  File.write(
+    File.join(SRC_DIR, "../ruby_api/auto__generated.rb"),
+    "ENGINE_METHODS = [\n#{engine_methods.map { "\t\"#{_1[0]}\"" }.join(",\n")}\n]\n"
+  )
+
+  init_content = []
+  init_content << "package engine"
+  init_content << "import rl \"vendor:raylib\""
+  init_content << "import mrb \"lib:mruby\""
+  init_content << ""
+
+  ruby_api_files.each do |api_name, type, (native, ruby)|
+    name = api_name.gsub(/^_+|_+$/, "")
+    init_content << "#{name}_bytecode := #load(\"../ruby_api/#{name}__generated.bin\")"
+  end
+  init_content << ""
+
+  ruby_api_files.each do |api_name, type, (native, ruby)|
+    if type == "init" && native && ruby
+      init_content << "#{ruby}_Ruby := mrb.Data_Type { struct_name = \"#{ruby}\", dfree = ruby_#{ruby.downcase}_finalizer }"
+    end
+  end
+
+  init_content << ""
+  init_content << "engine_init_ruby_api :: proc() {"
+  init_content << "\tNATIVE_TO_MRUBY_TYPE = make(map[typeid]^mrb.Data_Type)"
+
+  ruby_api_files.each do |_, type, (native, ruby)|
+    if type == "init" && native && ruby
+      init_content << "\tNATIVE_TO_MRUBY_TYPE[#{native}] = &#{ruby}_Ruby"
+    end
+  end
+
+  init_content << ""
+  init_content << "\tkernel_module := mrb.module_get(g.mrb_state, \"Kernel\")"
+
+  engine_methods.each do |name, f, arity|
+    init_content << "\tmrb.define_method(g.mrb_state, kernel_module, \"#{name}\", cast(rawptr)#{f}, #{arity})"
+  end
+
+  ruby_api_files.each do |api_name, type, (native, ruby)|
+    init_content << "\n\t// #{api_name}"
+    init_content << "\tload_bytecode(\"#{api_name}\", #{api_name.gsub(/^_+|_+$/, "")}_bytecode[:])"
+    init_content << "\tsetup_#{api_name}()" if type == "init"
+  end
+
+  init_content << "}"
+
+  puts "  Generating engine_ruby_api__generated.odin..."
+  File.write(File.join(SRC_DIR, "engine_ruby_api__generated.odin"), init_content.join("\n") + "\n")
+end
+
+maybe_build_tools
+
+puts "Preparing '#{TARGET}'..."
+FileUtils.rm_rf(File.absolute_path("./build/#{TARGET}"))
+
+generate
+
+puts "Building '#{TARGET}'..."
+result = system({ "TARGET" => TARGET }, "bin/_build.sh")
+
+unless result
+  puts "Build failed with exit code #{$?.exitstatus}"
+  exit $?.exitstatus
+end
+
+puts "Build complete."
