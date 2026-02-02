@@ -6,7 +6,7 @@ import "core:slice"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
-ruby_body_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_body_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 
 	if ptr != nil {
@@ -36,7 +36,7 @@ Body :: struct {
 
 // RUBY FUNCTION: body(offset: v2(0), size: v2(1), layer: [], mask: []) -> returns Body object
 // @engine_method: name="body", arity=1
-ruby_body :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "H", &kwargs)
@@ -72,7 +72,7 @@ ruby_body :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return body_obj
 }
 
-create_body :: proc "c" (state: ^mrb.State, b: Body) -> mrb.Value {
+create_body :: proc "c" (state: mrb.State, b: Body) -> mrb.Value {
 	context = global_context
 
 	b_ptr := ruby_allocate(Body, b)
@@ -88,7 +88,7 @@ create_body :: proc "c" (state: ^mrb.State, b: Body) -> mrb.Value {
 	return ruby_obj
 }
 
-ruby_body_init :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_init :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	parent_val: mrb.Value
 	mrb.get_args(state, "o", &parent_val)
@@ -102,7 +102,7 @@ ruby_body_init :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: body.offset -> gets body frame offset
-ruby_body_get_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_get_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	body := extract_native(Body, self)
 	if body == nil { return mrb.NIL }
@@ -110,7 +110,7 @@ ruby_body_get_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY METHOD: body.size -> gets body frame size
-ruby_body_get_size :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	body := extract_native(Body, self)
 	if body == nil { return mrb.NIL }
@@ -118,7 +118,7 @@ ruby_body_get_size :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 }
 
 // RUBY METHOD: body.size = v2(10) -> sets body size
-ruby_body_set_size :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_set_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	size_val: mrb.Value
 	mrb.get_args(state, "o", &size_val)
@@ -137,7 +137,7 @@ ruby_body_set_size :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 }
 
 // RUBY METHOD: body.offset = v2(10) -> sets body offset
-ruby_body_set_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_set_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	offset_val: mrb.Value
 	mrb.get_args(state, "o", &offset_val)
@@ -156,7 +156,7 @@ ruby_body_set_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY METHOD: body.layer -> gets layer in radians
-ruby_body_get_layer :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_get_layer :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	body := extract_native(Body, self)
 	if body == nil { return mrb.NIL }
@@ -164,7 +164,7 @@ ruby_body_get_layer :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Valu
 }
 
 // RUBY METHOD: body.mask -> gets mask
-ruby_body_get_mask :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_get_mask :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	body := extract_native(Body, self)
 	if body == nil { return mrb.NIL }
@@ -172,7 +172,7 @@ ruby_body_get_mask :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 }
 
 // RUBY METHOD: body.parent -> gets parent
-ruby_body_get_parent :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_get_parent :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	body := extract_native(Body, self)
 	if body == nil { return mrb.NIL }
@@ -180,7 +180,7 @@ ruby_body_get_parent :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY METHOD: body.layer=(angle) -> sets layer
-ruby_body_set_layer :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_set_layer :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	layer: u16
 	mrb.get_args(state, "i", &layer)
@@ -196,7 +196,7 @@ ruby_body_set_layer :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Valu
 }
 
 // RUBY METHOD: body.mask=(angle) -> sets mask in radians
-ruby_body_set_mask :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_set_mask :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	mask: u16
 	mrb.get_args(state, "i", &mask)
@@ -216,12 +216,12 @@ body_to_rect :: proc(b: Body) -> rl.Rectangle {
 	return {math.floor(pos.x + offset.x), math.floor(pos.y + offset.y), size.x, size.y}
 }
 
-body_get_parent_pos :: proc(state: ^mrb.State, ruby_obj: mrb.Value) -> (pos: rl.Vector2) {
+body_get_parent_pos :: proc(state: mrb.State, ruby_obj: mrb.Value) -> (pos: rl.Vector2) {
 	if ruby_obj != mrb.NIL {
 		pos_sym := mrb.intern_cstr(g.mrb_state, "pos")
 		if mrb.respond_to(g.mrb_state, ruby_obj, pos_sym) {
-			arena_idx := mrb.arena_save(g.mrb_state)
-			defer mrb.arena_restore(g.mrb_state, arena_idx)
+			arena_idx := mrb.gc_arena_save(g.mrb_state)
+			defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
 			pos_val := mrb.funcall(g.mrb_state, ruby_obj, "pos", 0)
 			pos = extract_native(rl.Vector2, pos_val)^
 		}
@@ -230,7 +230,7 @@ body_get_parent_pos :: proc(state: ^mrb.State, ruby_obj: mrb.Value) -> (pos: rl.
 }
 
 // RUBY METHOD: body.resolve_collisions(velocity, slide: yn) -> detects and resolves collisions, optionally sliding
-ruby_body_resolve_collisions :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_body_resolve_collisions :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	body := extract_native(Body, self)
 

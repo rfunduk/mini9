@@ -9,7 +9,7 @@ import rl "vendor:raylib"
 ERROR_RED :: rl.Color{200, 50, 50, 255}
 
 // helper to check for Ruby exceptions
-has_ruby_exception :: proc(state: ^mrb.State) -> bool {
+has_ruby_exception :: proc(state: mrb.State) -> bool {
 	// on 64-bit systems, exc field is at offset 32 (5th pointer)
 	// on 32-bit systems, it would be at offset 16
 	offset: uintptr = 32

@@ -6,7 +6,7 @@ import rl "vendor:raylib"
 
 // RUBY FUNCTION: pixel(pos, color: WHITE) -> draws a single pixel
 // @engine_method: name="pixel", arity=-1
-ruby_pixel :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_pixel :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	pos_val, kwargs: mrb.Value
@@ -27,14 +27,14 @@ ruby_pixel :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: circle(pos, radius, color: WHITE) -> draws a circle
 // @engine_method: name="circle", arity=-1
-ruby_circle :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_circle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val, r_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "oo|H", &pos_val, &r_val, &kwargs)
 
 	pos_vec := extract_native(rl.Vector2, pos_val)
 	pos := lin.floor(pos_vec^)
-	radius := f32(mrb.float(r_val))
+	radius := f32(to_f64(r_val))
 
 	draw_color := rl.Color{255, 255, 255, 255} // Default to white
 	filled: bool = false
@@ -60,7 +60,7 @@ ruby_circle :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: oval(pos, size, color: WHITE, filled: false) -> draws an ellipse
 // @engine_method: name="oval", arity=-1
-ruby_oval :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val, size_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "oo|H", &pos_val, &size_val, &kwargs)
@@ -95,7 +95,7 @@ ruby_oval :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: line(from, to = nil, color: WHITE) -> draws a line
 // @engine_method: name="line", arity=-1
-ruby_line :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	from_val, to_val, kwargs: mrb.Value
 	mrb.get_args(state, "oo|H", &from_val, &to_val, &kwargs)
@@ -117,7 +117,7 @@ ruby_line :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	if kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "thickness" in hash { thickness = mrb.float(hash["thickness"]) }
+		if "thickness" in hash { thickness = to_f64(hash["thickness"]) }
 		if "clip" in hash { did_clip = _clip(hash["clip"], from) }
 	}
 
@@ -130,7 +130,7 @@ ruby_line :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: rectangle(pos, size, color: WHITE, thickness: 1, filled: false, rounded: 0) -> draws a rectangle
 // @engine_method: name="rectangle", arity=-1
-ruby_rectangle :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rectangle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val, size_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "oo|H", &pos_val, &size_val, &kwargs)
@@ -153,8 +153,8 @@ ruby_rectangle :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 		hash := parse_kwargs(state, kwargs)
 
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "rounded" in hash { rounded = f32(mrb.float(hash["rounded"])) / 100.0 }
-		if "thickness" in hash { thickness = f32(mrb.float(hash["thickness"])) }
+		if "rounded" in hash { rounded = f32(to_f64(hash["rounded"])) / 100.0 }
+		if "thickness" in hash { thickness = f32(to_f64(hash["thickness"])) }
 		if "filled" in hash { filled = mrb.boolean(hash["filled"]) }
 		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
 	}

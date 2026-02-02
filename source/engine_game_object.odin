@@ -12,7 +12,7 @@ Game_Object :: struct {
 	visible:  bool,
 }
 
-ruby_gameobject_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_gameobject_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 
 	if ptr != nil {
@@ -27,7 +27,7 @@ ruby_gameobject_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
 
 // RUBY FUNCTION: obj(pos: v2(0), rotation: 0, scale: v2(1), visible: true, ...) -> returns GameObject
 // @engine_method: name="obj", arity=-1
-ruby_obj :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	kwargs: mrb.Value
@@ -46,7 +46,7 @@ ruby_obj :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 			ruby_hash_delete(state, kwargs, "pos")
 		}
 		if "rotation" in hash {
-			rotation = f32(mrb.float(hash["rotation"]))
+			rotation = f32(to_f64(hash["rotation"]))
 			ruby_hash_delete(state, kwargs, "rotation")
 		}
 		if "visible" in hash {
@@ -88,8 +88,8 @@ ruby_obj :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 create_game_object :: proc(go: Game_Object, argc: c.int, argv: rawptr) -> mrb.Value {
 	// save current arena state so that we dont lose our kwargs mid-setup
-	arena_idx := mrb.arena_save(g.mrb_state)
-	defer mrb.arena_restore(g.mrb_state, arena_idx)
+	arena_idx := mrb.gc_arena_save(g.mrb_state)
+	defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
 
 	ptr := ruby_allocate(Game_Object, go)
 
@@ -102,7 +102,7 @@ create_game_object :: proc(go: Game_Object, argc: c.int, argv: rawptr) -> mrb.Va
 }
 
 // RUBY METHOD: o.pos -> gets obj pos
-ruby_game_object_get_pos :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -110,7 +110,7 @@ ruby_game_object_get_pos :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb
 }
 
 // RUBY METHOD: o.scale -> gets obj scale
-ruby_game_object_get_scale :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_get_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -118,7 +118,7 @@ ruby_game_object_get_scale :: proc "c" (state: ^mrb.State, self: mrb.Value) -> m
 }
 
 // RUBY METHOD: o.rotation -> gets obj rotation
-ruby_game_object_get_rotation :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_get_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -126,7 +126,7 @@ ruby_game_object_get_rotation :: proc "c" (state: ^mrb.State, self: mrb.Value) -
 }
 
 // RUBY METHOD: obj.rotation_degrees -> gets rotation in degrees
-ruby_game_object_get_rotation_deg :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_get_rotation_deg :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -134,7 +134,7 @@ ruby_game_object_get_rotation_deg :: proc "c" (state: ^mrb.State, self: mrb.Valu
 }
 
 // RUBY METHOD: obj.visible -> gets visible flag
-ruby_game_object_get_visible :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_get_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -142,7 +142,7 @@ ruby_game_object_get_visible :: proc "c" (state: ^mrb.State, self: mrb.Value) ->
 }
 
 // RUBY METHOD: obj.pos = v2 -> sets obj pos
-ruby_game_object_set_pos :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_set_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val: mrb.Value
 	mrb.get_args(state, "o", &pos_val)
@@ -161,7 +161,7 @@ ruby_game_object_set_pos :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb
 }
 
 // RUBY METHOD: obj.scale = v2 -> sets obj scale
-ruby_game_object_set_scale :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_set_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	scale_val: mrb.Value
 	mrb.get_args(state, "o", &scale_val)
@@ -180,7 +180,7 @@ ruby_game_object_set_scale :: proc "c" (state: ^mrb.State, self: mrb.Value) -> m
 }
 
 // RUBY METHOD: obj.rotation=(angle) -> sets rotation in radians
-ruby_game_object_set_rotation :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	rotation_val: mrb.Value
 	mrb.get_args(state, "o", &rotation_val)
@@ -188,13 +188,13 @@ ruby_game_object_set_rotation :: proc "c" (state: ^mrb.State, self: mrb.Value) -
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
 
-	obj.rotation = f32(mrb.float(rotation_val))
+	obj.rotation = f32(to_f64(rotation_val))
 
 	return rotation_val
 }
 
 // RUBY METHOD: obj.rotation_degrees=(angle) -> sets rotation in degrees
-ruby_game_object_set_rotation_deg :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_set_rotation_deg :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	rotation_val: mrb.Value
 	mrb.get_args(state, "o", &rotation_val)
@@ -202,13 +202,13 @@ ruby_game_object_set_rotation_deg :: proc "c" (state: ^mrb.State, self: mrb.Valu
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
 
-	obj.rotation = f32(mrb.float(rotation_val) * math.PI / 180.0)
+	obj.rotation = f32(to_f64(rotation_val) * math.PI / 180.0)
 
 	return rotation_val
 }
 
 // RUBY METHOD: obj.visible = yn -> sets obj visible flag
-ruby_game_object_set_visible :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_game_object_set_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	yn_val: mrb.Value
 	mrb.get_args(state, "o", &yn_val)

@@ -8,7 +8,7 @@ ENGINE_DEBUG :: #config(ENGINE_DEBUG, false)
 
 // RUBY FUNCTION: debug(enabled) -> enables/disables debug, gives current with no args
 // @engine_method: name="debug", arity=-1
-ruby_debug :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_debug :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	enabled_val: mrb.Value
 	argc := mrb.get_args(state, "|b", &enabled_val)
@@ -24,7 +24,7 @@ ruby_debug :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: metrics(enabled) -> enables/disables metrics, gives current with no args
 // @engine_method: name="metrics", arity=-1
-ruby_metrics :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_metrics :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	enabled_val: mrb.Value
 	argc := mrb.get_args(state, "|b", &enabled_val)
@@ -40,7 +40,7 @@ ruby_metrics :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: log(*args) -> logs arguments to console separated by spaces
 // @engine_method: name="log", arity=-1
-ruby_log :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_log :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	if !(ENGINE_DEBUG || g.debug) { return mrb.NIL }

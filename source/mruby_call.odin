@@ -40,7 +40,7 @@ Protected_Call_Data :: struct {
 }
 
 // universal protected dispatch function
-protected_dispatch :: proc "c" (state: ^mrb.State, data: mrb.Value) -> mrb.Value {
+protected_dispatch :: proc "c" (state: mrb.State, data: mrb.Value) -> mrb.Value {
 	context = global_context
 	call_data := cast(^Protected_Call_Data)mrb.ptr(data)
 
@@ -72,8 +72,8 @@ dispatch_funcall :: proc(
 		return protected_funcall(obj, method, argc, argv, ctx)
 	} else {
 		// save arena to prevent funcall memory leaks
-		arena_idx := mrb.arena_save(g.mrb_state)
-		defer mrb.arena_restore(g.mrb_state, arena_idx)
+		arena_idx := mrb.gc_arena_save(g.mrb_state)
+		defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
 
 		_ = mrb.funcall_argv(g.mrb_state, obj, mrb.intern_cstr(g.mrb_state, method), argc, argv)
 

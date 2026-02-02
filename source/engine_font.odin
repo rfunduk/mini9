@@ -13,7 +13,7 @@ FontLoadData :: struct {
 	ruby_ptr:  mrb.Value,
 }
 
-ruby_font_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_font_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		font_ptr := cast(^rl.Font)ptr
@@ -144,7 +144,7 @@ load_font_from_memory :: proc(file_type: string, bytes: []u8, size: i32 = 0) -> 
 
 // RUBY FUNCTION: font(path, size=nil) -> returns Font object
 // @engine_method: name="font", arity=-1
-ruby_font :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_font :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val, size_val: mrb.Value
 	argc := mrb.get_args(state, "o|o", &path_val, &size_val)
@@ -168,13 +168,13 @@ ruby_font :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_font(path, size)
 }
 
-ruby_font_get_name :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_font_get_name :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	// TODO rename this to, and return the, path
 	return mrb.str_new_cstr(state, "font")
 }
 
-ruby_font_get_size :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_font_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	font := extract_native(rl.Font, self)
 	return mrb.boxing_int_value(state, font == nil ? 0 : font.baseSize)

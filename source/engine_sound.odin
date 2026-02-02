@@ -33,7 +33,7 @@ Sound :: struct {
 	status:    Sound_Load_Status,
 }
 
-ruby_sound_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_sound_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		sound_ptr := cast(^Sound)ptr
@@ -176,7 +176,7 @@ find_free_instance :: proc(sound: ^Sound) -> ^Sound_Instance {
 
 // RUBY FUNCTION: sound(path, polyphony: 8) -> returns Sound object
 // @engine_method: name="sound", arity=1
-ruby_sound :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_sound :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "o|H", &path_val, &kwargs)
@@ -200,7 +200,7 @@ ruby_sound :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: sound.play(pitch: 1.0, volume: 1.0) -> plays sound instance
-ruby_sound_play :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	// check if audio is initialized before playing (important for web builds)
@@ -232,8 +232,8 @@ ruby_sound_play :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	// parse kwargs
 	if argc == 1 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
-		if "pitch" in hash { pitch = f32(mrb.float(hash["pitch"])) }
-		if "volume" in hash { volume = f32(mrb.float(hash["volume"])) }
+		if "pitch" in hash { pitch = f32(to_f64(hash["pitch"])) }
+		if "volume" in hash { volume = f32(to_f64(hash["volume"])) }
 	}
 
 	// configure instance
@@ -251,7 +251,7 @@ ruby_sound_play :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: sound.stop(fade_out: 0.0) -> stops all instances
-ruby_sound_stop :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_sound_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "|H", &kwargs)
@@ -263,7 +263,7 @@ ruby_sound_stop :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.float(hash["fade_out"])) }
+		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
 	}
 
 	for &instance in sound.instances {
@@ -285,7 +285,7 @@ ruby_sound_stop :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: sound.pause(fade_out: 0.0) -> pauses all instances
-ruby_sound_pause :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "|H", &kwargs)
@@ -297,7 +297,7 @@ ruby_sound_pause :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.float(hash["fade_out"])) }
+		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
 	}
 
 	for &instance in sound.instances {

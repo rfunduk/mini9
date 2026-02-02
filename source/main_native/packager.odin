@@ -15,10 +15,10 @@ import mrb "lib:mruby"
 import engine ".."
 
 @(private = "file")
-mrb_state: ^mrb.State
+mrb_state: mrb.State
 
 @(private = "file")
-mrb_ctx: ^mrb.CContext
+mrb_ctx: mrb.CContext
 
 @(private = "file")
 rom_data: ^engine.Rom_Data
@@ -139,7 +139,7 @@ setup_mruby :: proc() {
 	}
 
 	// set no_exec flag to compile without executing
-	mrb_ctx.bitfields |= mrb.CCONTEXT_NO_EXEC
+	mrb.ccontext_set_no_exec(mrb_ctx, true)
 }
 
 load_ruby_file :: proc(file_path, rel_path: string) -> []u8 {
@@ -159,7 +159,7 @@ load_ruby_file :: proc(file_path, rel_path: string) -> []u8 {
 	result := mrb.load_string_cxt(mrb_state, source_cstr, rawptr(mrb_ctx))
 
 	// extract bytecode
-	rproc := cast(^mrb.RProc)(uintptr(result.w))
+	rproc := mrb.RProc(uintptr(result.w))
 	if rproc == nil {
 		fmt.eprintfln("Error: Could not extract RProc from %s", rel_path)
 		os.exit(1)
@@ -167,7 +167,7 @@ load_ruby_file :: proc(file_path, rel_path: string) -> []u8 {
 
 	bin: rawptr
 	bin_size: c.size_t
-	dump_result := mrb.dump_irep(mrb_state, rproc.body_irep, 0, &bin, &bin_size)
+	dump_result := mrb.dump_irep(mrb_state, mrb.proc_irep(rproc), 0, &bin, &bin_size)
 
 	if dump_result == 0 && bin != nil {
 		// copy bytecode to owned slice

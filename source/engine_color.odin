@@ -5,7 +5,7 @@ import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
-ruby_color_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_color_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
 }
@@ -23,7 +23,7 @@ create_color :: proc(c: rl.Color) -> mrb.Value {
 
 // RUBY FUNCTION: color(r, g, b, a=255) -> returns Color object (integer values 0-255)
 // @engine_method: name="_color_int", arity=-1
-ruby_color_int :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_int :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r, g, b, a: f64
 	argc := mrb.get_args(state, "fff|f", &r, &g, &b, &a)
@@ -37,7 +37,7 @@ ruby_color_int :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: color_normalized(r, g, b, a=1.0) -> returns Color object (normalized values 0-1)
 // @engine_method: name="_color_normalized", arity=-1
-ruby_color_normalized :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r, g, b, a: f64
 	argc := mrb.get_args(state, "fff|f", &r, &g, &b, &a)
@@ -57,7 +57,7 @@ ruby_color_normalized :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 
 // RUBY FUNCTION: color_hex(hex_string) -> returns Color object from hex string
 // @engine_method: name="_color_hex", arity=1
-ruby_color_hex :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_hex :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	hex_val: mrb.Value
 	mrb.get_args(state, "o", &hex_val)
@@ -104,7 +104,7 @@ ruby_color_hex :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_color(color)
 }
 
-ruby_color_equal :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_equal :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	other_val: mrb.Value
@@ -116,31 +116,31 @@ ruby_color_equal :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return color^ == other^ ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_color_get_r :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_get_r :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	color := extract_native(rl.Color, self)
 	return mrb.boxing_int_value(state, color == nil ? 0 : i32(color.r))
 }
 
-ruby_color_get_g :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_get_g :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	color := extract_native(rl.Color, self)
 	return mrb.boxing_int_value(state, color == nil ? 0 : i32(color.g))
 }
 
-ruby_color_get_b :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_get_b :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	color := extract_native(rl.Color, self)
 	return mrb.boxing_int_value(state, color == nil ? 0 : i32(color.b))
 }
 
-ruby_color_get_a :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_get_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	color := extract_native(rl.Color, self)
 	return mrb.boxing_int_value(state, color == nil ? 0 : i32(color.a))
 }
 
-ruby_color_set_r :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_set_r :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	value: f64
 	mrb.get_args(state, "f", &value)
@@ -149,7 +149,7 @@ ruby_color_set_r :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return self
 }
 
-ruby_color_set_g :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_set_g :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	value: f64
 	mrb.get_args(state, "f", &value)
@@ -158,7 +158,7 @@ ruby_color_set_g :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return self
 }
 
-ruby_color_set_b :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_set_b :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	value: f64
 	mrb.get_args(state, "f", &value)
@@ -167,7 +167,7 @@ ruby_color_set_b :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return self
 }
 
-ruby_color_set_a :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_color_set_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	value: f64
 	mrb.get_args(state, "f", &value)

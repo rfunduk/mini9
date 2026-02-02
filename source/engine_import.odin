@@ -8,7 +8,7 @@ import mrb "lib:mruby"
 // RUBY FUNCTION: import(symbol) -> requires a module
 // supports: import(:module), import("path/to/module"), import(:path, :to, :module)
 // @engine_method: name="import", arity=-1
-ruby_import :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	// get variadic arguments
@@ -70,8 +70,8 @@ ruby_import :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.ccontext_filename(state, g.mrb_ctx, filename_cstr)
 
 	// set target class to Object class for top-level constant assignment
-	g.mrb_ctx.target_class = mrb.class_get(state, "Object")
-	g.mrb_ctx.bitfields |= mrb.CCONTEXT_KEEP_LV
+	mrb.ccontext_set_target_class(g.mrb_ctx, mrb.class_get(state, "Object"))
+	mrb.ccontext_set_keep_lv(g.mrb_ctx, true)
 
 	// check if this is bytecode or source code
 	result: mrb.Value

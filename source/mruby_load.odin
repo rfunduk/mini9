@@ -48,8 +48,8 @@ load_main_rb :: proc() {
 	mrb.ccontext_filename(g.mrb_state, g.mrb_ctx, "main.rb")
 
 	// set target class to Object class for top-level constant assignment
-	g.mrb_ctx.target_class = mrb.class_get(g.mrb_state, "Object")
-	g.mrb_ctx.bitfields |= mrb.CCONTEXT_KEEP_LV
+	mrb.ccontext_set_target_class(g.mrb_ctx, mrb.class_get(g.mrb_state, "Object"))
+	mrb.ccontext_set_keep_lv(g.mrb_ctx, true)
 
 	// check if this is bytecode or source code
 	if is_mruby_bytecode(contents) {

@@ -37,3 +37,13 @@ ruby_function_exists :: proc(name: cstring) -> bool {
 	sym := mrb.intern_cstr(g.mrb_state, name)
 	return mrb.respond_to(g.mrb_state, top, sym)
 }
+
+// to_f64 - extracts numeric value as f64, handling both integers and floats
+to_f64 :: #force_inline proc(val: mrb.Value) -> f64 {
+	if mrb.integer_p(val) {
+		return f64(mrb.integer(val))
+	} else if mrb.float_p(val) {
+		return mrb.float(val)
+	}
+	return 0.0
+}

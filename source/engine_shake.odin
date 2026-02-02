@@ -15,7 +15,7 @@ Shake_Instance :: struct {
 	is_active:  bool,
 }
 
-ruby_shake_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_shake_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		shake := cast(^Shake_Instance)ptr
@@ -49,12 +49,12 @@ create_shake :: proc() -> mrb.Value {
 
 // RUBY FUNCTION: shake() -> returns new Shake object
 // @engine_method: name="shake", arity=0
-ruby_shake :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_shake :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return create_shake()
 }
 
-ruby_shake_shake :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_shake_shake :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	duration, frequency, amplitude: f64
@@ -84,7 +84,7 @@ ruby_shake_shake :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
-ruby_shake_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_shake_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	shake := extract_native(Shake_Instance, self)

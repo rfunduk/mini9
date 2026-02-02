@@ -17,7 +17,7 @@ Text_Align :: enum {
 
 // RUBY FUNCTION: text(pos, text, font: nil, align: Text::LEFT, rotation: 0, scale: 1, spacing: 1, color: WHITE, outline: false)
 // @engine_method: name="text", arity=-1
-ruby_text :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_text :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	text_val, pos_val, font_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "ooo|H", &text_val, &pos_val, &font_val, &kwargs)
@@ -59,19 +59,19 @@ ruby_text :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 			align = Text_Align(align_int)
 		}
 		if "rotation" in hash {
-			rotation = f32(mrb.float(hash["rotation"]))
+			rotation = f32(to_f64(hash["rotation"]))
 		}
 		if "spacing" in hash {
-			spacing = f32(mrb.float(hash["spacing"]))
+			spacing = f32(to_f64(hash["spacing"]))
 		}
 		if "scale" in hash {
-			scale = f32(mrb.float(hash["scale"]))
+			scale = f32(to_f64(hash["scale"]))
 		}
 		if "color" in hash {
 			color = extract_native(rl.Color, hash["color"])^
 		}
 		if "outline" in hash {
-			wants_black := mrb.bool_p(hash["outline"]) && mrb.boolean(hash["outline"])
+			wants_black := hash["outline"] == mrb.TRUE
 			outline = wants_black ? {0, 0, 0, 255} : extract_native(rl.Color, hash["outline"])^
 		}
 	}

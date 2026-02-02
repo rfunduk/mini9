@@ -50,7 +50,7 @@ determine_game_callbacks :: proc() {
 			log.warnf("Unable to confirm existence of `%s` callback", callback.method_name)
 		}
 
-		arity := mrb.integer_p(arity_result) ? mrb.integer(arity_result) : -1
+		arity := mrb.integer_p(arity_result) ? i32(mrb.integer(arity_result)) : -1
 
 		if arity == -1 {
 			callback.has_flag^ = false

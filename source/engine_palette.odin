@@ -20,7 +20,7 @@ Palette :: struct {
 	colors: [dynamic]PaletteColor,
 }
 
-ruby_palette_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_palette_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	// do we need to free the `colors` dynamic array here?
 	context = global_context
 
@@ -104,7 +104,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 
 // RUBY FUNCTION: palette(path=nil) -> returns Palette object
 // @engine_method: name="palette", arity=-1
-ruby_palette :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_palette :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
 	mrb.get_args(state, "o", &path_val)
@@ -146,15 +146,15 @@ parse_palette_gpl :: proc(data: []byte, p: ^Palette) {
 	}
 }
 
-ruby_palette_get_color :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_palette_get_color :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	name_or_index: mrb.Value
 	mrb.get_args(state, "o", &name_or_index)
 	palette := extract_native(Palette, self)
 
-	if mrb.number_p(name_or_index) {
-		index := mrb.integer(name_or_index)
-		if index < 0 && index >= i32(len(palette.colors)) { return mrb.NIL }
+	if mrb.integer_p(name_or_index) {
+		index := int(mrb.integer(name_or_index))
+		if index < 0 || index >= len(palette.colors) { return mrb.NIL }
 		return palette.colors[index].color
 	}
 

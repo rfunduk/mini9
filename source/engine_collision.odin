@@ -25,7 +25,7 @@ Collision_Info :: struct {
 	body:   ^Body,
 }
 
-ruby_collisioninfo_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_collisioninfo_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
 }
@@ -42,7 +42,7 @@ create_collision_info :: proc(c: Collision_Info) -> mrb.Value {
 }
 
 // RUBY METHOD: collision_info.point -> gets collision point
-ruby_collision_info_get_point :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_collision_info_get_point :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	c := extract_native(Collision_Info, self)
 	if c == nil { return mrb.NIL }
@@ -50,7 +50,7 @@ ruby_collision_info_get_point :: proc "c" (state: ^mrb.State, self: mrb.Value) -
 }
 
 // RUBY METHOD: collision_info.normal -> gets collision normal
-ruby_collision_info_get_normal :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_collision_info_get_normal :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	c := extract_native(Collision_Info, self)
 	if c == nil { return mrb.NIL }
@@ -58,7 +58,7 @@ ruby_collision_info_get_normal :: proc "c" (state: ^mrb.State, self: mrb.Value) 
 }
 
 // RUBY METHOD: collision_info.t -> gets t in radians
-ruby_collision_info_get_t :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_collision_info_get_t :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	c := extract_native(Collision_Info, self)
 	if c == nil { return mrb.NIL }
@@ -66,7 +66,7 @@ ruby_collision_info_get_t :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mr
 }
 
 // RUBY METHOD: collision_info.object -> gets object that owns the body that was collided with
-ruby_collision_info_get_body :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_collision_info_get_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	c := extract_native(Collision_Info, self)
 	if c == nil { return mrb.NIL }
@@ -76,7 +76,7 @@ ruby_collision_info_get_body :: proc "c" (state: ^mrb.State, self: mrb.Value) ->
 
 // RUBY FUNCTION: raycast(origin: v2(0), direction: v2(1, 0), target: rect(10, 10, 20, 20)) -> returns whether the raycast intersects
 // @engine_method: name="raycast", arity=3
-ruby_raycast :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	origin_val, direction_val, target_val: mrb.Value

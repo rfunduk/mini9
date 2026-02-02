@@ -7,7 +7,7 @@ import "core:os"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
-ruby_vector2_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_vector2_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
 }
@@ -24,7 +24,7 @@ create_vector2 :: proc(v: rl.Vector2) -> mrb.Value {
 
 // RUBY FUNCTION: v2(x, y) -> returns Vector2 object
 // @engine_method: name="v2", arity=-1
-ruby_v2 :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2 :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	x, y: f64
 	argc := mrb.get_args(state, "|f|f", &x, &y)
@@ -39,19 +39,19 @@ ruby_v2 :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_vector2(rl.Vector2{f32(x), f32(y)})
 }
 
-ruby_vector2_get_x :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	vec := extract_native(rl.Vector2, self)
 	return mrb.word_boxing_float_value(state, vec == nil ? 0 : f64(vec.x))
 }
 
-ruby_vector2_get_y :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_get_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	vec := extract_native(rl.Vector2, self)
 	return mrb.word_boxing_float_value(state, vec == nil ? 0 : f64(vec.y))
 }
 
-ruby_vector2_set_x :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	new_x: f64
@@ -66,7 +66,7 @@ ruby_vector2_set_x :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 	return mrb.word_boxing_float_value(state, new_x)
 }
 
-ruby_vector2_set_y :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	new_y: f64
@@ -81,7 +81,7 @@ ruby_vector2_set_y :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 	return mrb.word_boxing_float_value(state, new_y)
 }
 
-ruby_vector2_add :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	other: mrb.Value
@@ -94,7 +94,7 @@ ruby_vector2_add :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_vector2(self_vec^ + other_vec^)
 }
 
-ruby_vector2_subtract :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	other: mrb.Value
@@ -107,14 +107,14 @@ ruby_vector2_subtract :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 	return create_vector2(self_vec^ - other_vec^)
 }
 
-ruby_vector2_unary_minus :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_unary_minus :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(self_vec^ * -1)
 }
 
-ruby_vector2_multiply :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_multiply :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	other: mrb.Value
@@ -127,7 +127,7 @@ ruby_vector2_multiply :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 	return create_vector2(self_vec^ * other_vec^)
 }
 
-ruby_vector2_multiply_scalar :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_multiply_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	scalar: f64
@@ -139,7 +139,7 @@ ruby_vector2_multiply_scalar :: proc "c" (state: ^mrb.State, self: mrb.Value) ->
 	return create_vector2(self_vec^ * f32(scalar))
 }
 
-ruby_vector2_divide :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_divide :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -151,7 +151,7 @@ ruby_vector2_divide :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Valu
 	return create_vector2(self_vec^ / other_vec^)
 }
 
-ruby_vector2_divide_scalar :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_divide_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	scalar: f64
@@ -163,7 +163,7 @@ ruby_vector2_divide_scalar :: proc "c" (state: ^mrb.State, self: mrb.Value) -> m
 	return create_vector2(self_vec^ / f32(scalar))
 }
 
-ruby_vector2_clamp :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_clamp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	min: mrb.Value
 	max: mrb.Value
@@ -185,28 +185,28 @@ ruby_vector2_clamp :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 	return create_vector2(clamped)
 }
 
-ruby_vector2_floor :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_floor :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.floor(self_vec^))
 }
 
-ruby_vector2_ceil :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_ceil :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.ceil(self_vec^))
 }
 
-ruby_vector2_round :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_round :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.round(self_vec^))
 }
 
-ruby_vector2_is_equal_approx :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_is_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -221,7 +221,7 @@ ruby_vector2_is_equal_approx :: proc "c" (state: ^mrb.State, self: mrb.Value) ->
 	return equal ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_vector2_is_zero_approx :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_is_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	self_vec := extract_native(rl.Vector2, self)
@@ -232,21 +232,21 @@ ruby_vector2_is_zero_approx :: proc "c" (state: ^mrb.State, self: mrb.Value) -> 
 	return zero ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_vector2_length :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_length :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.word_boxing_float_value(state, 0) }
 	return mrb.word_boxing_float_value(state, f64(lin.length(self_vec^)))
 }
 
-ruby_vector2_length_squared :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_length_squared :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.word_boxing_float_value(state, 0) }
 	return mrb.word_boxing_float_value(state, f64(lin.length2(self_vec^)))
 }
 
-ruby_vector2_normalized :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
@@ -259,7 +259,7 @@ vector2_normalized :: proc(v: rl.Vector2) -> rl.Vector2 {
 	return v / math.sqrt(len2)
 }
 
-ruby_vector2_rotated :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_rotated :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	angle: f64
 	mrb.get_args(state, "f", &angle)
@@ -275,7 +275,7 @@ ruby_vector2_rotated :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 	return create_vector2(rotated)
 }
 
-ruby_vector2_distance_to :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_distance_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -287,7 +287,7 @@ ruby_vector2_distance_to :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb
 	return mrb.word_boxing_float_value(state, f64(lin.distance(self_vec^, other_vec^)))
 }
 
-ruby_vector2_direction_to :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_direction_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -299,7 +299,7 @@ ruby_vector2_direction_to :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mr
 	return create_vector2(lin.normalize0(other_vec^ - self_vec^))
 }
 
-ruby_vector2_move_toward :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	to_val: mrb.Value
 	delta64: f64
@@ -325,14 +325,14 @@ ruby_vector2_move_toward :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb
 	}
 }
 
-ruby_vector2_sign :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_sign :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.sign(self_vec^))
 }
 
-ruby_vector2_lerp :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	to_val: mrb.Value
 	weight: f64
@@ -346,14 +346,14 @@ ruby_vector2_lerp :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value 
 	return create_vector2(lin.lerp(self_vec^, to_vec^, rl.Vector2{w, w}))
 }
 
-ruby_vector2_abs :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_abs :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.abs(self_vec^))
 }
 
-ruby_vector2_angle :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_angle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	self_vec := extract_native(rl.Vector2, self)
@@ -363,7 +363,7 @@ ruby_vector2_angle :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 	return mrb.word_boxing_float_value(state, f64(angle))
 }
 
-ruby_vector2_angle_to :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_angle_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -384,7 +384,7 @@ ruby_vector2_angle_to :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 	return mrb.word_boxing_float_value(state, f64(angle_diff))
 }
 
-ruby_vector2_dot :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_dot :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -399,31 +399,22 @@ ruby_vector2_dot :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: vector2.grid_index(width, height=width, wrap: false) -> converts x,y coordinates to grid index
-ruby_vector2_grid_index :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	width, height: i32
-	height_given: bool
-
-	// setup kwargs for wrap option
-	kw_names := [1]mrb.Sym{mrb.intern_cstr(state, "wrap")}
-	kw_values := [1]mrb.Value{mrb.NIL}
-	kwargs := mrb.Kwargs {
-		num      = 1,
-		required = 0,
-		table    = &kw_names[0],
-		values   = &kw_values[0],
-		rest     = nil,
-	}
-
-	mrb.get_args(state, "i|i?:", &width, &height, &height_given, &kwargs)
+	kwargs: mrb.Value
+	argc := mrb.get_args(state, "i|iH", &width, &height, &kwargs)
 
 	// set default height if not provided
-	if !height_given { height = width }
+	if argc < 2 { height = width }
 
 	// parse wrap kwarg (default false)
-	// if keyword not provided, kw_values[0] will be undef
-	wrap := kw_values[0] == mrb.TRUE
+	wrap := false
+	if kwargs != mrb.NIL {
+		hash := parse_kwargs(state, kwargs)
+		if "wrap" in hash { wrap = mrb.boolean(hash["wrap"]) }
+	}
 
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }

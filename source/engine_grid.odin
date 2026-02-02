@@ -17,7 +17,7 @@ Grid_Instance :: struct {
 	data: []Grid_Data,
 }
 
-ruby_grid_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_grid_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 
 	if ptr != nil {
@@ -29,7 +29,7 @@ ruby_grid_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
 
 // RUBY FUNCTION: grid(v2(0), type: (:bool,:int,:float)) -> returns Grid
 // @engine_method: name="grid", arity=-1
-ruby_grid :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	size_val: mrb.Value
@@ -89,7 +89,7 @@ ruby_grid :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: g.dimensions -> gets grid dimensions as Vector2
-ruby_grid_dimensions :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid_dimensions :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Grid_Instance, self)
 	if obj == nil { return mrb.NIL }
@@ -97,7 +97,7 @@ ruby_grid_dimensions :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY METHOD: g.length -> gets total element count
-ruby_grid_length :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid_length :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Grid_Instance, self)
 	if obj == nil { return mrb.NIL }
@@ -105,7 +105,7 @@ ruby_grid_length :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: g.type -> gets grid type
-ruby_grid_type :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid_type :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Grid_Instance, self)
 	if obj == nil { return mrb.NIL }
@@ -122,7 +122,7 @@ ruby_grid_type :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: g[i] -> get element at index
-ruby_grid_get :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid_get :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Grid_Instance, self)
 	if obj == nil { return mrb.NIL }
@@ -146,7 +146,7 @@ ruby_grid_get :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: g[i] = val -> set element at index
-ruby_grid_set :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid_set :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Grid_Instance, self)
 	if obj == nil { return mrb.NIL }
@@ -165,14 +165,14 @@ ruby_grid_set :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	case i64:
 		obj.data[index] = i64(mrb.integer(value))
 	case f64:
-		obj.data[index] = mrb.float(value)
+		obj.data[index] = to_f64(value)
 	}
 
 	return value
 }
 
 // RUBY METHOD: g.each {|el| ...} -> iterate over elements
-ruby_grid_each :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid_each :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Grid_Instance, self)
 	if obj == nil { return mrb.NIL }
@@ -201,7 +201,7 @@ ruby_grid_each :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: g.update([[i1, v1], [i2, v2], ...]) -> applies specified updates
-ruby_grid_update :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_grid_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Grid_Instance, self)
 	if obj == nil { return mrb.NIL }
@@ -209,8 +209,8 @@ ruby_grid_update :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	update_value: mrb.Value
 	mrb.get_args(state, "A", &update_value)
 
-	array_ptr := cast(^mrb.RArray)(uintptr(update_value.w))
-	length := array_ptr.as.heap.len
+	// Get array length - handles both embedded and heap arrays
+	length := mrb.ary_len(update_value)
 
 	for i in 0 ..< length {
 		item := mrb.ary_entry(update_value, c.int(i))
@@ -225,7 +225,7 @@ ruby_grid_update :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 			case i64:
 				obj.data[idx] = i64(mrb.integer(val))
 			case f64:
-				obj.data[idx] = mrb.float(val)
+				obj.data[idx] = to_f64(val)
 			}
 		}
 	}

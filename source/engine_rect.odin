@@ -5,7 +5,7 @@ import "core:os"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
-ruby_rect_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_rect_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
 }
@@ -24,7 +24,7 @@ create_rect :: proc(r: rl.Rectangle) -> mrb.Value {
 // RUBY FUNCTION: rect(*args) -> rect function that handles both signatures
 // supports rect(size_v2) or rect(pos_v2, size_v2) or rect(x, y, w, h)
 // @engine_method: name="rect", arity=-1
-ruby_rect :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	argv: ^mrb.Value
@@ -62,10 +62,10 @@ ruby_rect :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 	case 4:
 		// rect(x, y, w, h) - four floats
-		x := f32(mrb.float(args[0]))
-		y := f32(mrb.float(args[1]))
-		w := f32(mrb.float(args[2]))
-		h := f32(mrb.float(args[3]))
+		x := f32(to_f64(args[0]))
+		y := f32(to_f64(args[1]))
+		w := f32(to_f64(args[2]))
+		h := f32(to_f64(args[3]))
 		return create_rect({x, y, w, h})
 
 	case:
@@ -74,31 +74,31 @@ ruby_rect :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	}
 }
 
-ruby_rect_get_x :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r := extract_native(rl.Rectangle, self)
 	return mrb.word_boxing_float_value(state, r == nil ? 0 : f64(r.x))
 }
 
-ruby_rect_get_y :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_get_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r := extract_native(rl.Rectangle, self)
 	return mrb.word_boxing_float_value(state, r == nil ? 0 : f64(r.y))
 }
 
-ruby_rect_get_w :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_get_w :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r := extract_native(rl.Rectangle, self)
 	return mrb.word_boxing_float_value(state, r == nil ? 0 : f64(r.width))
 }
 
-ruby_rect_get_h :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_get_h :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r := extract_native(rl.Rectangle, self)
 	return mrb.word_boxing_float_value(state, r == nil ? 0 : f64(r.height))
 }
 
-ruby_rect_set_x :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	new: f64
@@ -113,7 +113,7 @@ ruby_rect_set_x :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, new)
 }
 
-ruby_rect_set_y :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	new: f64
@@ -128,7 +128,7 @@ ruby_rect_set_y :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, new)
 }
 
-ruby_rect_set_w :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_set_w :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	new: f64
@@ -143,7 +143,7 @@ ruby_rect_set_w :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, new)
 }
 
-ruby_rect_set_h :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_rect_set_h :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	new: f64
@@ -158,7 +158,7 @@ ruby_rect_set_h :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, new)
 }
 
-ruby_inflate_rect :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_inflate_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	amount_or_t, r, b, l: f64

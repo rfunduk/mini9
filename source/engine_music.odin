@@ -26,7 +26,7 @@ Music :: struct {
 	status:      Music_Load_Status,
 }
 
-ruby_music_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_music_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		music_ptr := cast(^Music)ptr
@@ -114,7 +114,7 @@ load_deferred_music :: proc() {
 
 // RUBY FUNCTION: music(path) -> returns Music object
 // @engine_method: name="music", arity=1
-ruby_music :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
 	mrb.get_args(state, "o", &path_val)
@@ -128,7 +128,7 @@ ruby_music :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: music.play(volume: 1.0, loop: true, fade_in: 0.0) -> plays music
-ruby_music_play :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	// check if audio is initialized before playing (important for web builds)
@@ -144,8 +144,8 @@ ruby_music_play :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
-		if "volume" in hash { music.volume = f32(mrb.float(hash["volume"])) }
-		if "fade_in" in hash { music.fade_time = f32(mrb.float(hash["fade_in"])) }
+		if "volume" in hash { music.volume = f32(to_f64(hash["volume"])) }
+		if "fade_in" in hash { music.fade_time = f32(to_f64(hash["fade_in"])) }
 		if "loop" in hash { music.looping = mrb.boolean(hash["loop"]) }
 	}
 
@@ -181,7 +181,7 @@ music_play :: proc(music: ^Music) {
 	rl.PlayMusicStream(music.music)
 }
 
-ruby_music_autoplay :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_autoplay :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	music := extract_native(Music, self)
@@ -194,7 +194,7 @@ ruby_music_autoplay :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Valu
 }
 
 // RUBY METHOD: music.stop(fade_out: 0.0) -> stops music
-ruby_music_stop :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "|H", &kwargs)
@@ -206,7 +206,7 @@ ruby_music_stop :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.float(hash["fade_out"])) }
+		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
 	}
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {
@@ -226,7 +226,7 @@ ruby_music_stop :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: music.pause(fade_out: 0.0) -> pauses music
-ruby_music_pause :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "|H", &kwargs)
@@ -238,7 +238,7 @@ ruby_music_pause :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.float(hash["fade_out"])) }
+		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
 	}
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {
@@ -257,7 +257,7 @@ ruby_music_pause :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: music.active -> returns boolean
-ruby_music_active :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_active :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	music := extract_native(Music, self)
 	if music == nil { return mrb.FALSE }
@@ -265,7 +265,7 @@ ruby_music_active :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value 
 }
 
 // RUBY METHOD: music.looping -> returns boolean
-ruby_music_looping :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_looping :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	music := extract_native(Music, self)
 	if music == nil { return mrb.FALSE }
@@ -273,7 +273,7 @@ ruby_music_looping :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 }
 
 // RUBY METHOD: music.volume -> returns float
-ruby_music_volume :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_volume :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	music := extract_native(Music, self)
 	if music == nil { return mrb.word_boxing_float_value(state, 0.0) }
@@ -281,7 +281,7 @@ ruby_music_volume :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value 
 }
 
 // RUBY METHOD: music.volume= -> sets volume
-ruby_music_set_volume :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_set_volume :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	volume_val: mrb.Value
 	mrb.get_args(state, "o", &volume_val)
@@ -289,7 +289,7 @@ ruby_music_set_volume :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 	music := extract_native(Music, self)
 	if music == nil { return self }
 
-	new_volume := f32(mrb.float(volume_val))
+	new_volume := f32(to_f64(volume_val))
 	music.volume = new_volume
 
 	// update Raylib volume if music is active
@@ -299,7 +299,7 @@ ruby_music_set_volume :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 }
 
 // RUBY METHOD: music.fade_time -> returns float (for debugging)
-ruby_music_fade_time :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_music_fade_time :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	music := extract_native(Music, self)
 	if music == nil { return mrb.word_boxing_float_value(state, 0.0) }

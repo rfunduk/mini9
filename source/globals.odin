@@ -37,8 +37,8 @@ Engine_Memory :: struct {
 	frame_count:          u32,
 
 	// mruby vm
-	mrb_state:            ^mrb.State,
-	mrb_ctx:              ^mrb.CContext,
+	mrb_state:            mrb.State,
+	mrb_ctx:              mrb.CContext,
 
 	// cameras
 	cameras:              [dynamic]^Camera_Instance,

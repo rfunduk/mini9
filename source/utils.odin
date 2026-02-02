@@ -32,13 +32,13 @@ ruby_allocate :: proc($T: typeid, val: T) -> ^T {
 	// the memory of this new object is bigger than it thought
 	// this avoids extra memory pressure due to mruby not knowing
 	// about how big these Rect objects are
-	g.mrb_state.gc.threshold -= size_of(T)
+	mrb.gc_threshold_decrement(g.mrb_state, size_of(T))
 
 	return ptr
 }
 
 // format mruby value as string, using simple format for basic types
-ruby_format_value :: proc(state: ^mrb.State, val: mrb.Value) -> string {
+ruby_format_value :: proc(state: mrb.State, val: mrb.Value) -> string {
 	context = global_context
 
 	if val == mrb.NIL { return "nil" }
@@ -51,7 +51,7 @@ ruby_format_value :: proc(state: ^mrb.State, val: mrb.Value) -> string {
 }
 
 // parse kwargs hash into Odin map using temp allocator
-parse_kwargs :: proc(state: ^mrb.State, kwargs: mrb.Value) -> mrb.RHash {
+parse_kwargs :: proc(state: mrb.State, kwargs: mrb.Value) -> mrb.RHash {
 	context = global_context
 	if kwargs == mrb.NIL { return {} }
 
@@ -75,7 +75,7 @@ parse_kwargs :: proc(state: ^mrb.State, kwargs: mrb.Value) -> mrb.RHash {
 	return hash
 }
 
-ruby_hash_delete :: proc(state: ^mrb.State, hash: mrb.Value, key: string) {
+ruby_hash_delete :: proc(state: mrb.State, hash: mrb.Value, key: string) {
 	keys_array := mrb.hash_keys(state, hash)
 	hash_size := mrb.hash_size(state, hash)
 

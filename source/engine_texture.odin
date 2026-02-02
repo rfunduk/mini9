@@ -24,7 +24,7 @@ Texture_Load_Data :: struct {
 	ruby_ptr: mrb.Value,
 }
 
-ruby_texture_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_texture_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		texture_ptr := cast(^Texture)ptr
@@ -94,7 +94,7 @@ load_deferred_textures :: proc() {
 
 // RUBY FUNCTION: texture(path, size=nil) -> returns Texture object
 // @engine_method: name="texture", arity=1
-ruby_texture :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_texture :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
 	mrb.get_args(state, "o", &path_val)
@@ -107,7 +107,7 @@ ruby_texture :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return result
 }
 
-ruby_texture_get_size :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_texture_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	texture := extract_native(Texture, self)
 	tex := texture.tex
@@ -118,7 +118,7 @@ ruby_texture_get_size :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 	}
 }
 
-ruby_texture_draw :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "o|H", &pos_val, &kwargs)

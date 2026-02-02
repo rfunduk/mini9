@@ -2,6 +2,7 @@ package engine
 
 import "core:fmt"
 import "core:strings"
+import mrb "lib:mruby"
 import rl "vendor:raylib"
 
 Graph_Config :: struct {
@@ -11,18 +12,18 @@ Graph_Config :: struct {
 }
 
 collect_metrics :: proc() {
-	gc := &g.mrb_state.gc
-
 	// update displayed stats only every 10 frames for readability
 	if g.frame_count % 10 == 0 {
-		g.gc_live = gc.live
-		g.gc_threshold = gc.threshold
+		g.gc_live = mrb.gc_live(g.mrb_state)
+		g.gc_threshold = mrb.gc_threshold(g.mrb_state)
 		g.fps_current = f32(rl.GetFPS())
 	}
 
 	// sample graph data every 2 frames
 	if g.frame_count % 2 == 0 {
-		percentage := f32(gc.live) / f32(max(gc.threshold, 1))
+		gc_live := mrb.gc_live(g.mrb_state)
+		gc_threshold := mrb.gc_threshold(g.mrb_state)
+		percentage := f32(gc_live) / f32(max(gc_threshold, 1))
 		g.gc_history[g.gc_history_index] = percentage
 		g.gc_history_index = (g.gc_history_index + 1) % len(g.gc_history)
 

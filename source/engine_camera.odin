@@ -9,7 +9,7 @@ Camera_Instance :: struct {
 	original_camera: rl.Camera2D,
 }
 
-ruby_camera_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_camera_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	// note: camera's are not gc'd, but we need a finalizer anyway
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
@@ -44,7 +44,7 @@ create_camera :: proc(target: rl.Vector2, zoom: f32, offset: rl.Vector2) -> mrb.
 
 // RUBY FUNCTION: camera(target = nil, zoom = 1, offset = nil) -> creates new Camera
 // @engine_method: name="camera", arity=-1
-ruby_camera :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	kwargs: mrb.Value
@@ -58,14 +58,14 @@ ruby_camera :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 		hash := parse_kwargs(state, kwargs)
 		if "target" in hash { target = extract_native(rl.Vector2, hash["target"])^ }
 		if "offset" in hash { offset = extract_native(rl.Vector2, hash["offset"])^ }
-		if "zoom" in hash { zoom = mrb.float(hash["zoom"]) }
+		if "zoom" in hash { zoom = to_f64(hash["zoom"]) }
 	}
 
 	return create_camera(target, f32(zoom), offset)
 }
 
 // camera.active =
-ruby_camera_set_active :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_set_active :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	active_val: mrb.Value
 	mrb.get_args(state, "o", &active_val)
@@ -86,7 +86,7 @@ ruby_camera_set_active :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.V
 }
 
 // camera.active
-ruby_camera_get_active :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_get_active :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	camera := extract_native(Camera_Instance, self)
 	if camera == nil { return mrb.FALSE }
@@ -94,7 +94,7 @@ ruby_camera_get_active :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.V
 }
 
 // camera.target =
-ruby_camera_set_target :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_set_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	target_val: mrb.Value
 	mrb.get_args(state, "o", &target_val)
@@ -124,7 +124,7 @@ ruby_camera_set_target :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.V
 }
 
 // camera.target
-ruby_camera_get_target :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_get_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	camera := extract_native(Camera_Instance, self)
 	if camera == nil { return mrb.NIL }
@@ -132,7 +132,7 @@ ruby_camera_get_target :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.V
 }
 
 // camera.zoom =
-ruby_camera_set_zoom :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_set_zoom :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	zoom_val: mrb.Value
 	mrb.get_args(state, "o", &zoom_val)
@@ -140,7 +140,7 @@ ruby_camera_set_zoom :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 	camera := extract_native(Camera_Instance, self)
 	if camera == nil { return mrb.NIL }
 
-	zoom := mrb.float(zoom_val)
+	zoom := to_f64(zoom_val)
 	if zoom <= 0 { zoom = 1.0 }
 	camera.rl_camera.zoom = f32(zoom)
 
@@ -152,7 +152,7 @@ ruby_camera_set_zoom :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // camera.zoom
-ruby_camera_get_zoom :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_get_zoom :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	camera := extract_native(Camera_Instance, self)
 	if camera == nil { return mrb.NIL }
@@ -160,7 +160,7 @@ ruby_camera_get_zoom :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // camera.offset =
-ruby_camera_set_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_set_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	offset_val: mrb.Value
 	mrb.get_args(state, "o", &offset_val)
@@ -187,7 +187,7 @@ ruby_camera_set_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.V
 }
 
 // camera.offset
-ruby_camera_get_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_get_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	camera := extract_native(Camera_Instance, self)
 	if camera == nil { return mrb.NIL }
@@ -196,7 +196,7 @@ ruby_camera_get_offset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.V
 
 
 // camera.reset(target: true, zoom: true)
-ruby_camera_reset :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_camera_reset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "|H", &kwargs)

@@ -5,6 +5,9 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
 TARGET="${TARGET:-release}"
 
+# MRUBY MACROS LIBRARY
+MRUBY_INCLUDE="$SCRIPT_DIR/vendor/mruby/include"
+MACROS_SRC="$SCRIPT_DIR/lib/mruby/macros.c"
 
 #
 # WEB BUILD
@@ -31,7 +34,8 @@ fi
 echo "  Building for web..."
 if ! odin build source/main_web \
       -define:RAYLIB_WASM_LIB=env.o \
-      -define:MRUBY_WASM_LIB=env.o \
+      -define:MRUBY_LIB=env.o \
+      -define:MRUBY_MACROS_LIB=env.o \
       -collection:lib=lib \
       -target:js_wasm32 \
       -build-mode:obj \
@@ -48,6 +52,7 @@ files="
   $WEB_OUT_DIR/engine.wasm
   ${ODIN_PATH}/vendor/raylib/wasm/libraylib.a
   vendor/mruby/build/emscripten/lib/libmruby.a
+  $WEB_OUT_DIR/macros.o
 "
 flags="
   -sUSE_GLFW=3
@@ -69,8 +74,10 @@ flags="
 export EMSDK_QUIET=1
 [[ -f "vendor/emsdk/emsdk_env.sh" ]] && . "vendor/emsdk/emsdk_env.sh"
 
+emcc -c -I"$MRUBY_INCLUDE" "$MACROS_SRC" -o "$WEB_OUT_DIR/macros.o"
 emcc $DEBUG_FLAG -o $WEB_OUT_DIR/index.html $files $flags
 rm $WEB_OUT_DIR/engine.wasm
+rm "$WEB_OUT_DIR/macros.o"
 
 echo "  Web assets: ${WEB_OUT_DIR}"
 
@@ -82,9 +89,13 @@ echo "  Web assets: ${WEB_OUT_DIR}"
 OUT_DIR="$SCRIPT_DIR/build/$TARGET"
 mkdir -p "$OUT_DIR"
 
+echo "  Building mruby macros..."
+cc -c -I"$MRUBY_INCLUDE" "$MACROS_SRC" -o "$OUT_DIR/macros.o"
+
 FLAGS="
 	-out:$OUT_DIR/mini9 \
 	-define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a \
+  -define:MRUBY_MACROS_LIB=../../build/$TARGET/macros.o \
 	-collection:lib=lib \
 	-vet-packages:engine,mrb \
 	-vet-style -vet-semicolon -vet-cast -vet \
@@ -107,5 +118,6 @@ fi
 
 echo "  Building native binary..."
 odin build source/main_native $FLAGS
+rm "$OUT_DIR/macros.o"
 
 echo "  Build created in $OUT_DIR"

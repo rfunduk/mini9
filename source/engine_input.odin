@@ -5,7 +5,7 @@ import rl "vendor:raylib"
 
 // RUBY FUNCTION: _key_down_impl(keycode, gamepad=nil) -> bool
 // @engine_method: name="_key_down_impl", arity=-1
-ruby_key_down_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
 	gamepad_id: mrb.Value
@@ -40,7 +40,7 @@ ruby_key_down_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value
 
 // RUBY FUNCTION: _key_pressed_impl(keycode, gamepad=nil) -> bool
 // @engine_method: name="_key_pressed_impl", arity=-1
-ruby_key_pressed_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
 	gamepad_id: mrb.Value
@@ -81,7 +81,7 @@ ruby_key_pressed_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Va
 
 // RUBY FUNCTION: _key_released_impl(keycode, gamepad=nil) -> bool
 // @engine_method: name="_key_released_impl", arity=-1
-ruby_key_released_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_key_released_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
 	gamepad_id: mrb.Value
@@ -122,7 +122,7 @@ ruby_key_released_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.V
 
 // RUBY FUNCTION: _keys_impl() -> [keys...]
 // @engine_method: name="_keys_impl", arity=0
-ruby_keys_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_keys_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	keys_array := mrb.ary_new(g.mrb_state)
@@ -150,7 +150,7 @@ ruby_keys_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: mouse(layer = :world) -> Vector2
 // @engine_method: name="mouse", arity=-1
-ruby_mouse :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_mouse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	// extract optional layer parameter
@@ -226,7 +226,7 @@ ruby_mouse :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: _gamepad_available_impl(id) -> bool
 // @engine_method: name="gamepad?", arity=1
-ruby_gamepad_available_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_gamepad_available_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	gamepad_id_val: mrb.Value
 	mrb.get_args(state, "o", &gamepad_id_val)
@@ -239,7 +239,7 @@ ruby_gamepad_available_impl :: proc "c" (state: ^mrb.State, self: mrb.Value) -> 
 
 // RUBY FUNCTION: _get_gamepad_axis_value(xcode, ycode, gamepad_id) -> float
 // @engine_method: name="_get_gamepad_axis_value", arity=3
-ruby_get_gamepad_axis_value :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_get_gamepad_axis_value :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	xcode_val, ycode_val, gamepad_val: mrb.Value
 	mrb.get_args(state, "ooo", &xcode_val, &ycode_val, &gamepad_val)

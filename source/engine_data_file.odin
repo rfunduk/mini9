@@ -10,7 +10,7 @@ Data_File :: struct {
 	content: string,
 }
 
-ruby_datafile_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_datafile_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	// is there a leak of path/content in here possibly?
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
@@ -47,7 +47,7 @@ file_from_data :: proc(path: string, data: []u8) -> mrb.Value {
 
 // RUBY FUNCTION: file(path=nil) -> returns FileData object
 // @engine_method: name="file", arity=-1
-ruby_file :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_file :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
 	mrb.get_args(state, "o", &path_val)
@@ -60,7 +60,7 @@ ruby_file :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return result
 }
 
-ruby_file_get_lines :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_file_get_lines :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	file := extract_native(Data_File, self)
 

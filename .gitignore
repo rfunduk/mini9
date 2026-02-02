@@ -3,3 +3,4 @@ build/**
 vendor/*
 mruby.rb.lock
 *.rom
+*.o

@@ -28,7 +28,7 @@ Tween_Instance :: struct {
 	update_block:   mrb.Value, // ruby block/proc if provided
 }
 
-ruby_tween_finalizer :: proc "c" (state: ^mrb.State, ptr: rawptr) {
+ruby_tween_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		tween := cast(^Tween_Instance)ptr
@@ -72,14 +72,14 @@ detect_tween_type :: proc(value: mrb.Value) -> typeid {
 	color_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[rl.Color])
 	if color_ptr != nil { return rl.Color }
 
-	if mrb.number_p(value) { return f32 }
+	if mrb.integer_p(value) || mrb.float_p(value) { return f32 }
 
 	panic("Only Vector2, Color, and numbers can be tweened.")
 }
 
 // RUBY FUNCTION: tween(from, to, duration, delay: 0, easing: Tween.LINEAR) { block } -> returns Tween object
 // @engine_method: name="tween", arity=-1
-ruby_tween :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	from_val, to_val, kwargs, block: mrb.Value
@@ -103,7 +103,7 @@ ruby_tween :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	if argc >= 4 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
 		if "delay" in hash {
-			tween.delay = mrb.float(hash["delay"])
+			tween.delay = to_f64(hash["delay"])
 		}
 		if "easing" in hash {
 			easing_int := mrb.integer(hash["easing"])
@@ -150,8 +150,8 @@ start_or_queue_tween :: proc(tween: ^Tween_Instance) {
 			start_tween(tween, &v.x, to_vec.x, true)
 			start_tween(tween, &v.y, to_vec.y)
 		case f32:
-			from := mrb.float(tween.from)
-			to := mrb.float(tween.to)
+			from := to_f64(tween.from)
+			to := to_f64(tween.to)
 			v = f32(from)
 			start_tween(tween, &v, f32(to), true)
 		case rl.Color:
@@ -227,7 +227,7 @@ tween_completion_callback :: proc(flux: ^ease.Flux_Map(f32), data: rawptr) {
 	}
 }
 
-ruby_tween_value :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween_value :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	tween := extract_native(Tween_Instance, self)
@@ -245,29 +245,29 @@ ruby_tween_value :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
-ruby_tween_running :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween_running :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return tween_time_left(self) > 0 ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_tween_finished :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween_finished :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return tween_time_left(self) <= 0 ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_tween_just_finished :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween_just_finished :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	tween := extract_native(Tween_Instance, self)
 	if tween == nil { return mrb.NIL }
 	return tween.finished_frame == g.frame_count ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_tween_time_left :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween_time_left :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return mrb.word_boxing_float_value(state, tween_time_left(self))
 }
 
-ruby_tween_progress :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween_progress :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	tween := extract_native(Tween_Instance, self)
@@ -280,7 +280,7 @@ ruby_tween_progress :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Valu
 	return mrb.word_boxing_float_value(state, progress)
 }
 
-ruby_tween_stop :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_tween_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	tween := extract_native(Tween_Instance, self)
 	if tween != nil { tween_stop(tween) }

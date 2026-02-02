@@ -9,7 +9,7 @@ import rl "vendor:raylib"
 
 // RUBY FUNCTION: clear(color) -> configures the clear color
 // @engine_method: name="clear", arity=1
-ruby_clear :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_clear :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	color_val: mrb.Value
 	mrb.get_args(state, "o", &color_val)
@@ -31,7 +31,7 @@ ruby_clear :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: assert(yn, message) -> crash the game if yn is falsy
 // @engine_method: name="assert", arity=2
-ruby_assert :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_assert :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	yn_val, msg_val: mrb.Value
@@ -56,14 +56,14 @@ ruby_assert :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: time() -> time in seconds since the game started
 // @engine_method: name="time", arity=0
-ruby_time :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_time :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return mrb.word_boxing_float_value(state, rl.GetTime())
 }
 
 // RUBY FUNCTION: quit() -> exits the game
 // @engine_method: name="quit", arity=0
-ruby_quit :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_quit :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	g.run = false
 	return mrb.NIL
@@ -71,7 +71,7 @@ ruby_quit :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: resolution(w, h) -> sets game resolution during INIT, returns current resolution otherwise
 // @engine_method: name="resolution", arity=-1
-ruby_resolution :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_resolution :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	w, h: f64
@@ -89,7 +89,7 @@ ruby_resolution :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: title(title) -> sets window title
 // @engine_method: name="title", arity=1
-ruby_title :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_title :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	title_val: mrb.Value
 	mrb.get_args(state, "o", &title_val)
@@ -102,7 +102,7 @@ ruby_title :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: cursor(enabled) -> enables/disables cursor, returns current state
 // @engine_method: name="cursor", arity=-1
-ruby_cursor :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_cursor :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	enabled_val: mrb.Value
 	argc := mrb.get_args(state, "|b", &enabled_val)
@@ -119,7 +119,7 @@ ruby_cursor :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: fullscreen(yn=nil) -> sets fullscreen mode, or returns current state
 // @engine_method: name="fullscreen", arity=-1
-ruby_fullscreen :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_fullscreen :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	when ODIN_OS == .JS { return mrb.FALSE }
@@ -141,7 +141,7 @@ ruby_fullscreen :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: fps(target_fps) -> sets target FPS during INIT, returns current FPS otherwise
 // @engine_method: name="fps", arity=-1
-ruby_fps :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_fps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	target_fps: i32
@@ -164,6 +164,6 @@ ruby_fps :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
 
 // RUBY FUNCTION: web?() -> returns true if running on web platform
 // @engine_method: name="web?", arity=0
-ruby_web :: proc "c" (state: ^mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_web :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	when ODIN_OS == .JS { return mrb.TRUE } else { return mrb.FALSE }
 }

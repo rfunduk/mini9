@@ -14,19 +14,21 @@ class EventQueue
 
   def subscribe(messages, callback)
     messages = [messages] if !messages.is_a?(Array)
-    messages.each { |msg| @subs[msg] << callback }
-    -> { $event_queue.unsubscribe(messages, callback) }
+    arity = callback.parameters.length  # Cache arity once at subscribe time
+    sub = { cb: callback, arity: arity }
+    messages.each { |msg| @subs[msg] << sub }
+    -> { $event_queue.unsubscribe(messages, sub) }
   end
 
-  def unsubscribe(messages, callback)
+  def unsubscribe(messages, sub)
     messages = [messages] if !messages.is_a?(Array)
-    messages.each { |msg| @subs[msg].delete(callback) }
+    messages.each { |msg| @subs[msg].delete(sub) }
   end
 
   def process_events
     self.pop.tap do |e|
-      @subs[e.message].each do |cb|
-        cb.parameters.length == 0 ? cb.call() : cb.call(e)
+      @subs[e.message].each do |sub|
+        sub[:arity] == 0 ? sub[:cb].call : sub[:cb].call(e)
       end
       event(e)
     end until self.empty?
