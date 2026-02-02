@@ -1,4 +1,5 @@
 # ENGINE native=FSM ruby=FSM
+# ENGINE native=State ruby=State
 
 class FSM
   def to_s = "FSM(current: #{state&.name || "<init>"})"

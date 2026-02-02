@@ -18,16 +18,14 @@ Anim :: struct {
 	original_direction: i32,
 	value_count:        i32,
 	mode:               Animation_Mode,
-	values:             mrb.Value, // Ruby array (GC registered)
+	values:             mrb.Value,
 }
 
 ruby_anim_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		anim := cast(^Anim)ptr
-		if anim.values != mrb.NIL {
-			mrb.gc_unregister(state, anim.values)
-		}
+		if anim.values != mrb.NIL { mrb.gc_unregister(state, anim.values) }
 		mrb.free(state, ptr)
 	}
 }
@@ -40,7 +38,6 @@ create_anim :: proc(interval: f32, direction: i32, mode: Animation_Mode, values:
 		actual_values = mrb.funcall(g.mrb_state, values, "to_a", 0)
 	}
 
-	// Get array length - handles both embedded and heap arrays
 	value_count := i32(mrb.ary_len(actual_values))
 
 	a := Anim {
@@ -52,11 +49,10 @@ create_anim :: proc(interval: f32, direction: i32, mode: Animation_Mode, values:
 		original_direction = direction,
 		value_count        = value_count,
 		mode               = mode,
-		values             = actual_values, // Use converted array
+		values             = actual_values,
 	}
 	anim_ptr := ruby_allocate(Anim, a)
 
-	// register values array with GC to prevent collection
 	mrb.gc_register(g.mrb_state, actual_values)
 
 	anim_class := mrb.class_get(g.mrb_state, "Anim")
@@ -78,24 +74,16 @@ ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	// required: interval
 	interval: f32 = 0.1
-	if "interval" in hash {
-		interval = f32(to_f64(hash["interval"]))
-	}
+	if "interval" in hash { interval = f32(to_f64(hash["interval"])) }
 
 	// required: frames
 	values := mrb.NIL
-	if "frames" in hash {
-		values = hash["frames"]
-	}
-	if values == mrb.NIL {
-		values = mrb.ary_new(state)
-	}
+	if "frames" in hash { values = hash["frames"] }
+	if values == mrb.NIL { values = mrb.ary_new(state) }
 
 	// optional: direction (default +1)
 	direction: i32 = 1
-	if "direction" in hash {
-		direction = i32(mrb.integer(hash["direction"]))
-	}
+	if "direction" in hash { direction = i32(mrb.integer(hash["direction"])) }
 
 	// optional: mode (default LOOP = 0)
 	mode: Animation_Mode = .LOOP
@@ -114,22 +102,16 @@ ruby_anim_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &dt_val)
 
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.NIL
-	}
+	if anim == nil { return mrb.NIL }
 
 	dt := f32(to_f64(dt_val))
 	anim.timer -= dt
-	if anim.timer > 0 {
-		return mrb.NIL
-	}
+	if anim.timer > 0 { return mrb.NIL }
 
 	anim.timer += anim.interval
 
 	// Guard against empty animations
-	if anim.value_count <= 0 {
-		return mrb.NIL
-	}
+	if anim.value_count <= 0 { return mrb.NIL }
 
 	switch anim.mode {
 	case .LOOP:
@@ -151,9 +133,7 @@ ruby_anim_reset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.NIL
-	}
+	if anim == nil { return mrb.NIL }
 
 	anim.direction = anim.original_direction
 	anim.timer = anim.original_interval
@@ -164,45 +144,29 @@ ruby_anim_reset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 ruby_anim_frame :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.NIL
-	}
-
+	if anim == nil { return mrb.NIL }
 	return mrb.ary_entry(anim.values, c.int(anim.current_index))
 }
 
 ruby_anim_current_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.boxing_int_value(state, 0)
-	}
-
+	if anim == nil { return mrb.boxing_int_value(state, 0) }
 	return mrb.boxing_int_value(state, anim.current_index)
 }
 
 ruby_anim_values :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.ary_new(state)
-	}
-
+	if anim == nil { return mrb.ary_new(state) }
 	return anim.values
 }
 
 ruby_anim_direction :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.boxing_int_value(state, 1)
-	}
-
+	if anim == nil { return mrb.boxing_int_value(state, 1) }
 	return mrb.boxing_int_value(state, anim.direction)
 }
 
@@ -213,21 +177,15 @@ ruby_anim_set_direction :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	mrb.get_args(state, "i", &dir)
 
 	anim := extract_native(Anim, self)
-	if anim != nil {
-		anim.direction = dir
-	}
+	if anim != nil { anim.direction = dir }
 
 	return mrb.boxing_int_value(state, dir)
 }
 
 ruby_anim_interval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.word_boxing_float_value(state, 0)
-	}
-
+	if anim == nil { return mrb.word_boxing_float_value(state, 0) }
 	return mrb.word_boxing_float_value(state, f64(anim.interval))
 }
 
@@ -248,12 +206,8 @@ ruby_anim_set_interval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 
 ruby_anim_mode :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.boxing_int_value(state, 0)
-	}
-
+	if anim == nil { return mrb.boxing_int_value(state, 0) }
 	return mrb.boxing_int_value(state, i32(anim.mode))
 }
 
@@ -264,9 +218,7 @@ ruby_anim_set_mode :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	mrb.get_args(state, "i", &mode)
 
 	anim := extract_native(Anim, self)
-	if anim != nil {
-		anim.mode = Animation_Mode(mode)
-	}
+	if anim != nil { anim.mode = Animation_Mode(mode) }
 
 	return mrb.boxing_int_value(state, mode)
 }
@@ -275,13 +227,8 @@ ruby_anim_progress :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	context = global_context
 
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.word_boxing_float_value(state, 0)
-	}
-
-	if anim.value_count <= 1 {
-		return mrb.word_boxing_float_value(state, 0)
-	}
+	if anim == nil { return mrb.word_boxing_float_value(state, 0) }
+	if anim.value_count <= 1 { return mrb.word_boxing_float_value(state, 0) }
 
 	progress: f64
 
@@ -303,9 +250,7 @@ ruby_anim_last_frame :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 	context = global_context
 
 	anim := extract_native(Anim, self)
-	if anim == nil {
-		return mrb.FALSE
-	}
+	if anim == nil { return mrb.FALSE }
 
 	last: bool
 	if anim.direction > 0 {

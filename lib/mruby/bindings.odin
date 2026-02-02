@@ -204,4 +204,5 @@ foreign macros {
 	// RProc operations (allows making RProc opaque)
 	proc_irep :: proc(rproc: rawptr) -> rawptr ---
 	proc_set_target_class :: proc(state: State, rproc: rawptr, target_class: rawptr) ---
+	proc_arity :: proc(val: Value) -> Int ---
 }

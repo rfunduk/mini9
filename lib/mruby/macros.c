@@ -11,6 +11,7 @@
 #include <mruby/irep.h>
 #include <mruby/proc.h>
 #include <mruby/value.h>
+#include <mruby/internal.h>
 
 /* Type checking - wraps mrb_*_p macros */
 enum mrb_vtype mrbm_type(mrb_value v) { return mrb_type(v); }
@@ -82,3 +83,4 @@ void mrbm_ccontext_set_no_exec(mrb_ccontext* c, mrb_bool val) { c->no_exec = val
 /* RProc operations - allows making RProc opaque */
 const mrb_irep* mrbm_proc_irep(struct RProc* p) { return p->body.irep; }
 void mrbm_proc_set_target_class(mrb_state* mrb, struct RProc* p, struct RClass* tc) { MRB_PROC_SET_TARGET_CLASS(p, tc); }
+mrb_int mrbm_proc_arity(mrb_value v) { return mrb_proc_arity(mrb_proc_ptr(v)); }

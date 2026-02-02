@@ -2,9 +2,6 @@ package engine
 
 import mrb "lib:mruby"
 
-// Manually declare State data type (not auto-generated since only FSM is in header)
-State_Ruby := mrb.Data_Type{struct_name = "State", dfree = ruby_state_finalizer}
-
 State :: struct {
 	name:         mrb.Value, // Symbol
 	data:         mrb.Value, // obj() for user data
@@ -47,18 +44,9 @@ ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	}
 }
 
-// Helper to get proc arity
-get_proc_arity :: proc(state: mrb.State, proc_val: mrb.Value) -> i32 {
-	if proc_val == mrb.NIL {
-		return 0
-	}
-	// Call parameters on the proc to get array of parameter info
-	params := mrb.funcall(state, proc_val, "parameters", 0)
-	if params == mrb.NIL {
-		return 0
-	}
-	// Get array length - handles both embedded and heap arrays
-	return i32(mrb.ary_len(params))
+get_proc_arity :: proc(proc_val: mrb.Value) -> i32 {
+	if proc_val == mrb.NIL { return 0 }
+	return i32(mrb.proc_arity(proc_val))
 }
 
 // RUBY FUNCTION: state(:name, enter: nil, exit: nil, update: nil) -> returns State object
@@ -75,19 +63,17 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc >= 2 && kwargs != mrb.NIL {
 		hash := parse_kwargs(state, kwargs)
-		if "enter" in hash {
-			enter_proc = hash["enter"]
-		}
-		if "exit" in hash {
-			exit_proc = hash["exit"]
-		}
-		if "update" in hash {
-			update_proc = hash["update"]
-		}
+		if "enter" in hash { enter_proc = hash["enter"] }
+		if "exit" in hash { exit_proc = hash["exit"] }
+		if "update" in hash { update_proc = hash["update"] }
 	}
 
 	// Create the data obj for state-specific data
-	data_obj := mrb.funcall(state, mrb.top_self(state), "obj", 0)
+	pos := create_vector2({0, 0})
+	obj_scale := create_vector2({1, 1})
+	mrb.gc_register(state, pos)
+	mrb.gc_register(state, obj_scale)
+	data_obj := create_game_object(Game_Object{pos = pos, scale = obj_scale, visible = true}, 0, nil)
 
 	s := State {
 		name         = name_val,
@@ -96,25 +82,17 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		enter_proc   = enter_proc,
 		update_proc  = update_proc,
 		exit_proc    = exit_proc,
-		enter_arity  = get_proc_arity(state, enter_proc),
-		update_arity = get_proc_arity(state, update_proc),
-		exit_arity   = get_proc_arity(state, exit_proc),
+		enter_arity  = get_proc_arity(enter_proc),
+		update_arity = get_proc_arity(update_proc),
+		exit_arity   = get_proc_arity(exit_proc),
 	}
 	state_ptr := ruby_allocate(State, s)
 
 	// GC register the procs and data
-	if data_obj != mrb.NIL {
-		mrb.gc_register(state, data_obj)
-	}
-	if enter_proc != mrb.NIL {
-		mrb.gc_register(state, enter_proc)
-	}
-	if update_proc != mrb.NIL {
-		mrb.gc_register(state, update_proc)
-	}
-	if exit_proc != mrb.NIL {
-		mrb.gc_register(state, exit_proc)
-	}
+	if data_obj != mrb.NIL { mrb.gc_register(state, data_obj) }
+	if enter_proc != mrb.NIL { mrb.gc_register(state, enter_proc) }
+	if update_proc != mrb.NIL { mrb.gc_register(state, update_proc) }
+	if exit_proc != mrb.NIL { mrb.gc_register(state, exit_proc) }
 
 	state_class := mrb.class_get(state, "State")
 	ruby_obj := mrb.obj_new(state, state_class, 0, nil)
@@ -136,17 +114,10 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	default_name := mrb.NIL
 	states_array := mrb.NIL
 
-	if "default" in hash {
-		default_name = hash["default"]
-	}
-	if "states" in hash {
-		states_array = hash["states"]
-	}
+	if "default" in hash { default_name = hash["default"] }
+	if "states" in hash { states_array = hash["states"] }
 
-	// Store states as array (linear search, fine for 2-5 states)
-	if states_array == mrb.NIL {
-		states_array = mrb.ary_new(state)
-	}
+	if states_array == mrb.NIL { states_array = mrb.ary_new(state) }
 
 	f := FSM {
 		this_obj      = mrb.NIL,
@@ -171,9 +142,7 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		for i in 0 ..< length {
 			state_val := mrb.ary_entry(states_array, i32(i))
 			state_native := extract_native(State, state_val)
-			if state_native != nil {
-				state_native.fsm = ruby_obj
-			}
+			if state_native != nil { state_native.fsm = ruby_obj }
 		}
 	}
 
@@ -188,44 +157,30 @@ ruby_fsm_init :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &this_obj)
 
 	fsm := extract_native(FSM, self)
-	if fsm == nil {
-		return mrb.NIL
-	}
+	if fsm == nil { return mrb.NIL }
 
 	// Unregister old this_obj if any
-	if fsm.this_obj != mrb.NIL {
-		mrb.gc_unregister(state, fsm.this_obj)
-	}
+	if fsm.this_obj != mrb.NIL { mrb.gc_unregister(state, fsm.this_obj) }
 
 	fsm.this_obj = this_obj
-	if this_obj != mrb.NIL {
-		mrb.gc_register(state, this_obj)
-	}
+	if this_obj != mrb.NIL { mrb.gc_register(state, this_obj) }
 
 	return self
 }
 
-// Helper to find state by name (linear search)
 find_state_by_name :: proc(state: mrb.State, states_array: mrb.Value, name: mrb.Value) -> mrb.Value {
-	// Get array length - handles both embedded and heap arrays
 	length := mrb.ary_len(states_array)
 
 	for i in 0 ..< length {
 		state_val := mrb.ary_entry(states_array, i32(i))
 		state_native := extract_native(State, state_val)
-		if state_native != nil {
-			// Compare symbols by their value (symbols are interned)
-			if state_native.name.w == name.w {
-				return state_val
-			}
-		}
+		if state_native == nil { continue }
+		if state_native.name.w == name.w { return state_val }
 	}
 	return mrb.NIL
 }
 
-// Internal helper to do transition
 do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
-	// Find the next state by name (linear search)
 	next_state := find_state_by_name(state, fsm.states, next_name)
 	if next_state == mrb.NIL {
 		// Get state name as string for error message
@@ -237,9 +192,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 	}
 
 	// Don't transition to same state
-	if next_state.w == fsm.current_state.w {
-		return
-	}
+	if next_state.w == fsm.current_state.w { return }
 
 	// Call exit on current state
 	if fsm.current_state != mrb.NIL {
@@ -285,9 +238,7 @@ ruby_fsm_transition :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	mrb.get_args(state, "o", &state_name)
 
 	fsm := extract_native(FSM, self)
-	if fsm == nil {
-		return mrb.NIL
-	}
+	if fsm == nil { return mrb.NIL }
 
 	do_fsm_transition(state, fsm, state_name)
 	return mrb.NIL
@@ -301,21 +252,14 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &dt_val)
 
 	fsm := extract_native(FSM, self)
-	if fsm == nil {
-		return mrb.NIL
-	}
+	if fsm == nil { return mrb.NIL }
 
 	// Auto-transition to default on first update
-	if fsm.current_state == mrb.NIL {
-		do_fsm_transition(state, fsm, fsm.default_name)
-	}
+	if fsm.current_state == mrb.NIL { do_fsm_transition(state, fsm, fsm.default_name) }
 
 	current := extract_native(State, fsm.current_state)
-	if current == nil {
-		return mrb.NIL
-	}
+	if current == nil { return mrb.NIL }
 
-	// Call update proc with correct arity - NO ARRAY ALLOCATION
 	if current.update_proc != mrb.NIL {
 		switch current.update_arity {
 		case 0:
@@ -335,48 +279,32 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 // FSM.state - get current state
 ruby_fsm_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	fsm := extract_native(FSM, self)
-	if fsm == nil {
-		return mrb.NIL
-	}
-
+	if fsm == nil { return mrb.NIL }
 	return fsm.current_state
 }
 
 // State.name
 ruby_state_name :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	s := extract_native(State, self)
-	if s == nil {
-		return mrb.NIL
-	}
-
+	if s == nil { return mrb.NIL }
 	return s.name
 }
 
 // State.data
 ruby_state_data :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	s := extract_native(State, self)
-	if s == nil {
-		return mrb.NIL
-	}
-
+	if s == nil { return mrb.NIL }
 	return s.data
 }
 
 // State.fsm
 ruby_state_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
 	s := extract_native(State, self)
-	if s == nil {
-		return mrb.NIL
-	}
-
+	if s == nil { return mrb.NIL }
 	return s.fsm
 }
 
@@ -388,23 +316,16 @@ ruby_state_transition :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	mrb.get_args(state, "o", &state_name)
 
 	s := extract_native(State, self)
-	if s == nil || s.fsm == mrb.NIL {
-		return mrb.NIL
-	}
+	if s == nil || s.fsm == mrb.NIL { return mrb.NIL }
 
 	fsm := extract_native(FSM, s.fsm)
-	if fsm == nil {
-		return mrb.NIL
-	}
+	if fsm == nil { return mrb.NIL }
 
 	do_fsm_transition(state, fsm, state_name)
 	return mrb.NIL
 }
 
 setup_state_machine :: proc() {
-	// Register State type manually (FSM is auto-registered via header)
-	NATIVE_TO_MRUBY_TYPE[State] = &State_Ruby
-
 	// Setup State class
 	sc := create_data_class("State")
 	mrb.define_method(g.mrb_state, sc, "name", cast(rawptr)ruby_state_name, 0)

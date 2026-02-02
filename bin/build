@@ -30,13 +30,16 @@ def ruby_api_files
       auto = "init" if odin_content.include?("setup_#{api_name} ::")
     end
 
-    first_line = File.open(ruby_file, &:readline)
-    native, ruby = nil, nil
-    if first_line =~ /^# ENGINE native=([.a-zA-Z0-9_]+) ruby=([.a-zA-Z0-9_]+)/
-      native, ruby = $1, $2
+    # Collect all ENGINE declarations from leading comments
+    type_mappings = []
+    File.foreach(ruby_file) do |line|
+      break unless line.start_with?("#") || line.strip.empty?
+      if line =~ /^# ENGINE native=([.a-zA-Z0-9_]+) ruby=([.a-zA-Z0-9_]+)/
+        type_mappings << [$1, $2]
+      end
     end
 
-    $ruby_api_files << [api_name, auto, [native, ruby]]
+    $ruby_api_files << [api_name, auto, type_mappings]
   end
 
   $ruby_api_files = $ruby_api_files.sort_by(&:first)
@@ -125,14 +128,15 @@ def generate
   init_content << "import mrb \"lib:mruby\""
   init_content << ""
 
-  ruby_api_files.each do |api_name, type, (native, ruby)|
+  ruby_api_files.each do |api_name, _, _|
     name = api_name.gsub(/^_+|_+$/, "")
     init_content << "#{name}_bytecode := #load(\"../ruby_api/#{name}__generated.bin\")"
   end
   init_content << ""
 
-  ruby_api_files.each do |api_name, type, (native, ruby)|
-    if type == "init" && native && ruby
+  ruby_api_files.each do |api_name, type, type_mappings|
+    next unless type == "init"
+    type_mappings.each do |(native, ruby)|
       init_content << "#{ruby}_Ruby := mrb.Data_Type { struct_name = \"#{ruby}\", dfree = ruby_#{ruby.downcase}_finalizer }"
     end
   end
@@ -141,8 +145,9 @@ def generate
   init_content << "engine_init_ruby_api :: proc() {"
   init_content << "\tNATIVE_TO_MRUBY_TYPE = make(map[typeid]^mrb.Data_Type)"
 
-  ruby_api_files.each do |_, type, (native, ruby)|
-    if type == "init" && native && ruby
+  ruby_api_files.each do |_, type, type_mappings|
+    next unless type == "init"
+    type_mappings.each do |(native, ruby)|
       init_content << "\tNATIVE_TO_MRUBY_TYPE[#{native}] = &#{ruby}_Ruby"
     end
   end
@@ -154,7 +159,7 @@ def generate
     init_content << "\tmrb.define_method(g.mrb_state, kernel_module, \"#{name}\", cast(rawptr)#{f}, #{arity})"
   end
 
-  ruby_api_files.each do |api_name, type, (native, ruby)|
+  ruby_api_files.each do |api_name, type, _|
     init_content << "\n\t// #{api_name}"
     init_content << "\tload_bytecode(\"#{api_name}\", #{api_name.gsub(/^_+|_+$/, "")}_bytecode[:])"
     init_content << "\tsetup_#{api_name}()" if type == "init"
