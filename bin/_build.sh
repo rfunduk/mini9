@@ -60,7 +60,7 @@ flags="
   -sWARN_ON_UNDEFINED_SYMBOLS=0
   -sASSERTIONS
   -sASYNCIFY
-  -sASYNCIFY_ONLY=[\"mrb_load_irep_cxt\",\"mrb_load_string\",\"mrb_load_string_cxt\"]
+  -sASYNCIFY_ONLY=[\"mrb_load_irep_cxt\",\"mrb_load_string_cxt\"]
   -sALLOW_TABLE_GROWTH=1
   -sALLOW_MEMORY_GROWTH=1
   -sINITIAL_MEMORY=67108864
@@ -106,7 +106,8 @@ if [ $TARGET == "debug" ]; then
 		-debug \
 		-define:SAFE_DISPATCH=true \
 		-define:CHECK_MRUBY_DATA_TYPES=true \
-		-define:ENGINE_DEBUG=true
+		-define:ENGINE_DEBUG=true \
+		-define:USE_TRACKING_ALLOCATOR=true
 	"
 else
 	FLAGS+="

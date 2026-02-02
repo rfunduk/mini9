@@ -22,7 +22,10 @@ ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	args := (cast([^]mrb.Value)argv)[:argc]
 	path_parts: [dynamic]string
-	defer delete(path_parts)
+	defer {
+		for part in path_parts { delete(part) }
+		delete(path_parts)
+	}
 
 	if argc == 1 {
 		// single argument - convert to string and check if it contains '/'

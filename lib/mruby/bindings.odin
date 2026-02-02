@@ -41,7 +41,6 @@ foreign lib {
 	close :: proc(state: State) ---
 
 	// code execution
-	load_string :: proc(state: State, code: cstring) -> Value ---
 	load_string_cxt :: proc(state: State, code: cstring, cxt: rawptr) -> Value ---
 
 	// context management
@@ -205,4 +204,5 @@ foreign macros {
 	proc_irep :: proc(rproc: rawptr) -> rawptr ---
 	proc_set_target_class :: proc(state: State, rproc: rawptr, target_class: rawptr) ---
 	proc_arity :: proc(val: Value) -> Int ---
+	method_arity :: proc(state: State, obj: Value, mid: Sym) -> Int ---
 }

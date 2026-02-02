@@ -63,9 +63,9 @@ create_font_from_path :: proc(path: string, size: i32) -> mrb.Value {
 		os.exit(1)
 	}
 
-	// determine file type from extension
+	// determine file type from extension (temp_allocator since create_font_from_memory clones if needed)
 	dot := strings.last_index_byte(path, '.')
-	file_type := strings.cut_clone(path, dot)
+	file_type := strings.cut(path, dot)
 
 	return create_font_from_memory(file_type, file_data, size)
 }
@@ -82,13 +82,13 @@ create_font_from_memory :: proc(file_type: string, bytes: []u8, size: i32) -> mr
 		// defer loading until after window is initialized
 		mrb.data_init(ruby_obj, nil, NATIVE_TO_MRUBY_TYPE[rl.Font])
 
-		// clone the bytes since we need to keep them around
+		// clone the bytes and file_type since we need to keep them around
 		bytes_copy := make([]u8, len(bytes))
 		copy(bytes_copy, bytes)
 
 		append(
 			&g.deferred_fonts,
-			FontLoadData{file_type = file_type, bytes = bytes_copy, size = size, ruby_ptr = ruby_obj},
+			FontLoadData{file_type = strings.clone(file_type), bytes = bytes_copy, size = size, ruby_ptr = ruby_obj},
 		)
 	}
 
@@ -122,7 +122,10 @@ load_deferred_fonts :: proc() {
 	// load user-defined deferred fonts
 	for &data in g.deferred_fonts {
 		load_font(data.file_type, data.bytes, data.size, data.ruby_ptr)
+		delete(data.file_type)
+		delete(data.bytes)
 	}
+	clear(&g.deferred_fonts)
 }
 
 // load font from memory (Odin version, doesn't create Ruby object)

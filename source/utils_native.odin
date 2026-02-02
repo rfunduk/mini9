@@ -14,7 +14,7 @@ init_game_window :: proc() {
 	initial_h := i32(600)
 	initial_w := i32(f32(initial_h) * aspect_ratio)
 
-	rl.InitWindow(initial_w, initial_h, strings.clone_to_cstring(g.title))
+	rl.InitWindow(initial_w, initial_h, strings.clone_to_cstring(g.title, context.temp_allocator))
 
 	// now get monitor dimensions and resize/position properly
 	m := rl.GetCurrentMonitor()

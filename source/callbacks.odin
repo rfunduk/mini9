@@ -1,22 +1,20 @@
 package engine
 
-import "core:fmt"
 import "core:log"
 import "core:os"
 import "core:slice"
-import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
 // callback info for checking method existence and arity
 Callback_Info :: struct {
-	method_name:   string,
+	method_name:   cstring,
 	valid_arities: [2]i32,
 	has_flag:      ^bool,
 	wants_param:   ^bool, // optional - nil if method doesn't take parameters
 }
 
-// check Ruby function arities using Ruby's method introspection
+// check Ruby function arities using native mruby introspection
 determine_game_callbacks :: proc() {
 	if g.mrb_state == nil { return }
 
@@ -27,32 +25,19 @@ determine_game_callbacks :: proc() {
 		{"ui", {0, -1}, &g.has_ui, nil},
 	}
 
-	for &callback in callback_infos {
-		method_cstr := strings.clone_to_cstring(callback.method_name)
-		defer delete(method_cstr)
+	top := mrb.top_self(g.mrb_state)
 
-		if !ruby_function_exists(method_cstr) {
-			// log.debugf("No `%s` callback defined", callback.method_name)
+	for &callback in callback_infos {
+		sym := mrb.intern_cstr(g.mrb_state, callback.method_name)
+
+		if !mrb.respond_to(g.mrb_state, top, sym) {
 			continue
 		}
-		// log.debugf("Found `%s` callback", callback.method_name)
 
-		arity_query := fmt.aprintf(
-			"respond_to?(:%s) ? method(:%s).arity : -1",
-			callback.method_name,
-			callback.method_name,
-		)
-		defer delete(arity_query)
+		arity := i32(mrb.method_arity(g.mrb_state, top, sym))
 
-		arity_result := mrb.load_string(g.mrb_state, strings.clone_to_cstring(arity_query))
-
-		if has_ruby_exception(g.mrb_state) {
-			log.warnf("Unable to confirm existence of `%s` callback", callback.method_name)
-		}
-
-		arity := mrb.integer_p(arity_result) ? i32(mrb.integer(arity_result)) : -1
-
-		if arity == -1 {
+		// -2 = undefined, -1 = C func (variable args)
+		if arity <= -1 {
 			callback.has_flag^ = false
 			continue
 		}

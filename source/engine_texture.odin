@@ -89,7 +89,9 @@ create_texture :: proc(path: string) -> mrb.Value {
 load_deferred_textures :: proc() {
 	for &data in g.deferred_textures {
 		load_texture(data.path, data.ruby_ptr)
+		delete(data.path) // free the cloned cstring
 	}
+	clear(&g.deferred_textures)
 }
 
 // RUBY FUNCTION: texture(path, size=nil) -> returns Texture object

@@ -2,6 +2,7 @@ package main_native
 
 import "core:flags"
 import "core:log"
+import "core:mem"
 import "core:os"
 import "core:strings"
 
@@ -18,14 +19,15 @@ Args :: struct {
 }
 
 main :: proc() {
+	default_allocator := context.allocator
+
 	when USE_TRACKING_ALLOCATOR {
-		default_allocator := context.allocator
-		tracking_allocator: Tracking_Allocator
-		tracking_allocator_init(&tracking_allocator, default_allocator)
-		context.allocator = allocator_from_tracking_allocator(&tracking_allocator)
+		tracking_allocator: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&tracking_allocator, default_allocator)
+		context.allocator = mem.tracking_allocator(&tracking_allocator)
 	}
 
-	context.logger = log.create_console_logger(.Debug, {.Level, .Date, .Time, .Terminal_Color})
+	context.logger = log.create_console_logger(.Debug, {.Level, .Date, .Time, .Terminal_Color}, allocator = default_allocator)
 
 	args: Args
 	parse_error := flags.parse(&args, os.args[1:], .Unix)
@@ -57,7 +59,7 @@ main :: proc() {
 
 		when USE_TRACKING_ALLOCATOR {
 			for b in tracking_allocator.bad_free_array {
-				log.error("Bad free at: %v", b.location)
+				log.errorf("Bad free at: %v", b.location)
 			}
 
 			clear(&tracking_allocator.bad_free_array)
@@ -71,11 +73,11 @@ main :: proc() {
 	engine.engine_shutdown_window()
 
 	when USE_TRACKING_ALLOCATOR {
-		for key, value in tracking_allocator.allocation_map {
-			log.error("%v: Leaked %v bytes\n", value.location, value.size)
+		for _, value in tracking_allocator.allocation_map {
+			log.errorf("%v: Leaked %v bytes", value.location, value.size)
 		}
 
-		tracking_allocator_destroy(&tracking_allocator)
+		mem.tracking_allocator_destroy(&tracking_allocator)
 	}
 }
 

@@ -15,6 +15,7 @@ Music_Load_Status :: enum {
 
 Music :: struct {
 	path:        string,
+	file_data:   []u8, // stored because raylib streams from this buffer
 	music:       rl.Music,
 	active:      bool,
 	autoplay:    bool,
@@ -33,6 +34,14 @@ ruby_music_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 
 		// unload music stream
 		rl.UnloadMusicStream(music_ptr.music)
+
+		// free file data (raylib streams from this buffer)
+		if music_ptr.file_data != nil {
+			delete(music_ptr.file_data)
+		}
+
+		// free path string
+		delete(music_ptr.path)
 
 		// remove from global list
 		for m, i in g.music {
@@ -53,17 +62,16 @@ create_music :: proc(path: string) -> mrb.Value {
 		Music{path = strings.clone(path), active = false, volume = 1.0, looping = true},
 	)
 
+	// add to global list for updates
+	append(&g.music, music_ptr)
+
 	if g.audio_initialized {
 		// load immediately if audio is ready
 		load_music_data(music_ptr)
 	} else {
 		// defer loading until audio is initialized
 		music_ptr.status = .PENDING
-		append(&g.music, music_ptr)
 	}
-
-	// add to global list for updates
-	append(&g.music, music_ptr)
 
 	// create Ruby object
 	music_class := mrb.class_get(g.mrb_state, "Music")
@@ -71,7 +79,7 @@ create_music :: proc(path: string) -> mrb.Value {
 
 	// set @path instance variable
 	path_sym := mrb.intern_cstr(g.mrb_state, "@path")
-	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path))
+	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path, context.temp_allocator))
 	mrb.iv_set(g.mrb_state, ruby_obj, path_sym, path_val)
 
 	mrb.data_init(ruby_obj, music_ptr, NATIVE_TO_MRUBY_TYPE[Music])
@@ -83,7 +91,8 @@ create_music :: proc(path: string) -> mrb.Value {
 load_music_data :: proc(music: ^Music) {
 	if music.status == .LOADED { return }
 
-	// read file data into memory, raylib will own this pointer, unlike sounds...? :/
+	// read file data into memory - we must keep this buffer alive because
+	// raylib streams from it (unlike sounds which copy the data)
 	file_data, ok := read_entire_file(music.path)
 	if !ok {
 		log.warnf("Unable to read music file: %s", music.path)
@@ -97,7 +106,12 @@ load_music_data :: proc(music: ^Music) {
 	if music_stream.frameCount == 0 {
 		music.status = .UNLOADED
 		log.warnf("Warning: Unable to load music: %s", music.path)
+		delete(file_data) // cleanup on failure
+		return
 	}
+
+	// store file_data so it can be freed in finalizer
+	music.file_data = file_data
 
 	music.music = music_stream
 	music.status = .LOADED
@@ -316,30 +330,16 @@ update_music_system :: proc(dt: f32) {
 
 		// handle fading
 		if music.fade_time > 0 {
-			music.fade_time -= dt
+			result, new_fade_time, new_volume := apply_fade(
+				music.fade_time, music.fade_target, music.fade_speed, music.volume, dt,
+			)
+			music.fade_time = new_fade_time
+			music.volume = new_volume
+			rl.SetMusicVolume(music.music, music.volume)
 
-			if music.fade_time <= 0 {
-				// fade complete
-				music.fade_time = 0
-				if music.fade_target == 0 {
-					// was fading out - stop
-					rl.StopMusicStream(music.music)
-					music.active = false
-				}
-				rl.SetMusicVolume(music.music, music.fade_target)
-				music.volume = music.fade_target
-			} else {
-				// continue fading - adjust current volume based on direction
-				if music.fade_target > music.volume {
-					// fading in (up)
-					music.volume += music.fade_speed * dt
-					music.volume = min(music.volume, music.fade_target)
-				} else {
-					// fading out (down)
-					music.volume -= music.fade_speed * dt
-					music.volume = max(music.volume, music.fade_target)
-				}
-				rl.SetMusicVolume(music.music, music.volume)
+			if result == .STOPPED {
+				rl.StopMusicStream(music.music)
+				music.active = false
 			}
 		}
 

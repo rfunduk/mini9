@@ -21,12 +21,16 @@ Palette :: struct {
 }
 
 ruby_palette_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
-	// do we need to free the `colors` dynamic array here?
 	context = global_context
 
 	if ptr != nil {
 		pal := cast(^Palette)ptr
-		if pal.colors != nil { delete(pal.colors) }
+		if pal.colors != nil {
+			for &pc in pal.colors {
+				delete(pc.name)
+			}
+			delete(pal.colors)
+		}
 		mrb.free(state, ptr)
 	}
 }
@@ -54,7 +58,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 
 	// set @path instance variable
 	path_sym := mrb.intern_cstr(g.mrb_state, "@path")
-	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path))
+	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path, context.temp_allocator))
 	mrb.iv_set(g.mrb_state, ruby_obj, path_sym, path_val)
 
 	mrb.data_init(ruby_obj, palette_ptr, NATIVE_TO_MRUBY_TYPE[Palette])
@@ -85,7 +89,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 		mrb.ary_push(
 			g.mrb_state,
 			color_names,
-			mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(pc.name)),
+			mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(pc.name, context.temp_allocator)),
 		)
 	}
 	colors_sym := mrb.intern_cstr(g.mrb_state, "@colors")
@@ -118,10 +122,8 @@ ruby_palette :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 parse_palette_gpl :: proc(data: []byte, p: ^Palette) {
-	// c := mrb.class_get(g.mrb_state, "Palette")
-
 	palette_str := string(data[:])
-	lines := strings.split_lines(palette_str)
+	lines := strings.split_lines(palette_str, context.temp_allocator)
 
 	for &line in lines {
 		line = strings.trim_space(line)
@@ -129,7 +131,7 @@ parse_palette_gpl :: proc(data: []byte, p: ^Palette) {
 			continue
 		}
 
-		parts := strings.fields(line)
+		parts := strings.fields(line, context.temp_allocator)
 
 		if len(parts) >= 4 {
 			r_val, r_ok := strconv.parse_int(parts[0])

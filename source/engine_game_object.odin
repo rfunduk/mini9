@@ -42,7 +42,13 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		hash := parse_kwargs(state, kwargs)
 
 		if "pos" in hash {
-			pos_vec = extract_native(rl.Vector2, hash["pos"])^
+			pos_ptr := extract_native(rl.Vector2, hash["pos"])
+			if pos_ptr == nil {
+				runtime_error := mrb.exc_get_id(state, mrb.intern_cstr(state, "TypeError"))
+				mrb.raise(state, runtime_error, "obj: pos must be a Vector2")
+				return mrb.NIL
+			}
+			pos_vec = pos_ptr^
 			ruby_hash_delete(state, kwargs, "pos")
 		}
 		if "rotation" in hash {
@@ -54,8 +60,13 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			ruby_hash_delete(state, kwargs, "visible")
 		}
 		if "scale" in hash {
-			// TODO check and handle error here
-			scale_vec = extract_native(rl.Vector2, hash["scale"])^
+			scale_ptr := extract_native(rl.Vector2, hash["scale"])
+			if scale_ptr == nil {
+				runtime_error := mrb.exc_get_id(state, mrb.intern_cstr(state, "TypeError"))
+				mrb.raise(state, runtime_error, "obj: scale must be a Vector2")
+				return mrb.NIL
+			}
+			scale_vec = scale_ptr^
 			ruby_hash_delete(state, kwargs, "scale")
 		}
 	}

@@ -37,17 +37,15 @@ ruby_assert :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	yn_val, msg_val: mrb.Value
 	mrb.get_args(state, "o|o", &yn_val, &msg_val)
 
-	msg: string
-	if msg_val == mrb.NIL {
-		msg = "Error"
-	} else {
-		msg_str := mrb.obj_as_string(state, msg_val)
-		emsg := strings.clone_from_cstring(mrb.str_to_cstr(state, msg_str)) or_else "Unknown Error"
-		msg = emsg
-	}
-
 	fail := yn_val == mrb.NIL || yn_val == mrb.FALSE
 	if fail {
+		msg: string
+		if msg_val == mrb.NIL {
+			msg = "Error"
+		} else {
+			msg_str := mrb.obj_as_string(state, msg_val)
+			msg = string(mrb.str_to_cstr(state, msg_str))
+		}
 		log.errorf("Assertion error:\n\n%s\n\n", msg)
 		os.exit(1)
 	}
@@ -96,6 +94,8 @@ ruby_title :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	str_obj := mrb.obj_as_string(state, title_val)
 	c_str := mrb.str_to_cstr(state, str_obj)
+
+	delete(g.title)
 	g.title = strings.clone_from_cstring(c_str)
 	return mrb.NIL
 }

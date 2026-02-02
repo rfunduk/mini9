@@ -100,7 +100,7 @@ extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
 }
 
 create_data_class :: proc(name: string) -> rawptr {
-	class := mrb.class_get(g.mrb_state, strings.clone_to_cstring(name))
+	class := mrb.class_get(g.mrb_state, strings.clone_to_cstring(name, context.temp_allocator))
 
 	// set class to use DATA type
 	mrb.set_instance_tt(class, mrb.TT_DATA)

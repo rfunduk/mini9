@@ -84,3 +84,12 @@ void mrbm_ccontext_set_no_exec(mrb_ccontext* c, mrb_bool val) { c->no_exec = val
 const mrb_irep* mrbm_proc_irep(struct RProc* p) { return p->body.irep; }
 void mrbm_proc_set_target_class(mrb_state* mrb, struct RProc* p, struct RClass* tc) { MRB_PROC_SET_TARGET_CLASS(p, tc); }
 mrb_int mrbm_proc_arity(mrb_value v) { return mrb_proc_arity(mrb_proc_ptr(v)); }
+
+/* Get arity of a method by symbol - returns -2 if undefined, -1 for C funcs */
+mrb_int mrbm_method_arity(mrb_state* mrb, mrb_value obj, mrb_sym mid) {
+    struct RClass* c = mrb_class(mrb, obj);
+    mrb_method_t m = mrb_method_search_vm(mrb, &c, mid);
+    if (MRB_METHOD_UNDEF_P(m)) return -2;
+    if (!MRB_METHOD_PROC_P(m)) return -1;
+    return mrb_proc_arity(MRB_METHOD_PROC(m));
+}

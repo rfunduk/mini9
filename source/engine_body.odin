@@ -247,8 +247,12 @@ ruby_body_resolve_collisions :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 	}
 
 	collisions := make([dynamic]Collision_Info)
+	defer delete(collisions)
 
-	for other in get_bodies_for_mask(body) {
+	bodies_to_check := get_bodies_for_mask(body)
+	defer delete(bodies_to_check)
+
+	for other in bodies_to_check {
 		info := body_vs_body(body, other, velocity, dt)
 		if info.hit { append(&collisions, info) }
 	}

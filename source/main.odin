@@ -1,7 +1,6 @@
 package engine
 
 import "core:math"
-import "core:math/ease"
 import rl "vendor:raylib"
 
 
@@ -12,23 +11,7 @@ engine_update :: proc() { _engine_update() }
 engine_init :: proc(rom_data: ^Rom_Data) { _engine_init(rom_data) }
 
 @(export)
-engine_shutdown :: proc() {
-	shutdown_ruby()
-	rl.CloseAudioDevice()
-	rl.UnloadRenderTexture(g.render_texture)
-	ease.flux_destroy(g.flux)
-
-	delete(g.cameras)
-	delete(g.deferred_fonts)
-	delete(g.deferred_textures)
-	delete(g.shake_instances)
-	delete(g.sounds)
-	delete(g.music)
-	delete(g.pending_tweens)
-
-	free(g.rom_data)
-	free(g)
-}
+engine_shutdown :: proc() { _engine_shutdown() }
 
 @(export)
 engine_is_running :: proc() -> bool {

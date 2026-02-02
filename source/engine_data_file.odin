@@ -11,9 +11,12 @@ Data_File :: struct {
 }
 
 ruby_datafile_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
-	// is there a leak of path/content in here possibly?
 	context = global_context
-	if ptr != nil { mrb.free(state, ptr) }
+	if ptr != nil {
+		file_ptr := cast(^Data_File)ptr
+		delete(file_ptr.content)
+		mrb.free(state, ptr)
+	}
 }
 
 create_file :: proc(path: string) -> mrb.Value {
@@ -37,7 +40,7 @@ file_from_data :: proc(path: string, data: []u8) -> mrb.Value {
 
 	// set @path instance variable
 	path_sym := mrb.intern_cstr(g.mrb_state, "@path")
-	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path))
+	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path, context.temp_allocator))
 	mrb.iv_set(g.mrb_state, ruby_obj, path_sym, path_val)
 
 	mrb.data_init(ruby_obj, file_ptr, NATIVE_TO_MRUBY_TYPE[Data_File])
@@ -65,10 +68,10 @@ ruby_file_get_lines :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	file := extract_native(Data_File, self)
 
 	lines_array := mrb.ary_new(g.mrb_state)
-	for line in strings.split_lines(file.content) {
+	for line in strings.split_lines(file.content, context.temp_allocator) {
 		cleaned := strings.trim_space(line)
 		if len(cleaned) == 0 { continue }
-		rstr := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(cleaned))
+		rstr := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(cleaned, context.temp_allocator))
 		mrb.ary_push(g.mrb_state, lines_array, rstr)
 	}
 

@@ -1,6 +1,7 @@
 package engine
 
 import "core:math/ease"
+import "core:strings"
 import rl "vendor:raylib"
 
 
@@ -10,6 +11,7 @@ _engine_init :: proc(rom_data: ^Rom_Data) {
 
 	g^ = Engine_Memory {
 		rom_data            = rom_data,
+		title               = strings.clone(""),
 		debug               = ENGINE_DEBUG,
 		metrics             = false,
 		resolution          = rl.Vector2{128, 128},
@@ -58,11 +60,6 @@ _engine_init :: proc(rom_data: ^Rom_Data) {
 	init_ruby_api()
 	load_main_rb()
 	determine_game_callbacks()
-
-	if len(g.title) == 0 {
-		// user did not set a title
-		g.title = ""
-	}
 
 	rl.SetConfigFlags({.VSYNC_HINT})
 
@@ -173,4 +170,38 @@ _engine_update :: proc() {
 	if g.metrics { collect_metrics() }
 
 	free_all(context.temp_allocator)
+}
+
+_engine_shutdown :: proc() {
+	shutdown_ruby()
+	rl.CloseAudioDevice()
+	rl.UnloadRenderTexture(g.render_texture)
+	ease.flux_destroy(g.flux)
+
+	// cleanup dynamic arrays
+	delete(g.cameras)
+	delete(g.deferred_fonts)
+	delete(g.deferred_textures)
+	delete(g.shake_instances)
+	delete(g.sounds)
+	delete(g.music)
+	delete(g.pending_tweens)
+
+	// cleanup maps
+	delete(g.pressed_this_frame)
+	delete(g.released_this_frame)
+	delete(g.registered_bodies)
+	for _, bodies in g.bodies_by_layer {
+		delete(bodies)
+	}
+	delete(g.bodies_by_layer)
+
+	// cleanup strings
+	delete(g.title)
+
+	// cleanup global type map
+	delete(NATIVE_TO_MRUBY_TYPE)
+
+	free(g.rom_data)
+	free(g)
 }

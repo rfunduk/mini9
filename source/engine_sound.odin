@@ -33,6 +33,41 @@ Sound :: struct {
 	status:    Sound_Load_Status,
 }
 
+// Fade_Result indicates what happened during fade processing
+Fade_Result :: enum {
+	FADING,         // still fading
+	COMPLETED,      // fade finished, target reached
+	STOPPED,        // fade finished with target 0 (should stop playback)
+}
+
+// apply_fade processes a single frame of fade logic, returning the result and new volume
+// Call this once per frame for any audio source that supports fading
+apply_fade :: proc(fade_time, fade_target, fade_speed, volume, dt: f32) -> (result: Fade_Result, new_fade_time, new_volume: f32) {
+	new_fade_time = fade_time - dt
+	new_volume = volume
+
+	if new_fade_time <= 0 {
+		// fade complete
+		new_fade_time = 0
+		new_volume = fade_target
+		if fade_target == 0 {
+			return .STOPPED, new_fade_time, new_volume
+		}
+		return .COMPLETED, new_fade_time, new_volume
+	}
+
+	// continue fading - adjust volume based on direction
+	if fade_target > volume {
+		// fading in (up)
+		new_volume = min(volume + fade_speed * dt, fade_target)
+	} else {
+		// fading out (down)
+		new_volume = max(volume - fade_speed * dt, fade_target)
+	}
+
+	return .FADING, new_fade_time, new_volume
+}
+
 ruby_sound_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
@@ -46,6 +81,9 @@ ruby_sound_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 
 		// unload master
 		rl.UnloadSound(sound_ptr.master)
+
+		// free path string
+		delete(sound_ptr.path)
 
 		// remove from global list
 		for i in 0 ..< len(g.sounds) {
@@ -69,17 +107,16 @@ create_sound :: proc(path: string, polyphony: int = 8) -> mrb.Value {
 		},
 	)
 
+	// add to global list for updates
+	append(&g.sounds, sound_ptr)
+
 	if g.audio_initialized {
 		// load immediately if audio is ready
 		load_sound_data(sound_ptr)
 	} else {
 		// defer loading until audio is initialized
 		sound_ptr.status = .PENDING
-		append(&g.sounds, sound_ptr)
 	}
-
-	// add to global list for updates
-	append(&g.sounds, sound_ptr)
 
 	// create Ruby object
 	sound_class := mrb.class_get(g.mrb_state, "Sound")
@@ -87,7 +124,7 @@ create_sound :: proc(path: string, polyphony: int = 8) -> mrb.Value {
 
 	// set @path instance variable
 	path_sym := mrb.intern_cstr(g.mrb_state, "@path")
-	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path))
+	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path, context.temp_allocator))
 	mrb.iv_set(g.mrb_state, ruby_obj, path_sym, path_val)
 
 	mrb.data_init(ruby_obj, sound_ptr, NATIVE_TO_MRUBY_TYPE[Sound])
@@ -319,40 +356,22 @@ ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 // audio system update - handles fades and cleanup
 update_audio_system :: proc(dt: f32) {
-	active_count := 0
-
 	for sound in g.sounds {
 		for &instance in sound.instances {
 			if !instance.active { continue }
 
-			active_count += 1
-
 			// handle fading
 			if instance.fade_time > 0 {
-				instance.fade_time -= dt
+				result, new_fade_time, new_volume := apply_fade(
+					instance.fade_time, instance.fade_target, instance.fade_speed, instance.volume, dt,
+				)
+				instance.fade_time = new_fade_time
+				instance.volume = new_volume
+				rl.SetSoundVolume(instance.sound, instance.volume)
 
-				if instance.fade_time <= 0 {
-					// fade complete
-					instance.fade_time = 0
-					if instance.fade_target == 0 {
-						// was fading out - stop/pause
-						rl.StopSound(instance.sound)
-						instance.active = false
-					}
-					rl.SetSoundVolume(instance.sound, instance.fade_target)
-					instance.volume = instance.fade_target
-				} else {
-					// continue fading - adjust current volume based on direction
-					if instance.fade_target > instance.volume {
-						// fading in (up)
-						instance.volume += instance.fade_speed * dt
-						instance.volume = min(instance.volume, instance.fade_target)
-					} else {
-						// fading out (down)
-						instance.volume -= instance.fade_speed * dt
-						instance.volume = max(instance.volume, instance.fade_target)
-					}
-					rl.SetSoundVolume(instance.sound, instance.volume)
+				if result == .STOPPED {
+					rl.StopSound(instance.sound)
+					instance.active = false
 				}
 			}
 
