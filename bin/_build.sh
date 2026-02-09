@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 
+source ~/misc/utils/odin.sh
+
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+cd "$SCRIPT_DIR"
+
+ctags -f .tags -R src lib 2>/dev/null || true
+odin_tags_update
+
 TARGET="${TARGET:-release}"
 
 # MRUBY MACROS LIBRARY

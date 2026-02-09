@@ -7,7 +7,7 @@ require "fileutils"
 
 SRC_DIR = File.absolute_path("./source")
 
-TARGET = ARGV[0] || "release"
+TARGET = ARGV[0] || "debug"
 unless %w[debug release].include?(TARGET)
   puts "Invalid target. Choose 'debug' or 'release'."
   exit 1
