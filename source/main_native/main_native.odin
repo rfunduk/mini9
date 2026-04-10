@@ -47,7 +47,7 @@ main :: proc() {
 	// check if command is a path to a ROM file
 	if len(args.command) > 0 {
 		if os.is_dir(args.command) {
-			os.set_current_directory(args.command)
+			os.chdir(args.command)
 		} else if os.exists(args.command) {
 			rom_data = engine.get_rom_data(args.command)
 		}

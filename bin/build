@@ -76,29 +76,28 @@ def engine_methods
 end
 
 def maybe_build_tools
-  prev_digest_path = "bin/__rb2bin__generated.digest"
-  prev_digest = File.exist?(prev_digest_path) ? File.read(prev_digest_path) : nil
-  current_digest = Digest::SHA256.file("bin/rb2bin.odin").hexdigest
+  Dir.glob("bin/*.odin").map { Pathname.new(_1) }.each do |tool|
+    name = tool.basename(".odin").to_s
+    prev_digest_path = "bin/__#{name}__generated.digest"
+    prev_digest = File.exist?(prev_digest_path) ? File.read(prev_digest_path) : nil
+    current_digest = Digest::SHA256.file(tool.to_s).hexdigest
 
-  if prev_digest != current_digest
-    puts "Re-building tools..."
+    next if prev_digest == current_digest
 
-    Dir.glob("bin/*.odin").map { Pathname.new(_1) }.each do |tool|
-      print "  #{tool.basename(".odin")}"
+    print "Re-building tool #{name}"
 
-      result = system(
-        "odin", "build", tool.to_s, "-file",
-        "-out:bin/__#{tool.basename(".odin")}__generated",
-        "-collection:lib=lib",
-        "-define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a",
-        "-strict-style", "-vet",
-        out: File::NULL, err: File::NULL
-      )
+    result = system(
+      "odin", "build", tool.to_s, "-file",
+      "-out:bin/__#{name}__generated",
+      "-collection:lib=lib",
+      "-define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a",
+      "-strict-style", "-vet",
+      out: File::NULL, err: File::NULL
+    )
 
-      raise "Unable to generate bytecode -- #{result}" unless result
-      File.write(prev_digest_path, current_digest)
-      puts "\tOK\n"
-    end
+    raise "Unable to build tool #{name}" unless result
+    File.write(prev_digest_path, current_digest)
+    puts "\tOK\n"
   end
 end
 
@@ -172,6 +171,12 @@ def generate
 end
 
 maybe_build_tools
+
+puts "Linting source..."
+unless system("bin/__lint__generated", "source")
+  puts "Lint failed."
+  exit 1
+end
 
 puts "Preparing '#{TARGET}'..."
 FileUtils.rm_rf(File.absolute_path("./build/#{TARGET}"))

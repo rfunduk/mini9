@@ -1,9 +1,7 @@
 package engine
 
 import "core:fmt"
-import "core:log"
-import "core:os"
-import "core:path/filepath"
+import "core:path/slashpath"
 import "core:strconv"
 import "core:strings"
 import mrb "lib:mruby"
@@ -39,8 +37,7 @@ create_palette :: proc(path: string) -> mrb.Value {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
 	if !ok {
-		log.errorf("Could not load palette file: %s", path_str)
-		os.exit(1)
+		return ruby_raise("RuntimeError", "Could not load palette file: %s", path_str)
 	}
 	defer delete(file_data)
 
@@ -52,7 +49,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 	ruby_obj := mrb.obj_new(g.mrb_state, palette_class, 0, nil)
 
 	// get file extension
-	file_ext := strings.to_lower(filepath.ext(path), context.temp_allocator)
+	file_ext := strings.to_lower(slashpath.ext(path), context.temp_allocator)
 
 	palette_ptr := ruby_allocate(Palette, Palette{type = file_ext, colors = make([dynamic]PaletteColor)})
 
@@ -67,8 +64,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 	case ".gpl":
 		parse_palette_gpl(data, palette_ptr)
 	case:
-		log.errorf("Unknown palette file type: %s", file_ext)
-		os.exit(1)
+		return ruby_raise("RuntimeError", "Unknown palette file type: %s", file_ext)
 	}
 
 	// set @count instance variable

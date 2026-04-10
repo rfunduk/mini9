@@ -2,7 +2,7 @@ package engine
 
 import "core:c"
 import "core:log"
-import "core:path/filepath"
+import "core:path/slashpath"
 import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -100,7 +100,7 @@ load_music_data :: proc(music: ^Music) {
 		return
 	}
 
-	file_ext_cstr := strings.clone_to_cstring(filepath.ext(music.path), context.temp_allocator)
+	file_ext_cstr := strings.clone_to_cstring(slashpath.ext(music.path), context.temp_allocator)
 	music_stream := rl.LoadMusicStreamFromMemory(file_ext_cstr, raw_data(file_data), c.int(len(file_data)))
 
 	if music_stream.frameCount == 0 {

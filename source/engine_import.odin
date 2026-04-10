@@ -1,7 +1,6 @@
 package engine
 
 import "core:log"
-import "core:os"
 import "core:strings"
 import mrb "lib:mruby"
 
@@ -21,55 +20,52 @@ ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	}
 
 	args := (cast([^]mrb.Value)argv)[:argc]
-	path_parts: [dynamic]string
-	defer {
-		for part in path_parts { delete(part) }
-		delete(path_parts)
-	}
+
+	// path_parts and everything derived from it is purely intermediate state
+	// used to build `filename`. nothing here outlives the function call, so we
+	// use the temp allocator: no defers needed, and if we longjmp out via
+	// ruby_raise the temp allocator handles cleanup at end-of-frame anyway.
+	path_parts := make([dynamic]string, context.temp_allocator)
 
 	if argc == 1 {
 		// single argument - convert to string and check if it contains '/'
 		arg := args[0]
 		str_obj := mrb.obj_as_string(state, arg)
 		path_cstr := mrb.str_to_cstr(state, str_obj)
-		full_path := strings.clone_from_cstring(path_cstr)
-		defer delete(full_path)
+		full_path := strings.clone_from_cstring(path_cstr, context.temp_allocator)
 
 		// if it contains '/', treat as path; otherwise treat as single module
 		if strings.contains(full_path, "/") {
 			// string path like "robot/states/idle"
-			parts := strings.split(full_path, "/")
-			defer delete(parts)
-			for part in parts { append(&path_parts, strings.clone(part)) }
+			for part in strings.split_iterator(&full_path, "/") {
+				append(&path_parts, part)
+			}
 		} else {
 			// single module like :robot or "robot"
-			append(&path_parts, strings.clone(full_path))
+			append(&path_parts, full_path)
 		}
 	} else {
 		// multiple arguments like import(:robot, :states, :idle)
 		for arg in args {
 			str_obj := mrb.obj_as_string(state, arg)
 			part_cstr := mrb.str_to_cstr(state, str_obj)
-			part := strings.clone_from_cstring(part_cstr)
+			part := strings.clone_from_cstring(part_cstr, context.temp_allocator)
 			append(&path_parts, part)
 		}
 	}
 
-	// build file path
-	module_path := strings.join(path_parts[:], "/")
-	defer delete(module_path)
-
+	module_path := strings.join(path_parts[:], "/", context.temp_allocator)
 	filename, _ := strings.concatenate({module_path, ".rb"}, context.temp_allocator)
 
 	contents, ok := read_entire_file(filename)
 	if !ok {
-		log.errorf("Could not load %s", filename)
-		os.exit(1)
+		return ruby_raise("RuntimeError", "Could not load module: %s", filename)
 	}
 	defer delete(contents)
 
-	filename_cstr := strings.clone_to_cstring(filename)
-	defer delete(filename_cstr)
+	// these only need to live across one synchronous mruby call each, so
+	// temp_allocator is fine - mruby copies the strings internally.
+	filename_cstr := strings.clone_to_cstring(filename, context.temp_allocator)
 	mrb.ccontext_filename(state, g.mrb_ctx, filename_cstr)
 
 	// set target class to Object class for top-level constant assignment
@@ -105,14 +101,13 @@ ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		// result = mrb.exec_irep(state, mrb.top_self(state), rproc)
 	} else {
 		// load as source code
-		code_cstr := strings.clone_to_cstring(string(contents))
-		defer delete(code_cstr)
+		code_cstr := strings.clone_to_cstring(string(contents), context.temp_allocator)
 		result = mrb.load_string_cxt(state, code_cstr, g.mrb_ctx)
 	}
 
 	if has_ruby_exception(state) {
 		log.errorf("Could not load %s", filename)
-		os.exit(1)
+		return mrb.NIL
 	}
 
 	return result

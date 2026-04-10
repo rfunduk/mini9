@@ -1,7 +1,5 @@
 package engine
 
-import "core:log"
-import "core:os"
 import "core:strings"
 import mrb "lib:mruby"
 
@@ -23,8 +21,7 @@ create_file :: proc(path: string) -> mrb.Value {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
 	if !ok {
-		log.errorf("Could not load file: %s", path_str)
-		os.exit(1)
+		return ruby_raise("RuntimeError", "Could not load file: %s", path_str)
 	}
 	defer delete(file_data)
 

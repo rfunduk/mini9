@@ -1,9 +1,7 @@
 package engine
 
-import "core:log"
 import "core:math"
 import lin "core:math/linalg"
-import "core:os"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
@@ -310,8 +308,7 @@ ruby_vector2_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	delta := f32(delta64)
 
 	if self_vec == nil || to_vec == nil {
-		log.errorf("Unable to 'move_toward' non-vector.")
-		os.exit(1)
+		return ruby_raise("TypeError", "move_toward: argument must be a Vector2")
 	}
 
 	len := lin.length(to_vec^ - self_vec^)

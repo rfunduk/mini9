@@ -1,7 +1,7 @@
 package engine
 
 import "core:log"
-import "core:path/filepath"
+import "core:path/slashpath"
 import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -146,7 +146,7 @@ load_sound_data :: proc(sound: ^Sound) {
 	defer delete(file_data)
 
 	// get file extension for LoadWaveFromMemory
-	file_ext_cstr := strings.clone_to_cstring(filepath.ext(sound.path), context.temp_allocator)
+	file_ext_cstr := strings.clone_to_cstring(slashpath.ext(sound.path), context.temp_allocator)
 
 	// load wave from memory data
 	wave := rl.LoadWaveFromMemory(file_ext_cstr, raw_data(file_data), i32(len(file_data)))

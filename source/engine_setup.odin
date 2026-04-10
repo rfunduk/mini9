@@ -1,7 +1,5 @@
 package engine
 
-import "core:log"
-import "core:os"
 import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -46,8 +44,7 @@ ruby_assert :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			msg_str := mrb.obj_as_string(state, msg_val)
 			msg = string(mrb.str_to_cstr(state, msg_str))
 		}
-		log.errorf("Assertion error:\n\n%s\n\n", msg)
-		os.exit(1)
+		return ruby_raise("RuntimeError", "Assertion error: %s", msg)
 	}
 	return mrb.NIL
 }
@@ -150,12 +147,10 @@ ruby_fps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if argc == 0 { return mrb.boxing_int_value(state, rl.GetFPS()) }
 
 	if g.phase != .INIT {
-		log.errorf("fps() can only be set during INIT phase")
-		os.exit(1)
+		return ruby_raise("RuntimeError", "fps() can only be set during INIT phase")
 	}
 	if target_fps < 5 {
-		log.errorf("FPS must be >= 5")
-		os.exit(1)
+		return ruby_raise("ArgumentError", "FPS must be >= 5")
 	}
 
 	g.fps = target_fps

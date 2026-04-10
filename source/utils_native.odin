@@ -45,8 +45,8 @@ init_game_window :: proc() {
 }
 
 get_rom_data :: proc(path: string) -> ^Rom_Data {
-	rom_file_data, read_ok := os.read_entire_file(path)
-	if read_ok {
+	rom_file_data, read_err := os.read_entire_file(path, context.allocator)
+	if read_err == nil {
 		rom_data := new(Rom_Data)
 		if rom_data_load(rom_file_data, rom_data) {
 			log.infof("✓ Loaded ROM: %s (%d bytes)", path, len(rom_file_data))
@@ -78,11 +78,12 @@ _read_entire_file :: proc(
 	}
 
 	// fall back to filesystem
-	return os.read_entire_file(name, allocator, loc)
+	d, err := os.read_entire_file(name, allocator, loc)
+	return d, err == nil
 }
 
 _write_entire_file :: proc(name: string, data: []byte, truncate := true) -> (success: bool) {
-	return os.write_entire_file(name, data, truncate)
+	return os.write_entire_file(name, data, truncate = truncate) == nil
 }
 
 _file_exists :: proc(name: string) -> bool {

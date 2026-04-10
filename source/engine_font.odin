@@ -1,7 +1,5 @@
 package engine
 
-import "core:log"
-import "core:os"
 import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -59,8 +57,7 @@ create_font_from_path :: proc(path: string, size: i32) -> mrb.Value {
 	// read the file using the utils wrapper that works on both native and web
 	file_data, ok := read_entire_file(path, context.temp_allocator)
 	if !ok {
-		log.errorf("Failed to read font file: %s", path)
-		os.exit(1)
+		return ruby_raise("RuntimeError", "Failed to read font file: %s", path)
 	}
 
 	// determine file type from extension (temp_allocator since create_font_from_memory clones if needed)
@@ -88,7 +85,12 @@ create_font_from_memory :: proc(file_type: string, bytes: []u8, size: i32) -> mr
 
 		append(
 			&g.deferred_fonts,
-			FontLoadData{file_type = strings.clone(file_type), bytes = bytes_copy, size = size, ruby_ptr = ruby_obj},
+			FontLoadData {
+				file_type = strings.clone(file_type),
+				bytes = bytes_copy,
+				size = size,
+				ruby_ptr = ruby_obj,
+			},
 		)
 	}
 
@@ -162,8 +164,11 @@ ruby_font :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if !strings.has_suffix(path, ".png") {
 		// TTF/OTF requires size
 		if argc < 2 || size_val == mrb.NIL {
-			log.errorf("font() requires size parameter for TTF/OTF files: %s", path)
-			os.exit(1)
+			return ruby_raise(
+				"ArgumentError",
+				"font() requires size parameter for TTF/OTF files: %s",
+				path,
+			)
 		}
 		size = i32(mrb.integer(size_val))
 	}

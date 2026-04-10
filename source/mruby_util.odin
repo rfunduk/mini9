@@ -1,20 +1,19 @@
 package engine
 
 import "core:log"
-import "core:os"
 import mrb "lib:mruby"
 
 init_ruby_api :: proc() {
 	g.mrb_state = mrb.open()
 	if g.mrb_state == nil {
 		log.errorf("Failed to set up Ruby VM")
-		os.exit(1)
+		panic("EXITING")
 	}
 
 	g.mrb_ctx = mrb.ccontext_new(g.mrb_state)
 	if g.mrb_ctx == nil {
 		log.errorf("Failed to set up Ruby VM context")
-		os.exit(1)
+		panic("EXITING")
 	}
 
 	engine_init_ruby_api()

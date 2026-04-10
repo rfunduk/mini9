@@ -1,7 +1,6 @@
 package engine
 
 import "core:log"
-import "core:os"
 import "core:strings"
 import mrb "lib:mruby"
 
@@ -29,7 +28,7 @@ load_bytecode :: proc(name: string, bytecode: []u8) {
 	mrb.load_irep_cxt(g.mrb_state, raw_data(bytecode), g.mrb_ctx)
 	if has_ruby_exception(g.mrb_state) {
 		log.errorf("Failed to instantiate engine component: %s", name)
-		os.exit(1)
+		panic("EXITING")
 	}
 }
 

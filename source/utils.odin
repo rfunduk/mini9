@@ -1,5 +1,7 @@
 package engine
 
+import "core:fmt"
+import "core:log"
 import "core:strings"
 import mrb "lib:mruby"
 
@@ -97,6 +99,18 @@ extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
 	} else {
 		return cast(^T)mrb.data_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
 	}
+}
+
+// log an error and raise a Ruby exception with the same message.
+// returns mrb.NIL so callers can `return ruby_raise(...)`. note that
+// mrb.raise longjmps and never actually returns - the return value
+// just exists so the call site is a single statement.
+ruby_raise :: proc(exception_class: cstring, format: string, args: ..any) -> mrb.Value {
+	msg := fmt.ctprintf(format, ..args)
+	log.error(string(msg))
+	exc := mrb.exc_get_id(g.mrb_state, mrb.intern_cstr(g.mrb_state, exception_class))
+	mrb.raise(g.mrb_state, exc, msg)
+	return mrb.NIL
 }
 
 create_data_class :: proc(name: string) -> rawptr {

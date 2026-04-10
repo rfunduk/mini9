@@ -1,8 +1,6 @@
 package engine
 
-import "core:log"
 import "core:math/ease"
-import "core:os"
 import "core:time"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -92,8 +90,7 @@ ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	to_type := detect_tween_type(to_val)
 
 	if from_type != to_type {
-		log.errorf("Tween from/to must be the same type.")
-		os.exit(1)
+		return ruby_raise("TypeError", "tween from/to must be the same type")
 	}
 
 	tween_obj := create_tween(from_type)

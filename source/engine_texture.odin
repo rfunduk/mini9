@@ -1,9 +1,7 @@
 package engine
 
-import "core:log"
 import lin "core:math/linalg"
-import "core:os"
-import "core:path/filepath"
+import "core:path/slashpath"
 import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -39,13 +37,13 @@ load_texture :: proc(path: cstring, ruby_obj: mrb.Value) -> ^Texture {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
 	if !ok {
-		log.errorf("Could not load texture file: %s", path_str)
-		os.exit(1)
+		ruby_raise("RuntimeError", "Could not load texture file: %s", path_str)
+		return nil
 	}
 	defer delete(file_data)
 
 	// get file extension for LoadImageFromMemory
-	file_ext_cstr := strings.clone_to_cstring(filepath.ext(path_str), context.temp_allocator)
+	file_ext_cstr := strings.clone_to_cstring(slashpath.ext(path_str), context.temp_allocator)
 
 	// load image from memory data
 	image := rl.LoadImageFromMemory(file_ext_cstr, raw_data(file_data), i32(len(file_data)))

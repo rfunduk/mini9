@@ -39,8 +39,8 @@ packager :: proc(args: ^Args) -> ^engine.Rom_Data {
 	args.source = args.source if len(args.source) > 0 else "."
 
 	// make source path absolute for consistent relative path calculations
-	abs_path, abs_ok := filepath.abs(args.source, context.temp_allocator)
-	if abs_ok { args.source = abs_path }
+	abs_path, abs_err := filepath.abs(args.source, context.temp_allocator)
+	if abs_err == nil { args.source = abs_path }
 
 	if !os.is_dir(abs_path) {
 		fmt.printfln("ERROR: Unable to package game at %s, source not found.", args.source)
@@ -94,17 +94,18 @@ packager :: proc(args: ^Args) -> ^engine.Rom_Data {
 	rom_output_file := args.output
 	if args.web {
 		// also write out web stuff
-		rom_output_file = filepath.join({rom_output_file, "cart.rom"}, context.temp_allocator)
+		rom_output_file, _ = filepath.join({rom_output_file, "cart.rom"}, context.temp_allocator)
 		for web_asset in engine.web_assets {
-			write_ok := os.write_entire_file(filepath.join({args.output, web_asset.name}), web_asset.data)
-			if !write_ok {
+			asset_path, _ := filepath.join({args.output, web_asset.name}, context.temp_allocator)
+			write_err := os.write_entire_file(asset_path, web_asset.data)
+			if write_err != nil {
 				fmt.eprintfln("ERROR: Failed to write web asset: %s", web_asset.name)
 				os.exit(1)
 			}
 		}
 	}
-	write_ok := os.write_entire_file(rom_output_file, rom_binary)
-	if !write_ok {
+	write_err := os.write_entire_file(rom_output_file, rom_binary)
+	if write_err != nil {
 		fmt.eprintfln("ERROR: Failed to write ROM file: %s", args.output)
 		os.exit(1)
 	}
@@ -144,8 +145,8 @@ setup_mruby :: proc() {
 
 load_ruby_file :: proc(file_path, rel_path: string) -> []u8 {
 	// compile Ruby file to bytecode
-	source_bytes, read_ok := os.read_entire_file(file_path, context.temp_allocator)
-	if !read_ok {
+	source_bytes, read_err := os.read_entire_file(file_path, context.temp_allocator)
+	if read_err != nil {
 		fmt.eprintfln("Error reading Ruby file: %s", file_path)
 		os.exit(1)
 	}
@@ -183,8 +184,8 @@ load_ruby_file :: proc(file_path, rel_path: string) -> []u8 {
 }
 
 load_asset_file :: proc(file_path, rel_path: string) -> []u8 {
-	file_bytes, read_ok := os.read_entire_file(file_path)
-	if !read_ok {
+	file_bytes, read_err := os.read_entire_file(file_path, context.allocator)
+	if read_err != nil {
 		fmt.eprintfln("Error reading file: %s", rel_path)
 		os.exit(1)
 	}
@@ -206,14 +207,14 @@ prepare_output_path :: proc(args: ^Args) -> string {
 		}
 
 		// now extract the basename from the source
-		info, basename_err := os.stat(args.source)
+		info, basename_err := os.stat(args.source, context.temp_allocator)
 		if basename_err != nil {
 			fmt.eprintfln("ERROR: Specified source not found: %s", args.source)
 			os.exit(1)
 		}
 
 		// make the dest dir
-		output_path = filepath.join({output_path, info.name}, context.temp_allocator)
+		output_path, _ = filepath.join({output_path, info.name}, context.temp_allocator)
 		mkdir_err := make_directory_recursive(output_path)
 		if mkdir_err != nil {
 			fmt.eprintfln("ERROR: Unable to create output directory: %s", output_path)
@@ -229,7 +230,7 @@ prepare_output_path :: proc(args: ^Args) -> string {
 			// output is a directory, append input filename with .rom extension
 			abs_source, _ := filepath.abs(args.source, context.temp_allocator)
 			dir_name := filepath.base(abs_source)
-			output_path = filepath.join(
+			output_path, _ = filepath.join(
 				{output_path, fmt.aprintf("%s.rom", dir_name)},
 				context.temp_allocator,
 			)
@@ -250,14 +251,19 @@ prepare_output_path :: proc(args: ^Args) -> string {
 
 find_files_to_include :: proc(args: ^Args, exclude_patterns: []string) -> [dynamic]string {
 	// recursively list all files and filter by exclude patterns
-	all_files := make([dynamic]string, context.temp_allocator)
-
 	if !os.exists(args.source) {
 		fmt.eprintfln("ERROR: Source directory '%s' does not exist", args.source)
 		os.exit(1)
 	}
 
-	filepath.walk(args.source, walk_proc, &all_files)
+	all_files := make([dynamic]string, context.temp_allocator)
+	w := os.walker_create_path(args.source)
+	defer os.walker_destroy(&w)
+	for info in os.walker_walk(&w) {
+		if info.type != .Directory {
+			append(&all_files, strings.clone(info.fullpath, context.temp_allocator))
+		}
+	}
 	fmt.printfln("\nFound %d total files", len(all_files))
 
 	// filter out files that match exclude patterns (simple glob matching)
@@ -266,7 +272,7 @@ find_files_to_include :: proc(args: ^Args, exclude_patterns: []string) -> [dynam
 	for file_path in all_files {
 		// make path relative to source for pattern matching
 		rel_path, rel_err := filepath.rel(args.source, file_path, context.temp_allocator)
-		if rel_err != nil { continue }
+		if rel_err != .None { continue }
 
 		// check if file matches any exclude pattern
 		excluded := false
@@ -289,11 +295,11 @@ find_files_to_include :: proc(args: ^Args, exclude_patterns: []string) -> [dynam
 }
 
 parse_metadata :: proc(path: string) -> (metadata: Rom_Metadata) {
-	metadata_path := filepath.join({path, "metadata"}, context.temp_allocator)
+	metadata_path, _ := filepath.join({path, "metadata"}, context.temp_allocator)
 
 	if os.exists(metadata_path) {
-		data, read_ok := os.read_entire_file(metadata_path, context.temp_allocator)
-		if !read_ok {
+		data, read_err := os.read_entire_file(metadata_path, context.temp_allocator)
+		if read_err != nil {
 			fmt.eprintfln("Error reading metadata")
 			os.exit(1)
 		}
@@ -309,22 +315,22 @@ parse_metadata :: proc(path: string) -> (metadata: Rom_Metadata) {
 }
 
 calculate_file_sizes :: proc(path: string, metadata: ^Rom_Metadata) {
-	all_files := make([dynamic]string, context.temp_allocator)
-	filepath.walk(path, walk_proc, &all_files)
-	for file in all_files {
-		info, _ := os.stat(file)
+	w := os.walker_create_path(path)
+	defer os.walker_destroy(&w)
+	for info in os.walker_walk(&w) {
+		if info.type == .Directory { continue }
+		metadata.total_size += info.size
 		switch info.name {
 		case "index.wasm":
 			metadata.wasm_size = info.size
 		case "cart.rom":
 			metadata.rom_size = info.size
 		}
-		metadata.total_size += info.size
 	}
 }
 
 update_html_metadata :: proc(path: string, metadata: Rom_Metadata) {
-	html_file := filepath.join({path, "index.html"}, context.temp_allocator)
+	html_file, _ := filepath.join({path, "index.html"}, context.temp_allocator)
 	html_content, _ := os.read_entire_file(html_file, context.temp_allocator)
 	html_str := string(html_content)
 
@@ -344,18 +350,11 @@ update_html_metadata :: proc(path: string, metadata: Rom_Metadata) {
 	)
 
 	// write back to file
-	write_ok := os.write_entire_file(html_file, transmute([]u8)html_str)
-	if !write_ok {
+	write_err := os.write_entire_file(html_file, transmute([]u8)html_str)
+	if write_err != nil {
 		fmt.eprintfln("ERROR: Failed to write updated HTML")
 		return
 	}
-}
-
-@(private = "file")
-walk_proc :: proc(info: os.File_Info, _: os.Errno, ud: rawptr) -> (err: os.Errno, skip: bool) {
-	files := cast(^[dynamic]string)ud
-	if !info.is_dir { append(files, info.fullpath) }
-	return 0, false
 }
 
 @(private = "file")

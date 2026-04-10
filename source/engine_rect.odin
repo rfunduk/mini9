@@ -1,7 +1,5 @@
 package engine
 
-import "core:log"
-import "core:os"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
@@ -38,8 +36,7 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		// rect(size) - size is Vector2
 		size_ptr := extract_native(rl.Vector2, args[0])
 		if size_ptr == nil {
-			log.errorf("rect(size): argument must be a Vector2")
-			os.exit(1)
+			return ruby_raise("ArgumentError", "rect(size): argument must be a Vector2")
 		}
 		size := size_ptr^
 		return create_rect({0, 0, size.x, size.y})
@@ -49,12 +46,16 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		pos_ptr := extract_native(rl.Vector2, args[0])
 		size_ptr := extract_native(rl.Vector2, args[1])
 		if pos_ptr == nil {
-			log.errorf("rect(pos, size): first argument must be a Vector2")
-			os.exit(1)
+			return ruby_raise(
+				"ArgumentError",
+				"rect(pos, size): first argument must be a Vector2",
+			)
 		}
 		if size_ptr == nil {
-			log.errorf("rect(pos, size): second argument must be a Vector2")
-			os.exit(1)
+			return ruby_raise(
+				"ArgumentError",
+				"rect(pos, size): second argument must be a Vector2",
+			)
 		}
 		pos := pos_ptr^
 		size := size_ptr^
@@ -69,8 +70,11 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		return create_rect({x, y, w, h})
 
 	case:
-		log.errorf("rect(): wrong number of arguments (given %d, expected 1, 2, or 4)", argc)
-		os.exit(1)
+		return ruby_raise(
+			"ArgumentError",
+			"rect(): wrong number of arguments (given %d, expected 1, 2, or 4)",
+			argc,
+		)
 	}
 }
 

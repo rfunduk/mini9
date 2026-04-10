@@ -1,7 +1,6 @@
 package engine
 
 import "core:log"
-import "core:os"
 import "core:slice"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -49,7 +48,7 @@ determine_game_callbacks :: proc() {
 				arity,
 				callback.valid_arities[:],
 			)
-			os.exit(1)
+			panic("EXITING")
 		} else {
 			if arity == 0 {
 				callback.has_flag^ = true
