@@ -231,7 +231,7 @@ ruby_gamepad_available_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 	gamepad_id_val: mrb.Value
 	mrb.get_args(state, "o", &gamepad_id_val)
 
-	if gamepad_id_val == mrb.NIL { panic("Specify gamepad ID") }
+	if gamepad_id_val == mrb.NIL { return mrb.raise_error(state, "ArgumentError", "Specify gamepad ID") }
 	gamepad_id := i32(mrb.integer(gamepad_id_val))
 
 	return rl.IsGamepadAvailable(gamepad_id) ? mrb.TRUE : mrb.FALSE

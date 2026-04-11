@@ -160,7 +160,7 @@ def generate
 
   ruby_api_files.each do |api_name, type, _|
     init_content << "\n\t// #{api_name}"
-    init_content << "\tload_bytecode(\"#{api_name}\", #{api_name.gsub(/^_+|_+$/, "")}_bytecode[:])"
+    init_content << "\tload_engine_bytecode(\"#{api_name}\", #{api_name.gsub(/^_+|_+$/, "")}_bytecode[:])"
     init_content << "\tsetup_#{api_name}()" if type == "init"
   end
 

@@ -32,7 +32,7 @@ Rom_Metadata :: struct {
 	total_size:       i64,
 }
 
-packager :: proc(args: ^Args) -> ^engine.Rom_Data {
+packager :: proc(args: ^Args) {
 	rom_data = new(engine.Rom_Data)
 
 	// 1. handle args and set defaults
@@ -72,15 +72,22 @@ packager :: proc(args: ^Args) -> ^engine.Rom_Data {
 	// init mruby
 	setup_mruby()
 
+	// BYTECODE_PACKAGING (default true): when on, .rb files are precompiled
+	// to mruby bytecode at package time. Catches syntax/codegen errors early
+	// (at packaging instead of first run on a player's machine), shaves
+	// startup parse cost, and obfuscates source. Disable with
+	// -define:BYTECODE_PACKAGING=false to bundle raw source instead.
 	for file_path in files_to_include {
 		rel_path, _ := filepath.rel(args.source, file_path, context.temp_allocator)
-		// TODO if we precompile bytecode, tons of issues pop up,
-		//		see related TODOs in mruby_load and engine_import
-		// if strings.has_suffix(file_path, ".rb") {
-		// 	rom_data[rel_path] = load_ruby_file(file_path, rel_path)
-		// } else {
-		rom_data[rel_path] = load_asset_file(file_path, rel_path)
-		// }
+		when #config(BYTECODE_PACKAGING, true) {
+			if strings.has_suffix(file_path, ".rb") {
+				rom_data[rel_path] = load_ruby_file(file_path, rel_path)
+			} else {
+				rom_data[rel_path] = load_asset_file(file_path, rel_path)
+			}
+		} else {
+			rom_data[rel_path] = load_asset_file(file_path, rel_path)
+		}
 	}
 
 	// dump ROM data to binary format
@@ -120,10 +127,20 @@ packager :: proc(args: ^Args) -> ^engine.Rom_Data {
 		fmt.printfln("\n⟶ Created ROM: %s (%d bytes)", args.output, len(rom_binary))
 	}
 
+	// cleanup. each rom_data value is an owned slice from load_ruby_file
+	// (bytecode) or load_asset_file (raw bytes). keys are temp_allocator
+	// strings (rel_path) and don't need freeing. rom_binary is the
+	// serialized buffer from rom_data_dump.
+	for _, file_data in rom_data {
+		delete(file_data)
+	}
+	delete(rom_data^)
+	free(rom_data)
+	delete(rom_binary)
+
 	free_all(context.temp_allocator)
 	mrb.ccontext_free(mrb_state, mrb_ctx)
 	mrb.close(mrb_state)
-	return rom_data
 }
 
 setup_mruby :: proc() {
@@ -225,13 +242,13 @@ prepare_output_path :: proc(args: ^Args) -> string {
 			// default to ./<dirname>.rom
 			abs_source, _ := filepath.abs(args.source, context.temp_allocator)
 			dir_name := filepath.base(abs_source)
-			output_path = fmt.aprintf("%s.rom", dir_name)
+			output_path = fmt.tprintf("%s.rom", dir_name)
 		} else if os.is_dir(output_path) {
 			// output is a directory, append input filename with .rom extension
 			abs_source, _ := filepath.abs(args.source, context.temp_allocator)
 			dir_name := filepath.base(abs_source)
 			output_path, _ = filepath.join(
-				{output_path, fmt.aprintf("%s.rom", dir_name)},
+				{output_path, fmt.tprintf("%s.rom", dir_name)},
 				context.temp_allocator,
 			)
 		} else {

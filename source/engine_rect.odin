@@ -9,7 +9,7 @@ ruby_rect_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 create_rect :: proc(r: rl.Rectangle) -> mrb.Value {
-	rect_ptr := ruby_allocate(rl.Rectangle, r)
+	rect_ptr := mrb.alloc(g.mrb_state, r)
 
 	rect_class := mrb.class_get(g.mrb_state, "Rect")
 	ruby_obj := mrb.obj_new(g.mrb_state, rect_class, 0, nil)
@@ -36,7 +36,7 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		// rect(size) - size is Vector2
 		size_ptr := extract_native(rl.Vector2, args[0])
 		if size_ptr == nil {
-			return ruby_raise("ArgumentError", "rect(size): argument must be a Vector2")
+			return mrb.raise_error(state, "ArgumentError", "rect(size): argument must be a Vector2")
 		}
 		size := size_ptr^
 		return create_rect({0, 0, size.x, size.y})
@@ -46,13 +46,15 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		pos_ptr := extract_native(rl.Vector2, args[0])
 		size_ptr := extract_native(rl.Vector2, args[1])
 		if pos_ptr == nil {
-			return ruby_raise(
+			return mrb.raise_error(
+				state,
 				"ArgumentError",
 				"rect(pos, size): first argument must be a Vector2",
 			)
 		}
 		if size_ptr == nil {
-			return ruby_raise(
+			return mrb.raise_error(
+				state,
 				"ArgumentError",
 				"rect(pos, size): second argument must be a Vector2",
 			)
@@ -63,14 +65,15 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	case 4:
 		// rect(x, y, w, h) - four floats
-		x := f32(to_f64(args[0]))
-		y := f32(to_f64(args[1]))
-		w := f32(to_f64(args[2]))
-		h := f32(to_f64(args[3]))
+		x := f32(mrb.to_f64(args[0]))
+		y := f32(mrb.to_f64(args[1]))
+		w := f32(mrb.to_f64(args[2]))
+		h := f32(mrb.to_f64(args[3]))
 		return create_rect({x, y, w, h})
 
 	case:
-		return ruby_raise(
+		return mrb.raise_error(
+			state,
 			"ArgumentError",
 			"rect(): wrong number of arguments (given %d, expected 1, 2, or 4)",
 			argc,
@@ -111,7 +114,7 @@ ruby_rect_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	old_r := extract_native(rl.Rectangle, self)
 	if old_r == nil { return mrb.NIL }
 
-	new_ptr := ruby_allocate(rl.Rectangle, rl.Rectangle{f32(new), old_r.y, old_r.width, old_r.height})
+	new_ptr := mrb.alloc(g.mrb_state, rl.Rectangle{f32(new), old_r.y, old_r.width, old_r.height})
 	mrb.data_init(self, new_ptr, NATIVE_TO_MRUBY_TYPE[rl.Rectangle])
 
 	return mrb.word_boxing_float_value(state, new)
@@ -126,7 +129,7 @@ ruby_rect_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	old_r := extract_native(rl.Rectangle, self)
 	if old_r == nil { return mrb.NIL }
 
-	new_ptr := ruby_allocate(rl.Rectangle, rl.Rectangle{old_r.x, f32(new), old_r.width, old_r.height})
+	new_ptr := mrb.alloc(g.mrb_state, rl.Rectangle{old_r.x, f32(new), old_r.width, old_r.height})
 	mrb.data_init(self, new_ptr, NATIVE_TO_MRUBY_TYPE[rl.Rectangle])
 
 	return mrb.word_boxing_float_value(state, new)
@@ -141,7 +144,7 @@ ruby_rect_set_w :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	old_r := extract_native(rl.Rectangle, self)
 	if old_r == nil { return mrb.NIL }
 
-	new_ptr := ruby_allocate(rl.Rectangle, rl.Rectangle{old_r.x, old_r.y, f32(new), old_r.height})
+	new_ptr := mrb.alloc(g.mrb_state, rl.Rectangle{old_r.x, old_r.y, f32(new), old_r.height})
 	mrb.data_init(self, new_ptr, NATIVE_TO_MRUBY_TYPE[rl.Rectangle])
 
 	return mrb.word_boxing_float_value(state, new)
@@ -156,7 +159,7 @@ ruby_rect_set_h :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	old_r := extract_native(rl.Rectangle, self)
 	if old_r == nil { return mrb.NIL }
 
-	new_ptr := ruby_allocate(rl.Rectangle, rl.Rectangle{old_r.x, old_r.y, old_r.width, f32(new)})
+	new_ptr := mrb.alloc(g.mrb_state, rl.Rectangle{old_r.x, old_r.y, old_r.width, f32(new)})
 	mrb.data_init(self, new_ptr, NATIVE_TO_MRUBY_TYPE[rl.Rectangle])
 
 	return mrb.word_boxing_float_value(state, new)
@@ -202,7 +205,7 @@ inflate_rect_uniform :: proc(rect: rl.Rectangle, amount: f32) -> rl.Rectangle {
 }
 
 setup_rect :: proc() {
-	c := create_data_class("Rect")
+	c := mrb.get_data_class(g.mrb_state, "Rect")
 
 	mrb.define_method(g.mrb_state, c, "new", cast(rawptr)ruby_rect, -1)
 	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_rect_get_x, 0)

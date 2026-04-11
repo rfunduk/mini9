@@ -11,7 +11,7 @@ ruby_color_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 create_color :: proc(c: rl.Color) -> mrb.Value {
-	color_ptr := ruby_allocate(rl.Color, c)
+	color_ptr := mrb.alloc(g.mrb_state, c)
 
 	color_class := mrb.class_get(g.mrb_state, "Color")
 	ruby_obj := mrb.obj_new(g.mrb_state, color_class, 0, nil)
@@ -177,7 +177,7 @@ ruby_color_set_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 setup_color :: proc() {
-	c := create_data_class("Color")
+	c := mrb.get_data_class(g.mrb_state, "Color")
 
 	mrb.define_method(g.mrb_state, c, "r", cast(rawptr)ruby_color_get_r, 0)
 	mrb.define_method(g.mrb_state, c, "g", cast(rawptr)ruby_color_get_g, 0)

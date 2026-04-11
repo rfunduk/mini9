@@ -46,7 +46,7 @@ load_font :: proc(file_type: string, bytes: []u8, size: i32, ruby_obj: mrb.Value
 
 	rl.SetTextureFilter(font.texture, .POINT)
 
-	font_ptr := ruby_allocate(rl.Font, font)
+	font_ptr := mrb.alloc(g.mrb_state, font)
 	mrb.data_init(ruby_obj, font_ptr, NATIVE_TO_MRUBY_TYPE[rl.Font])
 
 	return
@@ -57,7 +57,7 @@ create_font_from_path :: proc(path: string, size: i32) -> mrb.Value {
 	// read the file using the utils wrapper that works on both native and web
 	file_data, ok := read_entire_file(path, context.temp_allocator)
 	if !ok {
-		return ruby_raise("RuntimeError", "Failed to read font file: %s", path)
+		return mrb.raise_error(g.mrb_state, "RuntimeError", "Failed to read font file: %s", path)
 	}
 
 	// determine file type from extension (temp_allocator since create_font_from_memory clones if needed)
@@ -164,7 +164,8 @@ ruby_font :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if !strings.has_suffix(path, ".png") {
 		// TTF/OTF requires size
 		if argc < 2 || size_val == mrb.NIL {
-			return ruby_raise(
+			return mrb.raise_error(
+				state,
 				"ArgumentError",
 				"font() requires size parameter for TTF/OTF files: %s",
 				path,
@@ -189,7 +190,7 @@ ruby_font_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 }
 
 setup_font :: proc() {
-	c := create_data_class("Font")
+	c := mrb.get_data_class(g.mrb_state, "Font")
 
 	mrb.define_method(g.mrb_state, c, "name", cast(rawptr)ruby_font_get_name, 0)
 	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_font_get_size, 0)

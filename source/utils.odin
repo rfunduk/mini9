@@ -1,6 +1,6 @@
 package engine
 
-import "core:fmt"
+import "core:c"
 import "core:log"
 import "core:strings"
 import mrb "lib:mruby"
@@ -26,73 +26,6 @@ file_exists :: proc(name: string) -> bool {
 	return _file_exists(name)
 }
 
-ruby_allocate :: proc($T: typeid, val: T) -> ^T {
-	ptr := cast(^T)mrb.malloc(g.mrb_state, size_of(T))
-	ptr^ = val
-
-	// here we give mruby a little slap to let it know that
-	// the memory of this new object is bigger than it thought
-	// this avoids extra memory pressure due to mruby not knowing
-	// about how big these Rect objects are
-	mrb.gc_threshold_decrement(g.mrb_state, size_of(T))
-
-	return ptr
-}
-
-// format mruby value as string, using simple format for basic types
-ruby_format_value :: proc(state: mrb.State, val: mrb.Value) -> string {
-	context = global_context
-
-	if val == mrb.NIL { return "nil" }
-
-	str_obj := mrb.obj_as_string(state, val)
-	c_str := mrb.str_to_cstr(state, str_obj)
-	result := string(c_str)
-
-	return result
-}
-
-// parse kwargs hash into Odin map using temp allocator
-parse_kwargs :: proc(state: mrb.State, kwargs: mrb.Value) -> mrb.RHash {
-	context = global_context
-	if kwargs == mrb.NIL { return {} }
-
-	hash_size := mrb.hash_size(state, kwargs)
-	if hash_size == 0 { return {} }
-
-	hash := make(mrb.RHash, hash_size, context.temp_allocator)
-
-	keys := mrb.hash_keys(state, kwargs)
-	for i in 0 ..< hash_size {
-		key := mrb.ary_entry(keys, i32(i))
-		val := mrb.hash_get(state, kwargs, key)
-		if val == mrb.NIL { continue }
-
-		key_val := mrb.obj_as_string(state, key)
-		key_name := string(mrb.str_to_cstr(state, key_val))
-
-		hash[key_name] = val
-	}
-
-	return hash
-}
-
-ruby_hash_delete :: proc(state: mrb.State, hash: mrb.Value, key: string) {
-	keys_array := mrb.hash_keys(state, hash)
-	hash_size := mrb.hash_size(state, hash)
-
-	for i in 0 ..< hash_size {
-		actual_key := mrb.ary_entry(keys_array, i32(i))
-		key_str := ruby_format_value(state, actual_key)
-
-		// check if this matches what we're looking for
-		if key_str == key {
-			mrb.hash_delete_key(state, hash, actual_key)
-			return
-		}
-	}
-}
-
 extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
 	when #config(CHECK_MRUBY_DATA_TYPES, false) {
 		return cast(^T)mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
@@ -101,23 +34,123 @@ extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
 	}
 }
 
-// log an error and raise a Ruby exception with the same message.
-// returns mrb.NIL so callers can `return ruby_raise(...)`. note that
-// mrb.raise longjmps and never actually returns - the return value
-// just exists so the call site is a single statement.
-ruby_raise :: proc(exception_class: cstring, format: string, args: ..any) -> mrb.Value {
-	msg := fmt.ctprintf(format, ..args)
-	log.error(string(msg))
-	exc := mrb.exc_get_id(g.mrb_state, mrb.intern_cstr(g.mrb_state, exception_class))
-	mrb.raise(g.mrb_state, exc, msg)
-	return mrb.NIL
+
+// Engine-side label for which callback path was running when an exception
+// fired. The lib's protect helpers don't know about this — it lives here so
+// `handle_ruby_exception` can tell the user "error in UPDATE" vs "in DRAW",
+// which is useful when the failing function is something generic like a state
+// machine handler whose backtrace doesn't make the dispatch context obvious.
+Ruby_Call_Context :: enum {
+	UNKNOWN,
+	INIT,
+	UPDATE,
+	DRAW,
+	UI,
+	EVENT,
+	TWEEN_CALLBACK,
 }
 
-create_data_class :: proc(name: string) -> rawptr {
-	class := mrb.class_get(g.mrb_state, strings.clone_to_cstring(name, context.temp_allocator))
+// Top-level Ruby callback dispatch with engine policy applied:
+//   - tween callbacks always run inside mrb_protect (a raise inside flux'
+//     internal iteration must not crash the VM)
+//   - debug builds (SAFE_DISPATCH) run everything through mrb_protect so
+//     exceptions can be surfaced via the error overlay
+//   - release builds run the fast path: a single funcall with arena
+//     save/restore, then a post-call has_exception check
+//
+// In all cases, an exception is routed through `handle_ruby_exception` with
+// the originating ctx so the user sees which phase blew up.
+dispatch_funcall :: proc(
+	obj: mrb.Value,
+	method: cstring,
+	argc: c.int = 0,
+	argv: [^]mrb.Value = nil,
+	ctx: Ruby_Call_Context = .UNKNOWN,
+) -> bool {
+	if ctx == .TWEEN_CALLBACK {
+		return _protected(obj, method, argc, argv, ctx)
+	}
 
-	// set class to use DATA type
-	mrb.set_instance_tt(class, mrb.TT_DATA)
+	when #config(SAFE_DISPATCH, false) {
+		return _protected(obj, method, argc, argv, ctx)
+	} else {
+		mrb.funcall_safe(g.mrb_state, obj, method, argc, argv)
+		if mrb.has_exception(g.mrb_state) {
+			handle_ruby_exception(g.mrb_state, mrb.current_exception(g.mrb_state), ctx)
+		}
+		return true
+	}
+}
 
-	return class
+// Yield to a block under mrb_protect, routing any exception through the
+// engine's error handler. Always protected because the only current caller
+// is the tween update path, which runs inside flux iteration where a raise
+// would otherwise crash the VM.
+dispatch_yield :: proc(block: mrb.Value, arg: mrb.Value, ctx: Ruby_Call_Context = .TWEEN_CALLBACK) -> bool {
+	ok, exc := mrb.protected_yield(g.mrb_state, block, arg)
+	if !ok { handle_ruby_exception(g.mrb_state, exc, ctx) }
+	return ok
+}
+
+@(private)
+_protected :: proc(
+	obj: mrb.Value,
+	method: cstring,
+	argc: c.int,
+	argv: [^]mrb.Value,
+	ctx: Ruby_Call_Context,
+) -> bool {
+	ok, exc := mrb.protected_funcall(g.mrb_state, obj, method, argc, argv)
+	if !ok { handle_ruby_exception(g.mrb_state, exc, ctx) }
+	return ok
+}
+
+// Engine-side wrapper around `mrb.load_bytecode` for loading the precompiled
+// ruby_api files at engine init time. Engine api bytecode failing is fatal
+// (it's our own code, not user code) so we panic with a clear message instead
+// of returning to the caller. Generated bin/build code calls this for each
+// `ruby_api/*__generated.bin`.
+load_engine_bytecode :: proc(name: string, bytecode: []u8) {
+	mrb.load_bytecode(g.mrb_state, bytecode)
+	if mrb.has_exception(g.mrb_state) {
+		log.errorf("Failed to instantiate engine component: %s", name)
+		panic("EXITING")
+	}
+}
+
+// load and execute main.rb
+load_main_rb :: proc() {
+	if !file_exists("main.rb") {
+		// TODO: Create helpful hello world template
+		return
+	}
+
+	contents, ok := read_entire_file("main.rb")
+	if !ok { return }
+	defer delete(contents)
+
+	// set filename in global context for proper stack traces
+	mrb.ccontext_filename(g.mrb_state, g.mrb_ctx, "main.rb")
+
+	// set target class to Object class for top-level constant assignment
+	mrb.ccontext_set_target_class(g.mrb_ctx, mrb.class_get(g.mrb_state, "Object"))
+	mrb.ccontext_set_keep_lv(g.mrb_ctx, true)
+
+	// check if this is precompiled bytecode or source code
+	if mrb.is_bytecode(contents) {
+		// load_bytecode wires up target_class = Object so top-level
+		// constant assignment (e.g. `PLAYER = ...`) lands in the right
+		// place. Bottom-of-function exception check handles failure.
+		_ = mrb.load_bytecode(g.mrb_state, contents)
+	} else {
+		// load as source code
+		code_cstr := strings.clone_to_cstring(string(contents))
+		defer delete(code_cstr)
+		mrb.load_string_cxt(g.mrb_state, code_cstr, g.mrb_ctx)
+	}
+
+	if mrb.has_exception(g.mrb_state) {
+		handle_ruby_exception(g.mrb_state, mrb.current_exception(g.mrb_state), .INIT)
+		panic("[ENGINE] main.rb execution failed with exception")
+	}
 }

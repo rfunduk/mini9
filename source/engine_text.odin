@@ -44,7 +44,7 @@ ruby_text :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	offset: rl.Vector2 = {0, 0}
 
 	if argc == 4 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 
 		if "font" in hash {
 			if hash["font"] != mrb.NIL {
@@ -59,13 +59,13 @@ ruby_text :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			align = Text_Align(align_int)
 		}
 		if "rotation" in hash {
-			rotation = f32(to_f64(hash["rotation"]))
+			rotation = f32(mrb.to_f64(hash["rotation"]))
 		}
 		if "spacing" in hash {
-			spacing = f32(to_f64(hash["spacing"]))
+			spacing = f32(mrb.to_f64(hash["spacing"]))
 		}
 		if "scale" in hash {
-			scale = f32(to_f64(hash["scale"]))
+			scale = f32(mrb.to_f64(hash["scale"]))
 		}
 		if "color" in hash {
 			color = extract_native(rl.Color, hash["color"])^

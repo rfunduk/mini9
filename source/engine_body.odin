@@ -47,7 +47,7 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mask: Collision_Layer = 0
 
 	if argc == 1 {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "offset" in hash { offset = hash["offset"] }
 		if "size" in hash { size = hash["size"] }
 		if "layer" in hash { layer = Collision_Layer(mrb.integer(hash["layer"])) }
@@ -75,7 +75,7 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 create_body :: proc "c" (state: mrb.State, b: Body) -> mrb.Value {
 	context = global_context
 
-	b_ptr := ruby_allocate(Body, b)
+	b_ptr := mrb.alloc(g.mrb_state, b)
 
 	body_class := mrb.class_get(state, "Body")
 	ruby_obj := mrb.obj_new(state, body_class, 0, nil)
@@ -242,7 +242,7 @@ ruby_body_resolve_collisions :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 
 	slide := false
 	if argc == 2 && kwargs != mrb.NIL {
-		hash := parse_kwargs(g.mrb_state, kwargs)
+		hash := mrb.parse_kwargs(g.mrb_state, kwargs)
 		if "slide" in hash { slide = mrb.boolean(hash["slide"]) }
 	}
 
@@ -298,7 +298,7 @@ collision_info_order :: proc(lhs, rhs: Collision_Info) -> bool {
 }
 
 setup_body :: proc() {
-	c := create_data_class("Body")
+	c := mrb.get_data_class(g.mrb_state, "Body")
 
 	mrb.define_method(g.mrb_state, c, "init", cast(rawptr)ruby_body_init, 1)
 

@@ -16,7 +16,7 @@ ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "*", &argv, &argc)
 
 	if argc == 0 {
-		panic("[ENGINE] ERROR: import() requires at least one argument")
+		return mrb.raise_error(state, "ArgumentError", "import() requires at least one argument")
 	}
 
 	args := (cast([^]mrb.Value)argv)[:argc]
@@ -59,7 +59,7 @@ ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	contents, ok := read_entire_file(filename)
 	if !ok {
-		return ruby_raise("RuntimeError", "Could not load module: %s", filename)
+		return mrb.raise_error(state, "RuntimeError", "Could not load module: %s", filename)
 	}
 	defer delete(contents)
 
@@ -72,40 +72,19 @@ ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.ccontext_set_target_class(g.mrb_ctx, mrb.class_get(state, "Object"))
 	mrb.ccontext_set_keep_lv(g.mrb_ctx, true)
 
-	// check if this is bytecode or source code
+	// check if this is precompiled bytecode or source code
 	result: mrb.Value
-	if is_mruby_bytecode(contents) {
-		// unfortunately this is just really hard to get working, mainly because
-		// load_string_cxt and load_irep_cxt do fundamentally different things.
-		// there is support here _in theory_ for doing this, but in practice it's
-		// not ready yet
-		panic("Not Implemented")
-
-		// // use proper pattern: read_irep_buf -> proc_new -> proc_set_target_class -> exec_irep
-		// irep := mrb.read_irep_buf(state, raw_data(contents), len(contents))
-		// if irep == nil {
-		// 	panic(fmt.tprintf("[ENGINE] ERROR: Could not read irep from %s", filename))
-		// }
-
-		// // create proc from irep
-		// rproc := mrb.proc_new(state, irep)
-		// if rproc == nil {
-		// 	panic(fmt.tprintf("[ENGINE] ERROR: Could not create proc from %s", filename))
-		// }
-
-		// // set target class for constant resolution
-		// target_class := mrb.class_get(state, "Object")
-		// mrb.proc_set_target_class(rproc, target_class)
-
-		// // execute with top_self context (same as source code loading)
-		// result = mrb.exec_irep(state, mrb.top_self(state), rproc)
+	if mrb.is_bytecode(contents) {
+		// load_bytecode wires up target_class = Object so top-level constant
+		// assignment in imported user files lands in the right place.
+		result = mrb.load_bytecode(state, contents)
 	} else {
 		// load as source code
 		code_cstr := strings.clone_to_cstring(string(contents), context.temp_allocator)
 		result = mrb.load_string_cxt(state, code_cstr, g.mrb_ctx)
 	}
 
-	if has_ruby_exception(state) {
+	if mrb.has_exception(state) {
 		log.errorf("Could not load %s", filename)
 		return mrb.NIL
 	}

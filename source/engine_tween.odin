@@ -1,5 +1,6 @@
 package engine
 
+import "core:log"
 import "core:math/ease"
 import "core:time"
 import mrb "lib:mruby"
@@ -44,7 +45,7 @@ create_tween :: proc(value_type: typeid) -> mrb.Value {
 		easing         = .Linear,
 		delay          = 0,
 	}
-	tween := ruby_allocate(Tween_Instance, t)
+	tween := mrb.alloc(g.mrb_state, t)
 
 	// initialize union value based on runtime type
 	switch value_type {
@@ -67,12 +68,19 @@ detect_tween_type :: proc(value: mrb.Value) -> typeid {
 	vec_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
 	if vec_ptr != nil { return rl.Vector2 }
 
+	// Color tweens are not yet implemented; reject upfront so we never
+	// construct a Tween_Instance whose setup path would later panic from
+	// a non-dispatch context (e.g. start_pending_tweens between frames).
 	color_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[rl.Color])
-	if color_ptr != nil { return rl.Color }
+	if color_ptr != nil {
+		mrb.raise_error(g.mrb_state, "NotImplementedError", "Color tweens are not yet supported")
+		return f32 // unreachable: ruby_raise longjmps via mrb.raise
+	}
 
 	if mrb.integer_p(value) || mrb.float_p(value) { return f32 }
 
-	panic("Only Vector2, Color, and numbers can be tweened.")
+	mrb.raise_error(g.mrb_state, "TypeError", "Only Vector2 and numbers can be tweened")
+	return f32 // unreachable: ruby_raise longjmps via mrb.raise
 }
 
 // RUBY FUNCTION: tween(from, to, duration, delay: 0, easing: Tween.LINEAR) { block } -> returns Tween object
@@ -90,7 +98,7 @@ ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	to_type := detect_tween_type(to_val)
 
 	if from_type != to_type {
-		return ruby_raise("TypeError", "tween from/to must be the same type")
+		return mrb.raise_error(state, "TypeError", "tween from/to must be the same type")
 	}
 
 	tween_obj := create_tween(from_type)
@@ -98,9 +106,9 @@ ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if tween == nil { return mrb.NIL }
 
 	if argc >= 4 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "delay" in hash {
-			tween.delay = to_f64(hash["delay"])
+			tween.delay = mrb.to_f64(hash["delay"])
 		}
 		if "easing" in hash {
 			easing_int := mrb.integer(hash["easing"])
@@ -147,12 +155,16 @@ start_or_queue_tween :: proc(tween: ^Tween_Instance) {
 			start_tween(tween, &v.x, to_vec.x, true)
 			start_tween(tween, &v.y, to_vec.y)
 		case f32:
-			from := to_f64(tween.from)
-			to := to_f64(tween.to)
+			from := mrb.to_f64(tween.from)
+			to := mrb.to_f64(tween.to)
 			v = f32(from)
 			start_tween(tween, &v, f32(to), true)
 		case rl.Color:
-			panic("Not implemented")
+			// unreachable: detect_tween_type rejects Color upfront. If we
+			// somehow got here we're outside any dispatch (called from
+			// start_pending_tweens between frames), so log and skip rather
+			// than longjmp via ruby_raise.
+			log.error("internal: Color tween reached setup path despite type check; skipping")
 		}
 	}
 }
@@ -198,7 +210,15 @@ tween_update_callback :: proc(flux: ^ease.Flux_Map(f32), data: rawptr) {
 
 call_update_proc :: proc(tween: ^Tween_Instance) {
 	if tween == nil || tween.update_block == mrb.NIL { return }
-	protected_yield(tween.update_block, tween.ruby_obj, .TWEEN_CALLBACK)
+	if !dispatch_yield(tween.update_block, tween.ruby_obj, .TWEEN_CALLBACK) {
+		// callback raised — disable it so we don't keep replaying the same
+		// error every frame (tween fires its callback on every flux tick).
+		// the tween's value continues to update through completion; the
+		// existing nil-check in tween_completion_callback handles teardown.
+		log.warnf("tween update callback raised; disabling it for the rest of this tween")
+		mrb.gc_unregister(g.mrb_state, tween.update_block)
+		tween.update_block = mrb.NIL
+	}
 }
 
 tween_completion_callback :: proc(flux: ^ease.Flux_Map(f32), data: rawptr) {
@@ -236,7 +256,10 @@ ruby_tween_value :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	case f32:
 		return mrb.word_boxing_float_value(state, f64(v))
 	case rl.Color:
-		panic("Not implemented")
+		// unreachable: detect_tween_type rejects Color upfront, so no
+		// Tween_Instance with rl.Color value can exist. Defensive raise
+		// in case the type-check is ever bypassed.
+		return mrb.raise_error(g.mrb_state, "NotImplementedError", "Color tweens are not yet supported")
 	}
 
 	return mrb.NIL
@@ -330,7 +353,7 @@ tween_time_left :: proc(self: mrb.Value) -> f64 {
 }
 
 setup_tween :: proc() {
-	c := create_data_class("Tween")
+	c := mrb.get_data_class(g.mrb_state, "Tween")
 
 	mrb.define_method(g.mrb_state, c, "value", cast(rawptr)ruby_tween_value, 0)
 	mrb.define_method(g.mrb_state, c, "running?", cast(rawptr)ruby_tween_running, 0)

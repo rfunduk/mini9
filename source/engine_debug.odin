@@ -61,7 +61,7 @@ ruby_log :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	for i in 0 ..< argc {
 		if i > 0 { strings.write_byte(&builder, ' ') }
-		formatted := ruby_format_value(state, args[i])
+		formatted := mrb.to_string(state, args[i])
 		strings.write_string(&builder, formatted)
 	}
 

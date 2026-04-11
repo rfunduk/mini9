@@ -88,6 +88,19 @@ rom_data_dump :: proc(rom_data: ^Rom_Data, use_compression := true) -> []u8 {
 	return final_result
 }
 
+// Free everything `rom_data_load` (via `parse_rom_data`) allocated:
+// the cloned path strings, the per-file byte slices, the underlying map
+// table, and the Rom_Data struct itself. Safe to call on a nil pointer.
+rom_data_free :: proc(rom_data: ^Rom_Data) {
+	if rom_data == nil { return }
+	for path, file_data in rom_data {
+		delete(path)
+		delete(file_data)
+	}
+	delete(rom_data^)
+	free(rom_data)
+}
+
 rom_data_load :: proc(data: []u8, rom_data: ^Rom_Data) -> bool {
 	header_size := len(ROM_MAGIC) + 2 + 4 + 1
 	if len(data) < header_size { return false }

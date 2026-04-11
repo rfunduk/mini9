@@ -98,6 +98,7 @@ FLAGS="
 	-out:$OUT_DIR/mini9 \
 	-define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a \
   -define:MRUBY_MACROS_LIB=../../build/$TARGET/macros.o \
+	-define:BYTECODE_PACKAGING=true \
 	-collection:lib=lib \
 	-vet-packages:engine,mrb \
 	-vet-style -vet-semicolon -vet-cast -vet \

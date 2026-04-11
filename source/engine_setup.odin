@@ -44,7 +44,7 @@ ruby_assert :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			msg_str := mrb.obj_as_string(state, msg_val)
 			msg = string(mrb.str_to_cstr(state, msg_str))
 		}
-		return ruby_raise("RuntimeError", "Assertion error: %s", msg)
+		return mrb.raise_error(state, "RuntimeError", "Assertion error: %s", msg)
 	}
 	return mrb.NIL
 }
@@ -147,10 +147,10 @@ ruby_fps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if argc == 0 { return mrb.boxing_int_value(state, rl.GetFPS()) }
 
 	if g.phase != .INIT {
-		return ruby_raise("RuntimeError", "fps() can only be set during INIT phase")
+		return mrb.raise_error(state, "RuntimeError", "fps() can only be set during INIT phase")
 	}
 	if target_fps < 5 {
-		return ruby_raise("ArgumentError", "FPS must be >= 5")
+		return mrb.raise_error(state, "ArgumentError", "FPS must be >= 5")
 	}
 
 	g.fps = target_fps

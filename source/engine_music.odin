@@ -57,8 +57,8 @@ ruby_music_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 
 // helper to create Music DATA objects
 create_music :: proc(path: string) -> mrb.Value {
-	music_ptr := ruby_allocate(
-		Music,
+	music_ptr := mrb.alloc(
+		g.mrb_state,
 		Music{path = strings.clone(path), active = false, volume = 1.0, looping = true},
 	)
 
@@ -157,9 +157,9 @@ ruby_music_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if music == nil { return mrb.NIL }
 
 	if argc == 1 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
-		if "volume" in hash { music.volume = f32(to_f64(hash["volume"])) }
-		if "fade_in" in hash { music.fade_time = f32(to_f64(hash["fade_in"])) }
+		hash := mrb.parse_kwargs(state, kwargs)
+		if "volume" in hash { music.volume = f32(mrb.to_f64(hash["volume"])) }
+		if "fade_in" in hash { music.fade_time = f32(mrb.to_f64(hash["fade_in"])) }
 		if "loop" in hash { music.looping = mrb.boolean(hash["loop"]) }
 	}
 
@@ -219,8 +219,8 @@ ruby_music_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
+		hash := mrb.parse_kwargs(state, kwargs)
+		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
 	}
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {
@@ -251,8 +251,8 @@ ruby_music_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
+		hash := mrb.parse_kwargs(state, kwargs)
+		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
 	}
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {
@@ -303,7 +303,7 @@ ruby_music_set_volume :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	music := extract_native(Music, self)
 	if music == nil { return self }
 
-	new_volume := f32(to_f64(volume_val))
+	new_volume := f32(mrb.to_f64(volume_val))
 	music.volume = new_volume
 
 	// update Raylib volume if music is active
@@ -352,7 +352,7 @@ update_music_system :: proc(dt: f32) {
 }
 
 setup_music :: proc() {
-	mus := create_data_class("Music")
+	mus := mrb.get_data_class(g.mrb_state, "Music")
 	mrb.define_method(g.mrb_state, mus, "play", cast(rawptr)ruby_music_play, -1)
 	mrb.define_method(g.mrb_state, mus, "stop", cast(rawptr)ruby_music_stop, -1)
 	mrb.define_method(g.mrb_state, mus, "pause", cast(rawptr)ruby_music_pause, -1)

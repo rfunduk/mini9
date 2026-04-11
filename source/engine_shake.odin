@@ -35,7 +35,7 @@ create_shake :: proc() -> mrb.Value {
 		is_active  = false,
 	}
 	g.next_shake_id += 1
-	shake_ptr := ruby_allocate(Shake_Instance, s)
+	shake_ptr := mrb.alloc(g.mrb_state, s)
 
 	// add to global shake instances
 	append(&g.shake_instances, shake_ptr)
@@ -142,7 +142,7 @@ update_shake_system :: proc() {
 }
 
 setup_shake :: proc() {
-	c := create_data_class("Shake")
+	c := mrb.get_data_class(g.mrb_state, "Shake")
 	mrb.define_method(g.mrb_state, c, "shake", cast(rawptr)ruby_shake_shake, 3)
 	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_shake_offset, 0)
 }

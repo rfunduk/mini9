@@ -46,19 +46,22 @@ init_game_window :: proc() {
 
 get_rom_data :: proc(path: string) -> ^Rom_Data {
 	rom_file_data, read_err := os.read_entire_file(path, context.allocator)
-	if read_err == nil {
-		rom_data := new(Rom_Data)
-		if rom_data_load(rom_file_data, rom_data) {
-			log.infof("✓ Loaded ROM: %s (%d bytes)", path, len(rom_file_data))
-			return rom_data
-		} else {
-			log.errorf("Error: Failed to parse ROM file: %s", path)
-			os.exit(1)
-		}
-	} else {
+	if read_err != nil {
 		log.errorf("Error: Failed to read ROM file: %s", path)
 		os.exit(1)
 	}
+	// rom_data_load copies every file's bytes out into its own owned slice
+	// (parse_rom_data:191), so the raw buffer is dead the moment parsing
+	// finishes — free it instead of carrying 3.5MB twice.
+	defer delete(rom_file_data)
+
+	rom_data := new(Rom_Data)
+	if !rom_data_load(rom_file_data, rom_data) {
+		log.errorf("Error: Failed to parse ROM file: %s", path)
+		os.exit(1)
+	}
+	log.infof("✓ Loaded ROM: %s (%d bytes)", path, len(rom_file_data))
+	return rom_data
 }
 
 _read_entire_file :: proc(

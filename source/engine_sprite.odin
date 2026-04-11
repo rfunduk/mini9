@@ -42,13 +42,13 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	scale := rl.Vector2{1, 1}
 
 	if argc == 2 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "size" in hash { size = extract_native(rl.Vector2, hash["size"])^ }
 		if "frame" in hash { frame = uint(mrb.integer(hash["frame"])) }
 		if "frames" in hash { frames = uint(mrb.integer(hash["frames"])) }
 		if "fliph" in hash { fliph = mrb.boolean(hash["fliph"]) }
 		if "flipv" in hash { flipv = mrb.boolean(hash["flipv"]) }
-		if "rotation" in hash { rotation = f32(to_f64(hash["rotation"])) }
+		if "rotation" in hash { rotation = f32(mrb.to_f64(hash["rotation"])) }
 		if "offset" in hash { offset = extract_native(rl.Vector2, hash["offset"])^ }
 		if "scale" in hash { scale = extract_native(rl.Vector2, hash["scale"])^ }
 
@@ -58,7 +58,9 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 	}
 
-	if !found_atlas { panic("Sprite requires a texture to use as atlas!") }
+	if !found_atlas {
+		return mrb.raise_error(state, "ArgumentError", "Sprite requires a texture to use as atlas")
+	}
 
 	sprite_obj := create_sprite(
 		Sprite {
@@ -84,7 +86,7 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 create_sprite :: proc(s: Sprite) -> mrb.Value {
 	context = global_context
 
-	spr_ptr := ruby_allocate(Sprite, s)
+	spr_ptr := mrb.alloc(g.mrb_state, s)
 
 	sprite_class := mrb.class_get(g.mrb_state, "Sprite")
 	ruby_obj := mrb.obj_new(g.mrb_state, sprite_class, 0, nil)
@@ -241,7 +243,7 @@ ruby_sprite_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	sprite := extract_native(Sprite, self)
 	if sprite == nil { return mrb.NIL }
 
-	sprite.rotation = f32(to_f64(rotation_val))
+	sprite.rotation = f32(mrb.to_f64(rotation_val))
 
 	return self
 }
@@ -285,7 +287,7 @@ ruby_sprite_set_rotation_degrees :: proc "c" (state: mrb.State, self: mrb.Value)
 	sprite := extract_native(Sprite, self)
 	if sprite == nil { return mrb.NIL }
 
-	sprite.rotation = f32(to_f64(rotation_val) * math.PI / 180.0)
+	sprite.rotation = f32(mrb.to_f64(rotation_val) * math.PI / 180.0)
 
 	return self
 }
@@ -307,7 +309,7 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip := false
 
 	if argc == 2 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
 	}
 
@@ -350,7 +352,7 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 setup_sprite :: proc() {
-	c := create_data_class("Sprite")
+	c := mrb.get_data_class(g.mrb_state, "Sprite")
 
 	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_sprite_get_size, 0)
 	mrb.define_method(g.mrb_state, c, "size=", cast(rawptr)ruby_sprite_set_size, 1)

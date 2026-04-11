@@ -88,7 +88,9 @@ foreign lib {
 
 	// string operations
 	obj_as_string :: proc(state: State, obj: Value) -> Value ---
-	string_value_cstr :: proc(state: State, str_obj: Value) -> cstring ---
+	// note: mrb_string_value_cstr takes mrb_value* (pointer), not by value —
+	// mruby may modify str in place (e.g. to ensure NUL-termination)
+	string_value_cstr :: proc(state: State, str: ^Value) -> cstring ---
 	str_to_cstr :: proc(state: State, str: Value) -> cstring ---
 	str_new_cstr :: proc(state: State, str: cstring) -> Value ---
 
@@ -205,4 +207,15 @@ foreign macros {
 	proc_set_target_class :: proc(state: State, rproc: rawptr, target_class: rawptr) ---
 	proc_arity :: proc(val: Value) -> Int ---
 	method_arity :: proc(state: State, obj: Value, mid: Sym) -> Int ---
+
+	// Exception operations - reads RException->mesg directly (no funcall,
+	// no interpreter state required - safe to call from inside error handling)
+	exc_mesg :: proc(state: State, exc: Value) -> Value ---
+
+	// Load precompiled irep at top level with target_class wired up to Object,
+	// the way mrb_load_exec does for source-loaded files. The stock
+	// mrb_load_irep_cxt skips the target_class setup, which makes top-level
+	// constant assignment (e.g. `FOO = ...` in a user main.rb) silently break.
+	// Use this instead of load_irep_cxt for any user-authored .rb file.
+	load_irep_top :: proc(state: State, buf: rawptr, bufsize: c.size_t) -> Value ---
 }

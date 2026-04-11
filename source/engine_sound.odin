@@ -98,8 +98,8 @@ ruby_sound_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 create_sound :: proc(path: string, polyphony: int = 8) -> mrb.Value {
-	sound_ptr := ruby_allocate(
-		Sound,
+	sound_ptr := mrb.alloc(
+		g.mrb_state,
 		Sound {
 			path = strings.clone(path),
 			max_poly = polyphony,
@@ -226,7 +226,7 @@ ruby_sound :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	polyphony := 8 // default polyphony
 
 	if argc == 2 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "polyphony" in hash {
 			polyphony = int(mrb.integer(hash["polyphony"]))
 		}
@@ -268,9 +268,9 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	// parse kwargs
 	if argc == 1 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
-		if "pitch" in hash { pitch = f32(to_f64(hash["pitch"])) }
-		if "volume" in hash { volume = f32(to_f64(hash["volume"])) }
+		hash := mrb.parse_kwargs(state, kwargs)
+		if "pitch" in hash { pitch = f32(mrb.to_f64(hash["pitch"])) }
+		if "volume" in hash { volume = f32(mrb.to_f64(hash["volume"])) }
 	}
 
 	// configure instance
@@ -299,8 +299,8 @@ ruby_sound_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
+		hash := mrb.parse_kwargs(state, kwargs)
+		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
 	}
 
 	for &instance in sound.instances {
@@ -333,8 +333,8 @@ ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(to_f64(hash["fade_out"])) }
+		hash := mrb.parse_kwargs(state, kwargs)
+		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
 	}
 
 	for &instance in sound.instances {
@@ -384,7 +384,7 @@ update_audio_system :: proc(dt: f32) {
 }
 
 setup_sound :: proc() {
-	snd := create_data_class("Sound")
+	snd := mrb.get_data_class(g.mrb_state, "Sound")
 	mrb.define_method(g.mrb_state, snd, "play", cast(rawptr)ruby_sound_play, -1)
 	mrb.define_method(g.mrb_state, snd, "stop", cast(rawptr)ruby_sound_stop, -1)
 	mrb.define_method(g.mrb_state, snd, "pause", cast(rawptr)ruby_sound_pause, -1)

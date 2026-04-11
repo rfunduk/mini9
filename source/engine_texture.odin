@@ -37,7 +37,7 @@ load_texture :: proc(path: cstring, ruby_obj: mrb.Value) -> ^Texture {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
 	if !ok {
-		ruby_raise("RuntimeError", "Could not load texture file: %s", path_str)
+		mrb.raise_error(g.mrb_state, "RuntimeError", "Could not load texture file: %s", path_str)
 		return nil
 	}
 	defer delete(file_data)
@@ -68,7 +68,7 @@ create_texture :: proc(path: string) -> mrb.Value {
 	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path, context.temp_allocator))
 	mrb.iv_set(g.mrb_state, ruby_obj, path_sym, path_val)
 
-	texture_ptr := ruby_allocate(Texture, Texture{})
+	texture_ptr := mrb.alloc(g.mrb_state, Texture{})
 	mrb.data_init(ruby_obj, texture_ptr, NATIVE_TO_MRUBY_TYPE[Texture])
 
 	// if we're in UPDATE phase (window initialized), load immediately
@@ -133,7 +133,7 @@ ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip := false
 
 	if argc == 2 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
 	}
 
@@ -146,7 +146,7 @@ ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 setup_texture :: proc() {
-	c := create_data_class("Texture")
+	c := mrb.get_data_class(g.mrb_state, "Texture")
 	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_texture_get_size, 0)
 	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_texture_draw, 1)
 }

@@ -11,7 +11,7 @@ ruby_vector2_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 create_vector2 :: proc(v: rl.Vector2) -> mrb.Value {
-	vec_ptr := ruby_allocate(rl.Vector2, v)
+	vec_ptr := mrb.alloc(g.mrb_state, v)
 
 	vector_class := mrb.class_get(g.mrb_state, "Vector2")
 	ruby_obj := mrb.obj_new(g.mrb_state, vector_class, 0, nil)
@@ -58,7 +58,7 @@ ruby_vector2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	old_vec := extract_native(rl.Vector2, self)
 	if old_vec == nil { return mrb.NIL }
 
-	new_vec_ptr := ruby_allocate(rl.Vector2, rl.Vector2{f32(new_x), old_vec.y})
+	new_vec_ptr := mrb.alloc(g.mrb_state, rl.Vector2{f32(new_x), old_vec.y})
 	mrb.data_init(self, new_vec_ptr, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
 
 	return mrb.word_boxing_float_value(state, new_x)
@@ -73,7 +73,7 @@ ruby_vector2_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	old_vec := extract_native(rl.Vector2, self)
 	if old_vec == nil { return mrb.NIL }
 
-	new_vec_ptr := ruby_allocate(rl.Vector2, rl.Vector2{old_vec.x, f32(new_y)})
+	new_vec_ptr := mrb.alloc(g.mrb_state, rl.Vector2{old_vec.x, f32(new_y)})
 	mrb.data_init(self, new_vec_ptr, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
 
 	return mrb.word_boxing_float_value(state, new_y)
@@ -308,7 +308,7 @@ ruby_vector2_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	delta := f32(delta64)
 
 	if self_vec == nil || to_vec == nil {
-		return ruby_raise("TypeError", "move_toward: argument must be a Vector2")
+		return mrb.raise_error(state, "TypeError", "move_toward: argument must be a Vector2")
 	}
 
 	len := lin.length(to_vec^ - self_vec^)
@@ -409,7 +409,7 @@ ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	// parse wrap kwarg (default false)
 	wrap := false
 	if kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "wrap" in hash { wrap = mrb.boolean(hash["wrap"]) }
 	}
 
@@ -433,7 +433,7 @@ ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 }
 
 setup_vector2 :: proc() {
-	c := create_data_class("Vector2")
+	c := mrb.get_data_class(g.mrb_state, "Vector2")
 
 	mrb.define_method(g.mrb_state, c, "new", cast(rawptr)ruby_v2, -1)
 	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_vector2_get_x, 0)

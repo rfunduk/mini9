@@ -8,60 +8,48 @@ import rl "vendor:raylib"
 
 ERROR_RED :: rl.Color{200, 50, 50, 255}
 
-// helper to check for Ruby exceptions
-has_ruby_exception :: proc(state: mrb.State) -> bool {
-	// on 64-bit systems, exc field is at offset 32 (5th pointer)
-	// on 32-bit systems, it would be at offset 16
-	offset: uintptr = 32
-	when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 { offset = 16 }
-	exc_ptr := cast(^rawptr)(uintptr(state) + offset)
-	return exc_ptr^ != nil
-}
-
-handle_ruby_exception :: proc(exception: mrb.Value, ctx: Ruby_Call_Context) {
-	// try different approaches to extract the error message
+handle_ruby_exception :: proc(state: mrb.State, exception: mrb.Value, ctx: Ruby_Call_Context) {
 	error_str := "Ruby error occurred"
 
-	// approach 1: Try to get the exception class name
+	// get the exception class name (e.g. "NoMethodError", "TypeError")
 	if exception != mrb.NIL {
-		class_name := mrb.obj_classname(g.mrb_state, exception)
+		class_name := mrb.obj_classname(state, exception)
 		if class_name != nil {
 			class_str := string(cstring(class_name))
 			error_str = fmt.tprintf("%s occurred", class_str)
 		}
 	}
 
-	// approach 2: Try accessing message via mrb.iv_get (instance variable)
-	mesg_sym := mrb.intern_cstr(g.mrb_state, "mesg")
-	mesg_val := mrb.iv_get(g.mrb_state, exception, mesg_sym)
-	if mesg_val != mrb.NIL {
-		// try to convert message to string safely
-		if mesg_str := mrb.string_value_cstr(g.mrb_state, mesg_val); mesg_str != nil {
-			message := string(cstring(mesg_str))
-			error_str = fmt.tprintf("%s: %s", error_str, message)
-			log.errorf("Got exception message: %s", message)
+	// extract the message by reading RException->mesg directly. mruby
+	// stores exception messages as a struct field, NOT in the iv table,
+	// so iv_get(exc, "mesg") always returns NIL. Going through the struct
+	// field also means no funcall — safe to call here even though
+	// mrb_state->exc is still set.
+	if exception != mrb.NIL {
+		mesg_val := mrb.exc_mesg(state, exception)
+		if mesg_val != mrb.NIL && mrb.string_p(mesg_val) {
+			if mesg_str := mrb.string_value_cstr(state, &mesg_val); mesg_str != nil {
+				message := string(cstring(mesg_str))
+				if len(message) > 0 {
+					error_str = fmt.tprintf("%s: %s", error_str, message)
+				}
+			}
 		}
 	}
 
 	// get backtrace using mruby's built-in function
 	backtrace := ""
 
-	// temporarily restore exception state for mrb_exc_backtrace
-	offset: uintptr = 32 // mrb->exc offset on 64-bit
-	when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 { offset = 16 }
-	exc_ptr := cast(^rawptr)(uintptr(g.mrb_state) + offset)
-
-	old_exc := exc_ptr^
-	exc_ptr^ = cast(rawptr)exception.w
-
-	// backtrace printing is handled in the conditional branches below
+	// temporarily install our exception so mrb_print_backtrace / mrb_exc_backtrace
+	// see it on the live VM, then restore whatever was there before.
+	old_exc := mrb.swap_exception(state, exception)
 
 	// extract backtrace for overlay
-	backtrace_array := mrb.exc_backtrace(g.mrb_state, exception)
+	backtrace_array := mrb.exc_backtrace(state, exception)
 	if mrb.array_p(backtrace_array) {
 		first_entry := mrb.ary_entry(backtrace_array, 0)
 		if first_entry != mrb.NIL {
-			if entry_cstr := mrb.str_to_cstr(g.mrb_state, first_entry); entry_cstr != nil {
+			if entry_cstr := mrb.str_to_cstr(state, first_entry); entry_cstr != nil {
 				backtrace_line := string(cstring(entry_cstr))
 				backtrace = fmt.tprintf("\n  at %s", backtrace_line)
 			}
@@ -70,10 +58,10 @@ handle_ruby_exception :: proc(exception: mrb.Value, ctx: Ruby_Call_Context) {
 
 	// SAFE_DISPATCH is off - print to console only
 	log.errorf("Ruby exception in %v -\n\n%s\n\n", ctx, error_str)
-	mrb.print_backtrace(g.mrb_state)
+	mrb.print_backtrace(state)
 
 	// restore exception state
-	exc_ptr^ = old_exc
+	_ = mrb.swap_exception(state, old_exc)
 
 	when #config(SAFE_DISPATCH, false) {
 		// show overlay when SAFE_DISPATCH is enabled
@@ -85,6 +73,53 @@ handle_ruby_exception :: proc(exception: mrb.Value, ctx: Ruby_Call_Context) {
 			log.infof("(tween continues...)")
 		}
 	}
+}
+
+// Greedy word-wrap that preserves existing newlines. Each "paragraph"
+// (substring between \n) is broken at word boundaries so the rendered
+// width never exceeds max_width. Returned string lives in temp_allocator.
+@(private)
+wrap_text :: proc(text: string, font: rl.Font, font_size, spacing, max_width: f32) -> string {
+	out := strings.builder_make(context.temp_allocator)
+	line := strings.builder_make(context.temp_allocator)
+
+	flush_line :: proc(out, line: ^strings.Builder) {
+		strings.write_string(out, strings.to_string(line^))
+		strings.builder_reset(line)
+	}
+
+	for paragraph, p_idx in strings.split(text, "\n", context.temp_allocator) {
+		if p_idx > 0 { strings.write_byte(&out, '\n') }
+		strings.builder_reset(&line)
+
+		for word in strings.split(paragraph, " ", context.temp_allocator) {
+			if len(word) == 0 { continue }
+
+			candidate: string
+			if strings.builder_len(line) == 0 {
+				candidate = word
+			} else {
+				candidate = fmt.tprintf("%s %s", strings.to_string(line), word)
+			}
+			cstr := strings.clone_to_cstring(candidate, context.temp_allocator)
+			size := rl.MeasureTextEx(font, cstr, font_size, spacing)
+
+			if size.x > max_width && strings.builder_len(line) > 0 {
+				flush_line(&out, &line)
+				strings.write_byte(&out, '\n')
+				strings.write_string(&line, word)
+			} else {
+				if strings.builder_len(line) > 0 {
+					strings.write_byte(&line, ' ')
+				}
+				strings.write_string(&line, word)
+			}
+		}
+
+		if strings.builder_len(line) > 0 { flush_line(&out, &line) }
+	}
+
+	return strings.to_string(out)
 }
 
 show_error_overlay :: proc(error_message: string, ctx: string) {
@@ -106,8 +141,15 @@ show_error_overlay :: proc(error_message: string, ctx: string) {
 	header_cstr := strings.clone_to_cstring(header_text, context.temp_allocator)
 	rl.DrawTextEx(g.fonts.medium, header_cstr, {10, 10}, f32(g.fonts.medium.baseSize), 1.0, rl.WHITE)
 
-	// draw error message (word wrapped)
-	message_cstr := strings.clone_to_cstring(error_message, context.temp_allocator)
+	// draw error message, word-wrapped to the overlay width (with side padding)
+	wrapped := wrap_text(
+		error_message,
+		g.fonts.small,
+		f32(g.fonts.small.baseSize),
+		1.0,
+		f32(overlay_w - 20),
+	)
+	message_cstr := strings.clone_to_cstring(wrapped, context.temp_allocator)
 	rl.DrawTextEx(g.fonts.small, message_cstr, {10, 60}, f32(g.fonts.small.baseSize), 1.0, rl.WHITE)
 
 	// draw dismiss instruction

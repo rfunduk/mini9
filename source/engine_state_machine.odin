@@ -62,7 +62,7 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	update_proc := mrb.NIL
 
 	if argc >= 2 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "enter" in hash { enter_proc = hash["enter"] }
 		if "exit" in hash { exit_proc = hash["exit"] }
 		if "update" in hash { update_proc = hash["update"] }
@@ -86,7 +86,7 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		update_arity = get_proc_arity(update_proc),
 		exit_arity   = get_proc_arity(exit_proc),
 	}
-	state_ptr := ruby_allocate(State, s)
+	state_ptr := mrb.alloc(g.mrb_state, s)
 
 	// GC register the procs and data
 	if data_obj != mrb.NIL { mrb.gc_register(state, data_obj) }
@@ -109,7 +109,7 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	kwargs: mrb.Value
 	mrb.get_args(state, "H", &kwargs)
 
-	hash := parse_kwargs(state, kwargs)
+	hash := mrb.parse_kwargs(state, kwargs)
 
 	default_name := mrb.NIL
 	states_array := mrb.NIL
@@ -125,7 +125,7 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		default_name  = default_name,
 		states        = states_array,
 	}
-	fsm_ptr := ruby_allocate(FSM, f)
+	fsm_ptr := mrb.alloc(g.mrb_state, f)
 
 	// GC register after allocation since we now have a ref
 	mrb.gc_register(state, states_array)
@@ -327,14 +327,14 @@ ruby_state_transition :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 
 setup_state_machine :: proc() {
 	// Setup State class
-	sc := create_data_class("State")
+	sc := mrb.get_data_class(g.mrb_state, "State")
 	mrb.define_method(g.mrb_state, sc, "name", cast(rawptr)ruby_state_name, 0)
 	mrb.define_method(g.mrb_state, sc, "data", cast(rawptr)ruby_state_data, 0)
 	mrb.define_method(g.mrb_state, sc, "fsm", cast(rawptr)ruby_state_fsm, 0)
 	mrb.define_method(g.mrb_state, sc, "transition", cast(rawptr)ruby_state_transition, 1)
 
 	// Setup FSM class
-	fc := create_data_class("FSM")
+	fc := mrb.get_data_class(g.mrb_state, "FSM")
 	mrb.define_method(g.mrb_state, fc, "init", cast(rawptr)ruby_fsm_init, 1)
 	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, 1)
 	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, 1)

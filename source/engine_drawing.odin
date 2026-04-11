@@ -16,7 +16,7 @@ ruby_pixel :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	draw_color := rl.Color{255, 255, 255, 255}
 
 	if argc == 2 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
 	}
 
@@ -34,14 +34,14 @@ ruby_circle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	pos_vec := extract_native(rl.Vector2, pos_val)
 	pos := lin.floor(pos_vec^)
-	radius := f32(to_f64(r_val))
+	radius := f32(mrb.to_f64(r_val))
 
 	draw_color := rl.Color{255, 255, 255, 255} // Default to white
 	filled: bool = false
 	did_clip: bool = false
 
 	if argc == 3 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
 		if "filled" in hash { filled = mrb.boolean(hash["filled"]) }
 		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
@@ -76,7 +76,7 @@ ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip: bool = false
 
 	if argc == 3 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
 		if "filled" in hash { filled = mrb.boolean(hash["filled"]) }
 		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
@@ -115,9 +115,9 @@ ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip: bool = false
 
 	if kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "thickness" in hash { thickness = to_f64(hash["thickness"]) }
+		if "thickness" in hash { thickness = mrb.to_f64(hash["thickness"]) }
 		if "clip" in hash { did_clip = _clip(hash["clip"], from) }
 	}
 
@@ -150,11 +150,11 @@ ruby_rectangle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip: bool = false
 
 	if argc == 3 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "rounded" in hash { rounded = f32(to_f64(hash["rounded"])) / 100.0 }
-		if "thickness" in hash { thickness = f32(to_f64(hash["thickness"])) }
+		if "rounded" in hash { rounded = f32(mrb.to_f64(hash["rounded"])) / 100.0 }
+		if "thickness" in hash { thickness = f32(mrb.to_f64(hash["thickness"])) }
 		if "filled" in hash { filled = mrb.boolean(hash["filled"]) }
 		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
 	}

@@ -9,7 +9,7 @@ import rl "vendor:raylib"
 Collision_Layer :: u16
 
 setup_collision :: proc() {
-	c := create_data_class("CollisionInfo")
+	c := mrb.get_data_class(g.mrb_state, "CollisionInfo")
 	mrb.define_method(g.mrb_state, c, "point", cast(rawptr)ruby_collision_info_get_point, 0)
 	mrb.define_method(g.mrb_state, c, "normal", cast(rawptr)ruby_collision_info_get_normal, 0)
 	mrb.define_method(g.mrb_state, c, "t", cast(rawptr)ruby_collision_info_get_t, 0)
@@ -31,7 +31,7 @@ ruby_collisioninfo_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 create_collision_info :: proc(c: Collision_Info) -> mrb.Value {
-	c_ptr := ruby_allocate(Collision_Info, c)
+	c_ptr := mrb.alloc(g.mrb_state, c)
 
 	c_class := mrb.class_get(g.mrb_state, "CollisionInfo")
 	ruby_obj := mrb.obj_new(g.mrb_state, c_class, 0, nil)

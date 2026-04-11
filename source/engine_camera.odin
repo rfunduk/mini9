@@ -24,8 +24,8 @@ create_camera :: proc(target: rl.Vector2, zoom: f32, offset: rl.Vector2) -> mrb.
 		offset = offset,
 	}
 
-	camera_ptr := ruby_allocate(
-		Camera_Instance,
+	camera_ptr := mrb.alloc(
+		g.mrb_state,
 		Camera_Instance{active = true, rl_camera = initial_camera, original_camera = initial_camera},
 	)
 	g.camera = initial_camera
@@ -55,10 +55,10 @@ ruby_camera :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	offset := g.resolution / 2
 
 	if kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 		if "target" in hash { target = extract_native(rl.Vector2, hash["target"])^ }
 		if "offset" in hash { offset = extract_native(rl.Vector2, hash["offset"])^ }
-		if "zoom" in hash { zoom = to_f64(hash["zoom"]) }
+		if "zoom" in hash { zoom = mrb.to_f64(hash["zoom"]) }
 	}
 
 	return create_camera(target, f32(zoom), offset)
@@ -140,7 +140,7 @@ ruby_camera_set_zoom :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 	camera := extract_native(Camera_Instance, self)
 	if camera == nil { return mrb.NIL }
 
-	zoom := to_f64(zoom_val)
+	zoom := mrb.to_f64(zoom_val)
 	if zoom <= 0 { zoom = 1.0 }
 	camera.rl_camera.zoom = f32(zoom)
 
@@ -209,7 +209,7 @@ ruby_camera_reset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	reset_zoom := true
 
 	if argc == 1 && kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 
 		if "target" in hash {
 			reset_target = hash["target"] != mrb.FALSE
@@ -248,7 +248,7 @@ reset_camera_system :: proc() {
 }
 
 setup_camera :: proc() {
-	c := create_data_class("Camera")
+	c := mrb.get_data_class(g.mrb_state, "Camera")
 
 	mrb.define_method(g.mrb_state, c, "active=", cast(rawptr)ruby_camera_set_active, 1)
 	mrb.define_method(g.mrb_state, c, "active", cast(rawptr)ruby_camera_get_active, 0)

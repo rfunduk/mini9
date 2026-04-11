@@ -51,7 +51,7 @@ create_anim :: proc(interval: f32, direction: i32, mode: Animation_Mode, values:
 		mode               = mode,
 		values             = actual_values,
 	}
-	anim_ptr := ruby_allocate(Anim, a)
+	anim_ptr := mrb.alloc(g.mrb_state, a)
 
 	mrb.gc_register(g.mrb_state, actual_values)
 
@@ -70,11 +70,11 @@ ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	kwargs: mrb.Value
 	mrb.get_args(state, "H", &kwargs)
 
-	hash := parse_kwargs(state, kwargs)
+	hash := mrb.parse_kwargs(state, kwargs)
 
 	// required: interval
 	interval: f32 = 0.1
-	if "interval" in hash { interval = f32(to_f64(hash["interval"])) }
+	if "interval" in hash { interval = f32(mrb.to_f64(hash["interval"])) }
 
 	// required: frames
 	values := mrb.NIL
@@ -104,7 +104,7 @@ ruby_anim_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	anim := extract_native(Anim, self)
 	if anim == nil { return mrb.NIL }
 
-	dt := f32(to_f64(dt_val))
+	dt := f32(mrb.to_f64(dt_val))
 	anim.timer -= dt
 	if anim.timer > 0 { return mrb.NIL }
 
@@ -263,7 +263,7 @@ ruby_anim_last_frame :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 }
 
 setup_animation :: proc() {
-	c := create_data_class("Anim")
+	c := mrb.get_data_class(g.mrb_state, "Anim")
 
 	mrb.define_method(g.mrb_state, c, "update", cast(rawptr)ruby_anim_update, 1)
 	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_anim_reset, 0)

@@ -7,8 +7,10 @@
 #include <mruby/class.h>
 #include <mruby/compile.h>
 #include <mruby/data.h>
+#include <mruby/dump.h>
 #include <mruby/gc.h>
 #include <mruby/irep.h>
+#include <mruby/error.h>
 #include <mruby/proc.h>
 #include <mruby/value.h>
 #include <mruby/internal.h>
@@ -92,4 +94,47 @@ mrb_int mrbm_method_arity(mrb_state* mrb, mrb_value obj, mrb_sym mid) {
     if (MRB_METHOD_UNDEF_P(m)) return -2;
     if (!MRB_METHOD_PROC_P(m)) return -1;
     return mrb_proc_arity(MRB_METHOD_PROC(m));
+}
+
+/* Read an exception's message string directly from RException->mesg.
+ * mruby stores exception messages on the struct, NOT in the iv table —
+ * so iv_get(exc, "mesg") doesn't work. This wraps the internal accessor.
+ * Returns nil if the value isn't an exception or has no message. */
+mrb_value mrbm_exc_mesg(mrb_state* mrb, mrb_value exc) {
+    if (mrb_nil_p(exc)) return mrb_nil_value();
+    return mrb_exc_mesg_get(mrb, mrb_exc_ptr(exc));
+}
+
+/* Load a precompiled irep at top level, replicating what mrb_load_exec does
+ * for source-loaded files. The stock mrb_load_irep_cxt skips the target_class
+ * wiring that top-level constant assignment (P = ..., FOO = ...) requires,
+ * which is why straight bytecode loading doesn't work for user main.rb even
+ * though it works fine for engine API files (those only define classes and
+ * methods, no top-level constants on Object).
+ *
+ * Returns the result of execution, or undef on irep load error (with
+ * mrb->exc set to a SCRIPT_ERROR). */
+mrb_value mrbm_load_irep_top(mrb_state* mrb, const void* buf, size_t bufsize) {
+    mrb_irep* irep = mrb_read_irep_buf(mrb, buf, bufsize);
+    if (!irep) {
+        /* mirror what mruby's own load.c does — direct assign, no public setter */
+        mrb->exc = mrb_obj_ptr(mrb_exc_new_lit(mrb, E_SCRIPT_ERROR, "irep load error"));
+        return mrb_undef_value();
+    }
+
+    struct RProc* proc = mrb_proc_new(mrb, irep);
+    if (!proc) {
+        return mrb_undef_value();
+    }
+    proc->c = NULL;
+
+    /* the three things mrb_load_irep_cxt forgets: target_class on the proc,
+     * target_class on the current callinfo, and a top_run that respects them. */
+    struct RClass* target = mrb->object_class;
+    MRB_PROC_SET_TARGET_CLASS(proc, target);
+    if (mrb->c->ci) {
+        mrb_vm_ci_target_class_set(mrb->c->ci, target);
+    }
+
+    return mrb_top_run(mrb, proc, mrb_top_self(mrb), 0);
 }

@@ -19,11 +19,13 @@ package main
 //
 // rules:
 //   no-defer-before-raise
-//     ruby_raise() longjmps via mrb.raise and never returns to the call
-//     site - any defer that is active in an enclosing scope at the moment
-//     of the call will be skipped, leaking whatever it was supposed to free.
-//     this rule flags any ruby_raise call that has an active defer
-//     lexically before it in the same proc body.
+//     mrb.raise_error() longjmps via mrb_raise and never returns to the
+//     call site - any defer that is active in an enclosing scope at the
+//     moment of the call will be skipped, leaking whatever it was supposed
+//     to free. this rule flags any raise_error call that has an active
+//     defer lexically before it in the same proc body. matches both bare
+//     `raise_error` (Ident) and `mrb.raise_error` (Selector_Expr) so the
+//     check works regardless of how the helper is invoked.
 
 import "core:fmt"
 import "core:odin/ast"
@@ -52,7 +54,7 @@ Rule :: struct {
 RULES := []Rule {
 	{
 		name = "no-defer-before-raise",
-		description = "ruby_raise must not be called when a defer is active in any enclosing scope",
+		description = "mrb.raise_error must not be called when a defer is active in any enclosing scope",
 		check = check_no_defer_before_raise,
 	},
 }
@@ -196,10 +198,18 @@ defer_rule_on_enter :: proc(v: ^Visitor, node: ^ast.Node) {
 		defer_record(s, n.pos)
 
 	case ^ast.Call_Expr:
-		if ident, ok := n.expr.derived.(^ast.Ident); ok {
-			if ident.name == "ruby_raise" {
-				report_active_defers(s, n.pos)
-			}
+		// callee can be either a bare ident (`raise_error(...)`) or a
+		// selector (`mrb.raise_error(...)`). either way the trailing
+		// identifier is what we match against.
+		callee_name := ""
+		#partial switch callee in n.expr.derived {
+		case ^ast.Ident:
+			callee_name = callee.name
+		case ^ast.Selector_Expr:
+			if callee.field != nil { callee_name = callee.field.name }
+		}
+		if callee_name == "raise_error" {
+			report_active_defers(s, n.pos)
 		}
 	}
 }
@@ -226,7 +236,7 @@ report_active_defers :: proc(s: ^Defer_Rule_State, raise_pos: tokenizer.Pos) {
 					rule = "no-defer-before-raise",
 					pos = raise_pos,
 					message = fmt.aprintf(
-						"ruby_raise called with active defer (declared at %s:%d:%d) - defer would be skipped by longjmp",
+						"raise_error called with active defer (declared at %s:%d:%d) - defer would be skipped by longjmp",
 						filepath.base(defer_pos.file),
 						defer_pos.line,
 						defer_pos.column,

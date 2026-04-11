@@ -39,7 +39,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	visible := true
 
 	if kwargs != mrb.NIL {
-		hash := parse_kwargs(state, kwargs)
+		hash := mrb.parse_kwargs(state, kwargs)
 
 		if "pos" in hash {
 			pos_ptr := extract_native(rl.Vector2, hash["pos"])
@@ -49,15 +49,15 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 				return mrb.NIL
 			}
 			pos_vec = pos_ptr^
-			ruby_hash_delete(state, kwargs, "pos")
+			mrb.hash_delete_by_string(state, kwargs, "pos")
 		}
 		if "rotation" in hash {
-			rotation = f32(to_f64(hash["rotation"]))
-			ruby_hash_delete(state, kwargs, "rotation")
+			rotation = f32(mrb.to_f64(hash["rotation"]))
+			mrb.hash_delete_by_string(state, kwargs, "rotation")
 		}
 		if "visible" in hash {
 			visible = mrb.boolean(hash["visible"])
-			ruby_hash_delete(state, kwargs, "visible")
+			mrb.hash_delete_by_string(state, kwargs, "visible")
 		}
 		if "scale" in hash {
 			scale_ptr := extract_native(rl.Vector2, hash["scale"])
@@ -67,7 +67,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 				return mrb.NIL
 			}
 			scale_vec = scale_ptr^
-			ruby_hash_delete(state, kwargs, "scale")
+			mrb.hash_delete_by_string(state, kwargs, "scale")
 		}
 	}
 
@@ -102,7 +102,7 @@ create_game_object :: proc(go: Game_Object, argc: c.int, argv: rawptr) -> mrb.Va
 	arena_idx := mrb.gc_arena_save(g.mrb_state)
 	defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
 
-	ptr := ruby_allocate(Game_Object, go)
+	ptr := mrb.alloc(g.mrb_state, go)
 
 	class := mrb.class_get(g.mrb_state, "GameObject")
 	ruby_obj := mrb.obj_new(g.mrb_state, class, argc, argv)
@@ -199,7 +199,7 @@ ruby_game_object_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) ->
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
 
-	obj.rotation = f32(to_f64(rotation_val))
+	obj.rotation = f32(mrb.to_f64(rotation_val))
 
 	return rotation_val
 }
@@ -213,7 +213,7 @@ ruby_game_object_set_rotation_deg :: proc "c" (state: mrb.State, self: mrb.Value
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
 
-	obj.rotation = f32(to_f64(rotation_val) * math.PI / 180.0)
+	obj.rotation = f32(mrb.to_f64(rotation_val) * math.PI / 180.0)
 
 	return rotation_val
 }
@@ -234,7 +234,7 @@ ruby_game_object_set_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 }
 
 setup_game_object :: proc() {
-	c := create_data_class("GameObject")
+	c := mrb.get_data_class(g.mrb_state, "GameObject")
 
 	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_game_object_get_pos, 0)
 	mrb.define_method(g.mrb_state, c, "pos=", cast(rawptr)ruby_game_object_set_pos, 1)

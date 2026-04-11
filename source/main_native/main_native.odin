@@ -25,6 +25,17 @@ main :: proc() {
 		tracking_allocator: mem.Tracking_Allocator
 		mem.tracking_allocator_init(&tracking_allocator, default_allocator)
 		context.allocator = mem.tracking_allocator(&tracking_allocator)
+
+		// `when` is compile-time only, so this defer is scoped to main()
+		// and fires on every exit path — including the early `return` from
+		// the `package` command, which previously bypassed the leak dump
+		// entirely (silently masking allocations in packager.odin).
+		defer {
+			for _, value in tracking_allocator.allocation_map {
+				log.errorf("%v: Leaked %v bytes", value.location, value.size)
+			}
+			mem.tracking_allocator_destroy(&tracking_allocator)
+		}
 	}
 
 	context.logger = log.create_console_logger(.Debug, {.Level, .Date, .Time, .Terminal_Color}, allocator = default_allocator)
@@ -38,7 +49,7 @@ main :: proc() {
 
 	// check if this is a packaging command
 	if args.command == "package" {
-		rom_data := packager(&args)
+		packager(&args)
 		return
 	}
 
@@ -71,14 +82,6 @@ main :: proc() {
 	free_all(context.temp_allocator)
 	engine.engine_shutdown()
 	engine.engine_shutdown_window()
-
-	when USE_TRACKING_ALLOCATOR {
-		for _, value in tracking_allocator.allocation_map {
-			log.errorf("%v: Leaked %v bytes", value.location, value.size)
-		}
-
-		mem.tracking_allocator_destroy(&tracking_allocator)
-	}
 }
 
 

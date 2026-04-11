@@ -1,7 +1,9 @@
 package engine
 
+import "core:log"
 import "core:math/ease"
 import "core:strings"
+import mrb "lib:mruby"
 import rl "vendor:raylib"
 
 
@@ -57,7 +59,17 @@ _engine_init :: proc(rom_data: ^Rom_Data) {
 	}
 
 	// initialize mruby system & load user code
-	init_ruby_api()
+	g.mrb_state = mrb.open()
+	if g.mrb_state == nil {
+		log.errorf("Failed to set up Ruby VM")
+		panic("EXITING")
+	}
+	g.mrb_ctx = mrb.ccontext_new(g.mrb_state)
+	if g.mrb_ctx == nil {
+		log.errorf("Failed to set up Ruby VM context")
+		panic("EXITING")
+	}
+	engine_init_ruby_api()
 	load_main_rb()
 	determine_game_callbacks()
 
@@ -173,7 +185,16 @@ _engine_update :: proc() {
 }
 
 _engine_shutdown :: proc() {
-	shutdown_ruby()
+	// shutdown mruby
+	if g.mrb_ctx != nil {
+		mrb.ccontext_free(g.mrb_state, g.mrb_ctx)
+		g.mrb_ctx = nil
+	}
+	if g.mrb_state != nil {
+		mrb.close(g.mrb_state)
+		g.mrb_state = nil
+	}
+
 	rl.CloseAudioDevice()
 	rl.UnloadRenderTexture(g.render_texture)
 	ease.flux_destroy(g.flux)
@@ -202,6 +223,6 @@ _engine_shutdown :: proc() {
 	// cleanup global type map
 	delete(NATIVE_TO_MRUBY_TYPE)
 
-	free(g.rom_data)
+	rom_data_free(g.rom_data)
 	free(g)
 }

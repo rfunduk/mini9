@@ -37,7 +37,7 @@ create_palette :: proc(path: string) -> mrb.Value {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
 	if !ok {
-		return ruby_raise("RuntimeError", "Could not load palette file: %s", path_str)
+		return mrb.raise_error(g.mrb_state, "RuntimeError", "Could not load palette file: %s", path_str)
 	}
 	defer delete(file_data)
 
@@ -51,7 +51,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 	// get file extension
 	file_ext := strings.to_lower(slashpath.ext(path), context.temp_allocator)
 
-	palette_ptr := ruby_allocate(Palette, Palette{type = file_ext, colors = make([dynamic]PaletteColor)})
+	palette_ptr := mrb.alloc(g.mrb_state, Palette{type = file_ext, colors = make([dynamic]PaletteColor)})
 
 	// set @path instance variable
 	path_sym := mrb.intern_cstr(g.mrb_state, "@path")
@@ -64,7 +64,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 	case ".gpl":
 		parse_palette_gpl(data, palette_ptr)
 	case:
-		return ruby_raise("RuntimeError", "Unknown palette file type: %s", file_ext)
+		return mrb.raise_error(g.mrb_state, "RuntimeError", "Unknown palette file type: %s", file_ext)
 	}
 
 	// set @count instance variable
@@ -169,7 +169,7 @@ ruby_palette_get_color :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 }
 
 setup_palette :: proc() {
-	c := create_data_class("Palette")
+	c := mrb.get_data_class(g.mrb_state, "Palette")
 	mrb.define_method(g.mrb_state, c, "[]", cast(rawptr)ruby_palette_get_color, 1)
 	mrb.define_const(g.mrb_state, c, "DEFAULT", palette_from_filedata("default_palette.gpl", palette_data))
 }

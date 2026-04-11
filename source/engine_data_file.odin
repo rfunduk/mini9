@@ -21,7 +21,7 @@ create_file :: proc(path: string) -> mrb.Value {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
 	if !ok {
-		return ruby_raise("RuntimeError", "Could not load file: %s", path_str)
+		return mrb.raise_error(g.mrb_state, "RuntimeError", "Could not load file: %s", path_str)
 	}
 	defer delete(file_data)
 
@@ -33,7 +33,7 @@ file_from_data :: proc(path: string, data: []u8) -> mrb.Value {
 	ruby_obj := mrb.obj_new(g.mrb_state, file_class, 0, nil)
 
 	str := strings.clone_from_bytes(data)
-	file_ptr := ruby_allocate(Data_File, Data_File{path = path, content = str})
+	file_ptr := mrb.alloc(g.mrb_state, Data_File{path = path, content = str})
 
 	// set @path instance variable
 	path_sym := mrb.intern_cstr(g.mrb_state, "@path")
@@ -76,6 +76,6 @@ ruby_file_get_lines :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 }
 
 setup_data_file :: proc() {
-	c := create_data_class("DataFile")
+	c := mrb.get_data_class(g.mrb_state, "DataFile")
 	mrb.define_method(g.mrb_state, c, "lines", cast(rawptr)ruby_file_get_lines, 0)
 }
