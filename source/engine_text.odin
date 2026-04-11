@@ -107,6 +107,31 @@ ruby_text :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
+// RUBY FUNCTION: text_size(text, font, scale: 1, spacing: 1) -> v2(width, height)
+// @engine_method: name="text_size", arity=-1
+ruby_text_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	text_val, font_val, kwargs: mrb.Value
+	argc := mrb.get_args(state, "oo|H", &text_val, &font_val, &kwargs)
+
+	font := extract_native(rl.Font, font_val)
+	if font == nil { return create_vector2({0, 0}) }
+
+	str_obj := mrb.obj_as_string(state, text_val)
+	c_str := mrb.str_to_cstr(state, str_obj)
+
+	scale: f32 = 1.0
+	spacing: f32 = 1.0
+	if argc == 3 && kwargs != mrb.NIL {
+		hash := mrb.parse_kwargs(state, kwargs)
+		if "scale" in hash { scale = f32(mrb.to_f64(hash["scale"])) }
+		if "spacing" in hash { spacing = f32(mrb.to_f64(hash["spacing"])) }
+	}
+
+	size := rl.MeasureTextEx(font^, c_str, f32(font.baseSize) * scale, spacing * scale)
+	return create_vector2(size)
+}
+
 setup_text :: proc() {
 	// also expose text alignment constants
 	tc := mrb.class_get(g.mrb_state, "Text")

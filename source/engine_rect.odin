@@ -81,6 +81,20 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	}
 }
 
+ruby_rect_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	r := extract_native(rl.Rectangle, self)
+	if r == nil { return create_vector2({0, 0}) }
+	return create_vector2({r.x, r.y})
+}
+
+ruby_rect_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	r := extract_native(rl.Rectangle, self)
+	if r == nil { return create_vector2({0, 0}) }
+	return create_vector2({r.width, r.height})
+}
+
 ruby_rect_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r := extract_native(rl.Rectangle, self)
@@ -208,6 +222,8 @@ setup_rect :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Rect")
 
 	mrb.define_method(g.mrb_state, c, "new", cast(rawptr)ruby_rect, -1)
+	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_rect_get_pos, 0)
+	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_rect_get_size, 0)
 	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_rect_get_x, 0)
 	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_rect_get_y, 0)
 	mrb.define_method(g.mrb_state, c, "w", cast(rawptr)ruby_rect_get_w, 0)

@@ -54,8 +54,8 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		if "mask" in hash { mask = Collision_Layer(mrb.integer(hash["mask"])) }
 	}
 
-	if offset == mrb.NIL { offset = create_vector2(rl.Vector2{0, 0}) }
-	if size == mrb.NIL { size = create_vector2(rl.Vector2{1, 1}) }
+	if offset == mrb.NIL { offset = create_vector2({0, 0}) }
+	if size == mrb.NIL { size = create_vector2({1, 1}) }
 
 	mrb.gc_register(state, offset)
 	mrb.gc_register(state, size)
@@ -344,7 +344,7 @@ cleanup_body_from_layers :: proc(b: ^Body) {
 
 			bodies_on_layer := &g.bodies_by_layer[layer]
 			for x, i in bodies_on_layer {
-				if x == b { unordered_remove(bodies_on_layer, i);break }
+				if x == b { unordered_remove(bodies_on_layer, i); break }
 			}
 		}
 	}

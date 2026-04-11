@@ -34,6 +34,15 @@ extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
 	}
 }
 
+// Type-sniff a Ruby value: true iff `val` is a native data object of type T.
+// Always uses the safe, no-raise check (independent of CHECK_MRUBY_DATA_TYPES)
+// because the only point of calling this is to *branch* on the type — e.g. a
+// method that accepts either rectangle(rect) or rectangle(pos, size). Use it
+// to discriminate, then call `extract_native` once you know which form it is.
+is_native :: #force_inline proc($T: typeid, val: mrb.Value) -> bool {
+	return mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T]) != nil
+}
+
 
 // Engine-side label for which callback path was running when an exception
 // fired. The lib's protect helpers don't know about this — it lives here so
@@ -118,19 +127,27 @@ load_engine_bytecode :: proc(name: string, bytecode: []u8) {
 	}
 }
 
-// load and execute main.rb
+// load and execute main.rb. when the target directory has no main.rb, fall
+// back to the embedded welcome screen (assets/welcome.rb baked into the
+// binary via #load — never written to the user's filesystem).
 load_main_rb :: proc() {
-	if !file_exists("main.rb") {
-		// TODO: Create helpful hello world template
-		return
-	}
+	contents: []byte
+	filename: cstring = "main.rb"
+	owns_contents := false
 
-	contents, ok := read_entire_file("main.rb")
-	if !ok { return }
-	defer delete(contents)
+	if file_exists("main.rb") {
+		ok: bool
+		contents, ok = read_entire_file("main.rb")
+		if !ok { return }
+		owns_contents = true
+	} else {
+		contents = welcome_rb
+		filename = "<welcome>"
+	}
+	defer if owns_contents { delete(contents) }
 
 	// set filename in global context for proper stack traces
-	mrb.ccontext_filename(g.mrb_state, g.mrb_ctx, "main.rb")
+	mrb.ccontext_filename(g.mrb_state, g.mrb_ctx, filename)
 
 	// set target class to Object class for top-level constant assignment
 	mrb.ccontext_set_target_class(g.mrb_ctx, mrb.class_get(g.mrb_state, "Object"))

@@ -128,20 +128,42 @@ ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
-// RUBY FUNCTION: rectangle(pos, size, color: WHITE, thickness: 1, filled: false, rounded: 0) -> draws a rectangle
+// RUBY FUNCTION: rectangle(rect_or_pos, size=nil, color: WHITE, thickness: 1, filled: false, rounded: 0)
+// Accepts either rectangle(rect) or rectangle(pos, size). Draws a rectangle.
 // @engine_method: name="rectangle", arity=-1
 ruby_rectangle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	pos_val, size_val, kwargs: mrb.Value
-	argc := mrb.get_args(state, "oo|H", &pos_val, &size_val, &kwargs)
+	a_val, b_val, kwargs: mrb.Value
+	mrb.get_args(state, "o|oH", &a_val, &b_val, &kwargs)
 
-	pos_vec := extract_native(rl.Vector2, pos_val)
-	size_vec := extract_native(rl.Vector2, size_val)
+	// With format "o|oH", a trailing kwargs hash from a 1-positional call
+	// like `rectangle(box, color: P.red)` lands in the optional `o` slot
+	// (b_val) before `H` ever sees it. Re-route it to kwargs so style is
+	// applied in the rectangle(rect) form.
+	if kwargs == mrb.NIL && b_val != mrb.NIL && mrb.hash_p(b_val) {
+		kwargs = b_val
+		b_val = mrb.NIL
+	}
 
-	if pos_vec == nil || size_vec == nil { return mrb.NIL }
+	pos: rl.Vector2
+	size: rl.Vector2
 
-	pos := lin.floor(pos_vec^)
-	size := lin.floor(size_vec^)
+	if is_native(rl.Rectangle, a_val) {
+		// rectangle(rect) form
+		r := extract_native(rl.Rectangle, a_val)
+		pos = {r.x, r.y}
+		size = {r.width, r.height}
+	} else {
+		// rectangle(pos, size) form
+		pos_vec := extract_native(rl.Vector2, a_val)
+		size_vec := extract_native(rl.Vector2, b_val)
+		if pos_vec == nil || size_vec == nil { return mrb.NIL }
+		pos = pos_vec^
+		size = size_vec^
+	}
+
+	pos = lin.floor(pos)
+	size = lin.floor(size)
 
 	draw_color := rl.Color{255, 255, 255, 255} // Default to white
 	thickness: f32 = 1.0
@@ -149,7 +171,7 @@ ruby_rectangle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	filled: bool = false
 	did_clip: bool = false
 
-	if argc == 3 && kwargs != mrb.NIL {
+	if kwargs != mrb.NIL {
 		hash := mrb.parse_kwargs(state, kwargs)
 
 		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }

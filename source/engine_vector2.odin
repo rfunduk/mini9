@@ -34,7 +34,7 @@ ruby_v2 :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		y = x
 	}
 
-	return create_vector2(rl.Vector2{f32(x), f32(y)})
+	return create_vector2({f32(x), f32(y)})
 }
 
 ruby_vector2_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
