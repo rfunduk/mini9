@@ -1,13 +1,32 @@
 # ENGINE native=Palette ruby=Palette
 
 class Palette
-  attr_reader :path, :count, :colors
-  def to_s = "Palette(path: #{path}, count: #{count}, colors: #{colors.map(&:to_s).join(', ')})"
+  def to_s = "Palette(path: #{path}, count: #{count})"
   alias_method :inspect, :to_s
 
-  private def setup(names, values)
-    names.zip(values).each do |name, color|
-      define_singleton_method(name, -> { color })
+  def replace(other)
+    raise TypeError, "expected Palette" unless other.is_a?(Palette)
+    __do_replace(other)
+    self
+  end
+
+  # Called from native after construction or replacement. The closures over
+  # `color` are what keep the color values alive once native drops its
+  # temporary gc_register protection.
+  def install_color_methods
+    @__color_method_names = []
+    __color_pairs.each do |name, color|
+      define_singleton_method(name) { color }
+      @__color_method_names << name
     end
+    self
+  end
+
+  def uninstall_color_methods
+    return self unless @__color_method_names
+    sc = singleton_class
+    @__color_method_names.each { |name| sc.send(:remove_method, name) }
+    @__color_method_names = nil
+    self
   end
 end

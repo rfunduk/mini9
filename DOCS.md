@@ -8,8 +8,6 @@ A minimum game is a single `main.rb` file:
 title("My Game")
 resolution(320, 240)
 
-P = Palette::DEFAULT
-
 def update(dt)
   quit if pressed?(:escape)
 end
@@ -19,6 +17,8 @@ def draw
   circle(v2(160, 120), 20, color: P.red, filled: true)
 end
 ```
+
+`P` is predefined as a copy of `Palette::DEFAULT` — no setup needed for the built-in colors.
 
 Run it: `mini9 /path/to/game/`.
 
@@ -257,25 +257,34 @@ Auto-detects integer vs. normalized based on whether the first three args are Fl
 
 Load a GIMP `.gpl` palette file. Colors become methods on the palette object, named after their entries in the file.
 
-| Signature | Returns |
-|---|---|
-| `palette(path)` | Palette |
-| `pal[name_or_index]` | Color |
-| `pal.count` | Integer |
-| `pal.colors` | Array[Color] |
-| `pal.path` | String |
+| Signature | Returns | Notes |
+|---|---|---|
+| `palette(path)` | Palette | Loads a `.gpl` file |
+| `pal[name_or_index]` | Color | Lookup by name (string/symbol) or by integer index |
+| `pal.count` | Integer | Number of colors |
+| `pal.colors` | Array[Color] | All colors in file order |
+| `pal.path` | String | Source path |
+| `pal.dup` | Palette | Independent deep copy — mutating the copy never touches the original |
+| `pal.replace(other)` | self | Swap this palette's contents with `other`'s. Mutates in place — every existing reference to `pal` sees the new colors |
 
-**Built-in palette:** `Palette::DEFAULT`.
+**Built-in palette:** `Palette::DEFAULT`. Loaded from a baked-in `.gpl` file with 16 named colors (`black`, `white`, `red`, `blue`, etc.).
+
+**`P`** is a predefined top-level constant — an independent copy of `Palette::DEFAULT`. Use it directly without any setup. To swap in a different palette without breaking existing references, use `P.replace(...)`:
 
 ```ruby
-P = Palette::DEFAULT
 clear(P.black)
 circle(v2(50, 50), 10, color: P.red, filled: true)
 
-# custom palette
-PAL = palette("assets/pico8.gpl")
-rectangle(v2(0,0), v2(100, 100), color: PAL.dark_blue, filled: true)
+# swap to a custom palette — every later P.foo lookup uses the new colors
+P.replace(palette("assets/pico8.gpl"))
+clear(P.dark_blue)
+
+# or load a separate palette under its own name
+PICO = palette("assets/pico8.gpl")
+rectangle(v2(0,0), v2(100, 100), color: PICO.dark_blue, filled: true)
 ```
+
+Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from a hex-named palette becomes `pal.effae6`).
 
 ---
 
@@ -812,7 +821,7 @@ import(:states, :idle)      # same as above
 
 ## Cookbook
 
-Short complete examples showing how the APIs fit together. All assume `P = Palette::DEFAULT` is defined at the top of `main.rb`.
+Short complete examples showing how the APIs fit together. `P` (the default palette) is predefined — no setup needed.
 
 ### Animated player
 

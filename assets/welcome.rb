@@ -4,8 +4,6 @@ title("mini9 — no game loaded")
 resolution(320, 180)
 fps(60)
 
-P = Palette::DEFAULT
-
 # token-based syntax highlighting. each line is an array of [text, color]
 # pairs which we draw left-to-right, advancing x by text_size(...).x. that
 # gives us correct kerning on the variable-width pixel fonts without any
