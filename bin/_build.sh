@@ -36,6 +36,7 @@ fi
 echo "  Building for web..."
 if ! odin build source/main_web \
       -define:RAYLIB_WASM_LIB=env.o \
+      -define:BOX2D_WASM_LIB=env.o \
       -define:MRUBY_LIB=env.o \
       -define:MRUBY_MACROS_LIB=env.o \
       -collection:lib=lib \

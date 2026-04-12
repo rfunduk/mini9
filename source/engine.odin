@@ -135,6 +135,7 @@ _engine_update :: proc() {
 		}
 
 		update_shake_system()
+		step_physics(g.fixed_dt)
 
 		g.accumulator -= g.fixed_dt
 	}
@@ -212,13 +213,8 @@ _engine_shutdown :: proc() {
 	// cleanup maps
 	delete(g.pressed_this_frame)
 	delete(g.released_this_frame)
-	delete(g.registered_bodies)
-	for _, bodies in g.bodies_by_layer {
-		delete(bodies)
-	}
-	delete(g.bodies_by_layer)
-
 	cleanup_vector2()
+	cleanup_physics()
 
 	// cleanup strings
 	delete(g.title)

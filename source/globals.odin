@@ -3,6 +3,7 @@ package engine
 import "base:runtime"
 import "core:math/ease"
 import mrb "lib:mruby"
+import b2 "vendor:box2d"
 import rl "vendor:raylib"
 
 Game_Phase :: enum {
@@ -42,19 +43,18 @@ Engine_Memory :: struct {
 
 	// cached kwarg symbols
 	sym:                  struct {
-		color, filled, thickness, rounded, clip: mrb.Value,
-		font, offset, align, rotation, spacing:  mrb.Value,
-		scale, outline:                          mrb.Value,
-		size, layer, mask, slide:                mrb.Value,
-		interval, values, direction, mode:       mrb.Value,
-		target, zoom:                            mrb.Value,
-		pos, visible:                            mrb.Value,
-		volume, fade_in, fade_out, loop:         mrb.Value,
-		polyphony, pitch:                        mrb.Value,
-		frame, frames, fliph, flipv, atlas:      mrb.Value,
-		enter, exit, update, default, states:    mrb.Value,
-		delay, easing:                           mrb.Value,
-		wrap:                                    mrb.Value,
+		align, atlas, body, clip, color:          mrb.Value,
+		default, delay, density, direction:       mrb.Value,
+		easing, enter, exit:                      mrb.Value,
+		fade_in, fade_out, filled, fliph, flipv:  mrb.Value,
+		font, frame, frames, friction:            mrb.Value,
+		interval, layer, loop, mask, mode:        mrb.Value,
+		offset, outline:                          mrb.Value,
+		pitch, polyphony, pos:                    mrb.Value,
+		restitution, rotation, rounded:           mrb.Value,
+		scale, sensor, size, slide, spacing:      mrb.Value,
+		states, target, thickness, update:        mrb.Value,
+		values, visible, volume, wrap, zoom:      mrb.Value,
 	},
 
 	// cameras
@@ -119,9 +119,9 @@ Engine_Memory :: struct {
 	pressed_this_frame:   map[i32]bool,
 	released_this_frame:  map[i32]bool,
 
-	// collision bodies by layer
-	registered_bodies:    map[^Body]mrb.Value,
-	bodies_by_layer:      map[Collision_Layer][dynamic]^Body,
+	// box2d physics
+	physics_world:        b2.WorldId,
+	dynamic_body_count:   int,
 }
 
 global_context: runtime.Context
