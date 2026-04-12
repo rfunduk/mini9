@@ -217,6 +217,8 @@ _engine_shutdown :: proc() {
 	}
 	delete(g.bodies_by_layer)
 
+	cleanup_vector2()
+
 	// cleanup strings
 	delete(g.title)
 

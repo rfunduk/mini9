@@ -5,19 +5,78 @@ import lin "core:math/linalg"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
+@(private = "file")
+V2_SLAB_SIZE :: 1024
+
+@(private = "file")
+V2_Slab :: [V2_SLAB_SIZE]rl.Vector2
+
+@(private = "file")
+V2_Free_Node :: struct {
+	next: ^V2_Free_Node,
+}
+
+@(private = "file")
+v2_cache: struct {
+	class: rawptr,
+	type:  ^mrb.Data_Type,
+}
+
+@(private = "file")
+v2_pool: struct {
+	free_list: ^V2_Free_Node,
+	slabs:     [dynamic]^V2_Slab,
+	next_idx:  int,
+}
+
 ruby_vector2_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
-	if ptr != nil { mrb.free(state, ptr) }
+	if ptr != nil { v2_pool_return(cast(^rl.Vector2)ptr) }
 }
 
 create_vector2 :: proc(v: rl.Vector2) -> mrb.Value {
-	vec_ptr := mrb.alloc(g.mrb_state, v)
+	if v2_cache.class == nil {
+		v2_cache.class = mrb.class_get(g.mrb_state, "Vector2")
+		v2_cache.type = &Vector2_Ruby
+	}
 
-	vector_class := mrb.class_get(g.mrb_state, "Vector2")
-	ruby_obj := mrb.obj_new(g.mrb_state, vector_class, 0, nil)
-	mrb.data_init(ruby_obj, vec_ptr, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
+	vec_ptr := v2_pool_acquire(v)
+	ruby_obj := mrb.obj_new(g.mrb_state, v2_cache.class, 0, nil)
+	mrb.data_init(ruby_obj, vec_ptr, v2_cache.type)
 
 	return ruby_obj
+}
+
+v2_pool_acquire :: #force_inline proc(v: rl.Vector2) -> ^rl.Vector2 {
+	pool := &v2_pool
+	ptr: ^rl.Vector2
+
+	if pool.free_list != nil {
+		node := pool.free_list
+		pool.free_list = node.next
+		ptr = cast(^rl.Vector2)node
+	} else {
+		if len(pool.slabs) == 0 || pool.next_idx >= V2_SLAB_SIZE {
+			append(&pool.slabs, new(V2_Slab))
+			pool.next_idx = 0
+		}
+		ptr = &pool.slabs[len(pool.slabs) - 1][pool.next_idx]
+		pool.next_idx += 1
+	}
+
+	ptr^ = v
+	return ptr
+}
+
+v2_pool_return :: #force_inline proc(ptr: ^rl.Vector2) {
+	node := cast(^V2_Free_Node)ptr
+	node.next = v2_pool.free_list
+	v2_pool.free_list = node
+}
+
+cleanup_vector2 :: proc() {
+	for s in v2_pool.slabs { free(s) }
+	delete(v2_pool.slabs)
 }
 
 // RUBY FUNCTION: v2(x, y) -> returns Vector2 object
@@ -58,8 +117,8 @@ ruby_vector2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	old_vec := extract_native(rl.Vector2, self)
 	if old_vec == nil { return mrb.NIL }
 
-	new_vec_ptr := mrb.alloc(g.mrb_state, rl.Vector2{f32(new_x), old_vec.y})
-	mrb.data_init(self, new_vec_ptr, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
+	new_vec_ptr := v2_pool_acquire({f32(new_x), old_vec.y})
+	mrb.data_init(self, new_vec_ptr, v2_cache.type)
 
 	return mrb.word_boxing_float_value(state, new_x)
 }
@@ -73,8 +132,8 @@ ruby_vector2_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	old_vec := extract_native(rl.Vector2, self)
 	if old_vec == nil { return mrb.NIL }
 
-	new_vec_ptr := mrb.alloc(g.mrb_state, rl.Vector2{old_vec.x, f32(new_y)})
-	mrb.data_init(self, new_vec_ptr, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
+	new_vec_ptr := v2_pool_acquire({old_vec.x, f32(new_y)})
+	mrb.data_init(self, new_vec_ptr, v2_cache.type)
 
 	return mrb.word_boxing_float_value(state, new_y)
 }
