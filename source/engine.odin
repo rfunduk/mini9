@@ -69,6 +69,7 @@ _engine_init :: proc(rom_data: ^Rom_Data) {
 		log.errorf("Failed to set up Ruby VM context")
 		panic("EXITING")
 	}
+	cache_symbols()
 	engine_init_ruby_api()
 	load_main_rb()
 	determine_game_callbacks()

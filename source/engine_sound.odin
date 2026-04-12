@@ -225,11 +225,9 @@ ruby_sound :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	polyphony := 8 // default polyphony
 
-	if argc == 2 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "polyphony" in hash {
-			polyphony = int(mrb.integer(hash["polyphony"]))
-		}
+	if argc == 2 {
+		val := mrb.kwarg(state, kwargs, g.sym.polyphony)
+		if val != mrb.NIL { polyphony = int(mrb.integer(val)) }
 	}
 
 	result := create_sound(path, polyphony)
@@ -266,11 +264,12 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	pitch := f32(1.0)
 	volume := f32(1.0)
 
-	// parse kwargs
-	if argc == 1 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "pitch" in hash { pitch = f32(mrb.to_f64(hash["pitch"])) }
-		if "volume" in hash { volume = f32(mrb.to_f64(hash["volume"])) }
+	if argc == 1 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.pitch)
+		if val != mrb.NIL { pitch = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.volume)
+		if val != mrb.NIL { volume = f32(mrb.to_f64(val)) }
 	}
 
 	// configure instance
@@ -298,9 +297,9 @@ ruby_sound_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	fade_time := f32(0.0)
 
-	if argc == 1 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
+	if argc == 1 {
+		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
 	for &instance in sound.instances {
@@ -332,9 +331,9 @@ ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	fade_time := f32(0.0)
 
-	if argc == 1 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
+	if argc == 1 {
+		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
 	for &instance in sound.instances {

@@ -105,15 +105,12 @@ ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	tween := extract_native(Tween_Instance, tween_obj)
 	if tween == nil { return mrb.NIL }
 
-	if argc >= 4 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "delay" in hash {
-			tween.delay = mrb.to_f64(hash["delay"])
-		}
-		if "easing" in hash {
-			easing_int := mrb.integer(hash["easing"])
-			tween.easing = ease.Ease(easing_int)
-		}
+	if argc >= 4 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.delay)
+		if val != mrb.NIL { tween.delay = mrb.to_f64(val) }
+		val = mrb.kwarg(state, kwargs, g.sym.easing)
+		if val != mrb.NIL { tween.easing = ease.Ease(mrb.integer(val)) }
 	}
 
 	// we're going to hold onto these for the life of the tween

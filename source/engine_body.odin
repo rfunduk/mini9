@@ -47,11 +47,15 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mask: Collision_Layer = 0
 
 	if argc == 1 {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "offset" in hash { offset = hash["offset"] }
-		if "size" in hash { size = hash["size"] }
-		if "layer" in hash { layer = Collision_Layer(mrb.integer(hash["layer"])) }
-		if "mask" in hash { mask = Collision_Layer(mrb.integer(hash["mask"])) }
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.offset)
+		if val != mrb.NIL { offset = val }
+		val = mrb.kwarg(state, kwargs, g.sym.size)
+		if val != mrb.NIL { size = val }
+		val = mrb.kwarg(state, kwargs, g.sym.layer)
+		if val != mrb.NIL { layer = Collision_Layer(mrb.integer(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.mask)
+		if val != mrb.NIL { mask = Collision_Layer(mrb.integer(val)) }
 	}
 
 	if offset == mrb.NIL { offset = create_vector2({0, 0}) }
@@ -241,9 +245,9 @@ ruby_body_resolve_collisions :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 	velocity := extract_native(rl.Vector2, velocity_val)^
 
 	slide := false
-	if argc == 2 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(g.mrb_state, kwargs)
-		if "slide" in hash { slide = mrb.boolean(hash["slide"]) }
+	if argc == 2 {
+		val := mrb.kwarg(g.mrb_state, kwargs, g.sym.slide)
+		if val != mrb.NIL { slide = mrb.boolean(val) }
 	}
 
 	collisions := make([dynamic]Collision_Info)

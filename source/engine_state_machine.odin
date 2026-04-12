@@ -61,11 +61,14 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	exit_proc := mrb.NIL
 	update_proc := mrb.NIL
 
-	if argc >= 2 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "enter" in hash { enter_proc = hash["enter"] }
-		if "exit" in hash { exit_proc = hash["exit"] }
-		if "update" in hash { update_proc = hash["update"] }
+	if argc >= 2 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.enter)
+		if val != mrb.NIL { enter_proc = val }
+		val = mrb.kwarg(state, kwargs, g.sym.exit)
+		if val != mrb.NIL { exit_proc = val }
+		val = mrb.kwarg(state, kwargs, g.sym.update)
+		if val != mrb.NIL { update_proc = val }
 	}
 
 	// Create the data obj for state-specific data
@@ -109,13 +112,8 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	kwargs: mrb.Value
 	mrb.get_args(state, "H", &kwargs)
 
-	hash := mrb.parse_kwargs(state, kwargs)
-
-	default_name := mrb.NIL
-	states_array := mrb.NIL
-
-	if "default" in hash { default_name = hash["default"] }
-	if "states" in hash { states_array = hash["states"] }
+	default_name := mrb.kwarg(state, kwargs, g.sym.default)
+	states_array := mrb.kwarg(state, kwargs, g.sym.states)
 
 	if states_array == mrb.NIL { states_array = mrb.ary_new(state) }
 

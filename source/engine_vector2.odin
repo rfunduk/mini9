@@ -467,9 +467,9 @@ ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 
 	// parse wrap kwarg (default false)
 	wrap := false
-	if kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "wrap" in hash { wrap = mrb.boolean(hash["wrap"]) }
+	{
+		val := mrb.kwarg(state, kwargs, g.sym.wrap)
+		if val != mrb.NIL { wrap = mrb.boolean(val) }
 	}
 
 	self_vec := extract_native(rl.Vector2, self)

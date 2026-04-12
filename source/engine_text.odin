@@ -43,36 +43,25 @@ ruby_text :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	rotation: f32 = 0.0
 	offset: rl.Vector2 = {0, 0}
 
-	if argc == 4 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-
-		if "font" in hash {
-			if hash["font"] != mrb.NIL {
-				font = extract_native(rl.Font, hash["font"])
-			}
-		}
-		if "offset" in hash {
-			offset = extract_native(rl.Vector2, hash["offset"])^
-		}
-		if "align" in hash {
-			align_int := mrb.integer(hash["align"])
-			align = Text_Align(align_int)
-		}
-		if "rotation" in hash {
-			rotation = f32(mrb.to_f64(hash["rotation"]))
-		}
-		if "spacing" in hash {
-			spacing = f32(mrb.to_f64(hash["spacing"]))
-		}
-		if "scale" in hash {
-			scale = f32(mrb.to_f64(hash["scale"]))
-		}
-		if "color" in hash {
-			color = extract_native(rl.Color, hash["color"])^
-		}
-		if "outline" in hash {
-			wants_black := hash["outline"] == mrb.TRUE
-			outline = wants_black ? {0, 0, 0, 255} : extract_native(rl.Color, hash["outline"])^
+	if argc == 4 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.font)
+		if val != mrb.NIL { font = extract_native(rl.Font, val) }
+		val = mrb.kwarg(state, kwargs, g.sym.offset)
+		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
+		val = mrb.kwarg(state, kwargs, g.sym.align)
+		if val != mrb.NIL { align = Text_Align(mrb.integer(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.rotation)
+		if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.spacing)
+		if val != mrb.NIL { spacing = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		if val != mrb.NIL { scale = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.color)
+		if val != mrb.NIL { color = extract_native(rl.Color, val)^ }
+		val = mrb.kwarg(state, kwargs, g.sym.outline)
+		if val != mrb.NIL {
+			outline = val == mrb.TRUE ? {0, 0, 0, 255} : extract_native(rl.Color, val)^
 		}
 	}
 
@@ -122,10 +111,12 @@ ruby_text_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	scale: f32 = 1.0
 	spacing: f32 = 1.0
-	if argc == 3 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "scale" in hash { scale = f32(mrb.to_f64(hash["scale"])) }
-		if "spacing" in hash { spacing = f32(mrb.to_f64(hash["spacing"])) }
+	if argc == 3 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		if val != mrb.NIL { scale = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.spacing)
+		if val != mrb.NIL { spacing = f32(mrb.to_f64(val)) }
 	}
 
 	size := rl.MeasureTextEx(font^, c_str, f32(font.baseSize) * scale, spacing * scale)

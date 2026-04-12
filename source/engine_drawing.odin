@@ -10,15 +10,13 @@ ruby_pixel :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	pos_val, kwargs: mrb.Value
-	argc := mrb.get_args(state, "o|H", &pos_val, &kwargs)
+	mrb.get_args(state, "o|H", &pos_val, &kwargs)
 
 	pos_vec := extract_native(rl.Vector2, pos_val)
 	draw_color := rl.Color{255, 255, 255, 255}
 
-	if argc == 2 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-	}
+	val := mrb.kwarg(state, kwargs, g.sym.color)
+	if val != mrb.NIL { draw_color = extract_native(rl.Color, val)^ }
 
 	rl.DrawPixelV(lin.floor(pos_vec^), draw_color)
 
@@ -30,22 +28,23 @@ ruby_pixel :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_circle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val, r_val, kwargs: mrb.Value
-	argc := mrb.get_args(state, "oo|H", &pos_val, &r_val, &kwargs)
+	mrb.get_args(state, "oo|H", &pos_val, &r_val, &kwargs)
 
 	pos_vec := extract_native(rl.Vector2, pos_val)
 	pos := lin.floor(pos_vec^)
 	radius := f32(mrb.to_f64(r_val))
 
-	draw_color := rl.Color{255, 255, 255, 255} // Default to white
+	draw_color := rl.Color{255, 255, 255, 255}
 	filled: bool = false
 	did_clip: bool = false
 
-	if argc == 3 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "filled" in hash { filled = mrb.boolean(hash["filled"]) }
-		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
-	}
+	val: mrb.Value
+	val = mrb.kwarg(state, kwargs, g.sym.color)
+	if val != mrb.NIL { draw_color = extract_native(rl.Color, val)^ }
+	val = mrb.kwarg(state, kwargs, g.sym.filled)
+	if val != mrb.NIL { filled = mrb.boolean(val) }
+	val = mrb.kwarg(state, kwargs, g.sym.clip)
+	if val != mrb.NIL { did_clip = _clip(val, pos) }
 
 	if filled {
 		rl.DrawCircleV(pos, radius, draw_color)
@@ -63,7 +62,7 @@ ruby_circle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val, size_val, kwargs: mrb.Value
-	argc := mrb.get_args(state, "oo|H", &pos_val, &size_val, &kwargs)
+	mrb.get_args(state, "oo|H", &pos_val, &size_val, &kwargs)
 
 	pos_vec := extract_native(rl.Vector2, pos_val)
 	size_vec := extract_native(rl.Vector2, size_val)
@@ -71,16 +70,17 @@ ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	pos := lin.floor(pos_vec^)
 	size := lin.floor(size_vec^)
 
-	draw_color := rl.Color{255, 255, 255, 255} // Default to white
+	draw_color := rl.Color{255, 255, 255, 255}
 	filled: bool = false
 	did_clip: bool = false
 
-	if argc == 3 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "filled" in hash { filled = mrb.boolean(hash["filled"]) }
-		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
-	}
+	val: mrb.Value
+	val = mrb.kwarg(state, kwargs, g.sym.color)
+	if val != mrb.NIL { draw_color = extract_native(rl.Color, val)^ }
+	val = mrb.kwarg(state, kwargs, g.sym.filled)
+	if val != mrb.NIL { filled = mrb.boolean(val) }
+	val = mrb.kwarg(state, kwargs, g.sym.clip)
+	if val != mrb.NIL { did_clip = _clip(val, pos) }
 
 	if filled {
 		rl.DrawEllipse(i32(pos.x), i32(pos.y), size.x, size.y, draw_color)
@@ -114,12 +114,13 @@ ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	thickness: f64 = 1.0
 	did_clip: bool = false
 
-	if kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "thickness" in hash { thickness = mrb.to_f64(hash["thickness"]) }
-		if "clip" in hash { did_clip = _clip(hash["clip"], from) }
-	}
+	val: mrb.Value
+	val = mrb.kwarg(state, kwargs, g.sym.color)
+	if val != mrb.NIL { draw_color = extract_native(rl.Color, val)^ }
+	val = mrb.kwarg(state, kwargs, g.sym.thickness)
+	if val != mrb.NIL { thickness = mrb.to_f64(val) }
+	val = mrb.kwarg(state, kwargs, g.sym.clip)
+	if val != mrb.NIL { did_clip = _clip(val, from) }
 
 	rl.DrawLineEx(from, to, f32(thickness), draw_color)
 
@@ -165,21 +166,23 @@ ruby_rectangle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	pos = lin.floor(pos)
 	size = lin.floor(size)
 
-	draw_color := rl.Color{255, 255, 255, 255} // Default to white
+	draw_color := rl.Color{255, 255, 255, 255}
 	thickness: f32 = 1.0
 	rounded: f32 = 0.0
 	filled: bool = false
 	did_clip: bool = false
 
-	if kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-
-		if "color" in hash { draw_color = extract_native(rl.Color, hash["color"])^ }
-		if "rounded" in hash { rounded = f32(mrb.to_f64(hash["rounded"])) / 100.0 }
-		if "thickness" in hash { thickness = f32(mrb.to_f64(hash["thickness"])) }
-		if "filled" in hash { filled = mrb.boolean(hash["filled"]) }
-		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
-	}
+	val: mrb.Value
+	val = mrb.kwarg(state, kwargs, g.sym.color)
+	if val != mrb.NIL { draw_color = extract_native(rl.Color, val)^ }
+	val = mrb.kwarg(state, kwargs, g.sym.rounded)
+	if val != mrb.NIL { rounded = f32(mrb.to_f64(val)) / 100.0 }
+	val = mrb.kwarg(state, kwargs, g.sym.thickness)
+	if val != mrb.NIL { thickness = f32(mrb.to_f64(val)) }
+	val = mrb.kwarg(state, kwargs, g.sym.filled)
+	if val != mrb.NIL { filled = mrb.boolean(val) }
+	val = mrb.kwarg(state, kwargs, g.sym.clip)
+	if val != mrb.NIL { did_clip = _clip(val, pos) }
 
 	if filled {
 		if rounded > 0 {

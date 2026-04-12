@@ -39,35 +39,35 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	visible := true
 
 	if kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
+		val: mrb.Value
 
-		if "pos" in hash {
-			pos_ptr := extract_native(rl.Vector2, hash["pos"])
+		val = mrb.kwarg(state, kwargs, g.sym.pos)
+		if val != mrb.NIL {
+			pos_ptr := extract_native(rl.Vector2, val)
 			if pos_ptr == nil {
-				runtime_error := mrb.exc_get_id(state, mrb.intern_cstr(state, "TypeError"))
-				mrb.raise(state, runtime_error, "obj: pos must be a Vector2")
-				return mrb.NIL
+				return mrb.raise_error(state, "TypeError", "obj: pos must be a Vector2")
 			}
 			pos_vec = pos_ptr^
-			mrb.hash_delete_by_string(state, kwargs, "pos")
+			mrb.hash_delete_key(state, kwargs, g.sym.pos)
 		}
-		if "rotation" in hash {
-			rotation = f32(mrb.to_f64(hash["rotation"]))
-			mrb.hash_delete_by_string(state, kwargs, "rotation")
+		val = mrb.kwarg(state, kwargs, g.sym.rotation)
+		if val != mrb.NIL {
+			rotation = f32(mrb.to_f64(val))
+			mrb.hash_delete_key(state, kwargs, g.sym.rotation)
 		}
-		if "visible" in hash {
-			visible = mrb.boolean(hash["visible"])
-			mrb.hash_delete_by_string(state, kwargs, "visible")
+		val = mrb.kwarg(state, kwargs, g.sym.visible)
+		if val != mrb.NIL {
+			visible = mrb.boolean(val)
+			mrb.hash_delete_key(state, kwargs, g.sym.visible)
 		}
-		if "scale" in hash {
-			scale_ptr := extract_native(rl.Vector2, hash["scale"])
+		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		if val != mrb.NIL {
+			scale_ptr := extract_native(rl.Vector2, val)
 			if scale_ptr == nil {
-				runtime_error := mrb.exc_get_id(state, mrb.intern_cstr(state, "TypeError"))
-				mrb.raise(state, runtime_error, "obj: scale must be a Vector2")
-				return mrb.NIL
+				return mrb.raise_error(state, "TypeError", "obj: scale must be a Vector2")
 			}
 			scale_vec = scale_ptr^
-			mrb.hash_delete_by_string(state, kwargs, "scale")
+			mrb.hash_delete_key(state, kwargs, g.sym.scale)
 		}
 	}
 

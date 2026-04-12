@@ -70,10 +70,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 	palette_class := mrb.class_get(g.mrb_state, "Palette")
 	ruby_obj := mrb.obj_new(g.mrb_state, palette_class, 0, nil)
 
-	pal := mrb.alloc(g.mrb_state, Palette {
-		path = strings.clone(path),
-		colors = make([dynamic]PaletteColor),
-	})
+	pal := mrb.alloc(g.mrb_state, Palette{path = strings.clone(path), colors = make([dynamic]PaletteColor)})
 
 	parse_palette_gpl(data, pal)
 	mrb.data_init(ruby_obj, pal, NATIVE_TO_MRUBY_TYPE[Palette])
@@ -150,9 +147,7 @@ ruby_palette_colors :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	pal := extract_native(Palette, self)
 	if pal == nil { return mrb.ary_new(state) }
 	arr := mrb.ary_new(state)
-	for pc in pal.colors {
-		mrb.ary_push(state, arr, pc.color)
-	}
+	for pc in pal.colors { mrb.ary_push(state, arr, pc.color) }
 	return arr
 }
 
@@ -185,10 +180,10 @@ ruby_palette_dup :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	palette_class := mrb.class_get(state, "Palette")
 	new_obj := mrb.obj_new(state, palette_class, 0, nil)
 
-	new_pal := mrb.alloc(state, Palette {
-		path = strings.clone(src.path),
-		colors = make([dynamic]PaletteColor),
-	})
+	new_pal := mrb.alloc(
+		state,
+		Palette{path = strings.clone(src.path), colors = make([dynamic]PaletteColor)},
+	)
 	for pc in src.colors {
 		src_color := extract_native(rl.Color, pc.color)
 		new_color := create_color(src_color^)

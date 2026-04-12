@@ -116,43 +116,14 @@ to_string :: proc(state: State, val: Value) -> string {
 	return string(str_to_cstr(state, str))
 }
 
-// Convert a Ruby hash (typically a kwargs hash from `mrb_get_args(state,
-// "...|H", ...)`) into an Odin map keyed by the string form of each Ruby
-// key. Lets `@engine_method` functions write `if "name" in hash` style
-// access. Result lives in the supplied allocator (default temp).
-parse_kwargs :: proc(state: State, kwargs: Value, allocator := context.temp_allocator) -> RHash {
-	if kwargs == NIL { return {} }
-
-	n := hash_size(state, kwargs)
-	if n == 0 { return {} }
-
-	out := make(RHash, n, allocator)
-	keys := hash_keys(state, kwargs)
-	for i in 0 ..< n {
-		key := ary_entry(keys, i32(i))
-		val := hash_get(state, kwargs, key)
-		if val == NIL { continue }
-		out[to_string(state, key)] = val
-	}
-	return out
+// Look up a pre-interned symbol key in a kwargs hash. Returns NIL if the
+// hash is NIL or the key is absent. Use with symbol values created via
+// `symbol_value(intern_cstr(state, "key"))` at setup time.
+kwarg :: #force_inline proc(state: State, hash: Value, key: Value) -> Value {
+	if hash == NIL { return NIL }
+	return hash_get(state, hash, key)
 }
 
-// Delete the first hash entry whose key, when stringified via to_s,
-// matches `key`. Iterates the hash keys linearly because mruby's
-// `hash_delete_key` requires the actual Value of the existing key (not a
-// new string Value), and kwargs hashes typically use Symbol keys whose
-// stringified form we want to match by name.
-hash_delete_by_string :: proc(state: State, hash: Value, key: string) {
-	keys := hash_keys(state, hash)
-	n := hash_size(state, hash)
-	for i in 0 ..< n {
-		actual_key := ary_entry(keys, i32(i))
-		if to_string(state, actual_key) == key {
-			hash_delete_key(state, hash, actual_key)
-			return
-		}
-	}
-}
 
 // Look up an existing Ruby class by name and tag it with the DATA
 // instance type, so instances can carry a native pointer via `data_init`.

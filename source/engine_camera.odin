@@ -54,11 +54,14 @@ ruby_camera :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	zoom := 1.0
 	offset := g.resolution / 2
 
-	if kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "target" in hash { target = extract_native(rl.Vector2, hash["target"])^ }
-		if "offset" in hash { offset = extract_native(rl.Vector2, hash["offset"])^ }
-		if "zoom" in hash { zoom = mrb.to_f64(hash["zoom"]) }
+	{
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.target)
+		if val != mrb.NIL { target = extract_native(rl.Vector2, val)^ }
+		val = mrb.kwarg(state, kwargs, g.sym.offset)
+		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
+		val = mrb.kwarg(state, kwargs, g.sym.zoom)
+		if val != mrb.NIL { zoom = mrb.to_f64(val) }
 	}
 
 	return create_camera(target, f32(zoom), offset)
@@ -208,15 +211,12 @@ ruby_camera_reset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	reset_target := true
 	reset_zoom := true
 
-	if argc == 1 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-
-		if "target" in hash {
-			reset_target = hash["target"] != mrb.FALSE
-		}
-		if "zoom" in hash {
-			reset_zoom = hash["zoom"] != mrb.FALSE
-		}
+	if argc == 1 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.target)
+		if val != mrb.NIL { reset_target = val != mrb.FALSE }
+		val = mrb.kwarg(state, kwargs, g.sym.zoom)
+		if val != mrb.NIL { reset_zoom = val != mrb.FALSE }
 	}
 
 	// reset the specified fields

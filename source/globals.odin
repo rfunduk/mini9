@@ -40,6 +40,23 @@ Engine_Memory :: struct {
 	mrb_state:            mrb.State,
 	mrb_ctx:              mrb.CContext,
 
+	// cached kwarg symbols
+	sym:                  struct {
+		color, filled, thickness, rounded, clip: mrb.Value,
+		font, offset, align, rotation, spacing:  mrb.Value,
+		scale, outline:                          mrb.Value,
+		size, layer, mask, slide:                mrb.Value,
+		interval, values, direction, mode:       mrb.Value,
+		target, zoom:                            mrb.Value,
+		pos, visible:                            mrb.Value,
+		volume, fade_in, fade_out, loop:         mrb.Value,
+		polyphony, pitch:                        mrb.Value,
+		frame, frames, fliph, flipv, atlas:      mrb.Value,
+		enter, exit, update, default, states:    mrb.Value,
+		delay, easing:                           mrb.Value,
+		wrap:                                    mrb.Value,
+	},
+
 	// cameras
 	cameras:              [dynamic]^Camera_Instance,
 

@@ -29,7 +29,6 @@ Data_Type :: struct {
 }
 
 RData :: distinct rawptr
-RHash :: map[string]Value
 CContext :: distinct rawptr
 RProc :: distinct rawptr
 

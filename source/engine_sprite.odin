@@ -41,19 +41,27 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	offset := rl.Vector2{0, 0}
 	scale := rl.Vector2{1, 1}
 
-	if argc == 2 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "size" in hash { size = extract_native(rl.Vector2, hash["size"])^ }
-		if "frame" in hash { frame = uint(mrb.integer(hash["frame"])) }
-		if "frames" in hash { frames = uint(mrb.integer(hash["frames"])) }
-		if "fliph" in hash { fliph = mrb.boolean(hash["fliph"]) }
-		if "flipv" in hash { flipv = mrb.boolean(hash["flipv"]) }
-		if "rotation" in hash { rotation = f32(mrb.to_f64(hash["rotation"])) }
-		if "offset" in hash { offset = extract_native(rl.Vector2, hash["offset"])^ }
-		if "scale" in hash { scale = extract_native(rl.Vector2, hash["scale"])^ }
-
-		if "atlas" in hash {
-			atlas = extract_native(Texture, hash["atlas"])
+	if argc == 2 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.size)
+		if val != mrb.NIL { size = extract_native(rl.Vector2, val)^ }
+		val = mrb.kwarg(state, kwargs, g.sym.frame)
+		if val != mrb.NIL { frame = uint(mrb.integer(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.frames)
+		if val != mrb.NIL { frames = uint(mrb.integer(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.fliph)
+		if val != mrb.NIL { fliph = mrb.boolean(val) }
+		val = mrb.kwarg(state, kwargs, g.sym.flipv)
+		if val != mrb.NIL { flipv = mrb.boolean(val) }
+		val = mrb.kwarg(state, kwargs, g.sym.rotation)
+		if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.offset)
+		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
+		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		if val != mrb.NIL { scale = extract_native(rl.Vector2, val)^ }
+		val = mrb.kwarg(state, kwargs, g.sym.atlas)
+		if val != mrb.NIL {
+			atlas = extract_native(Texture, val)
 			if atlas != nil { found_atlas = true }
 		}
 	}
@@ -308,9 +316,9 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	pos := lin.floor(pos_ptr^)
 	did_clip := false
 
-	if argc == 2 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
+	if argc == 2 {
+		val := mrb.kwarg(state, kwargs, g.sym.clip)
+		if val != mrb.NIL { did_clip = _clip(val, pos) }
 	}
 
 	// calculate source rectangle from sprite settings

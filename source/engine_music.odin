@@ -156,11 +156,14 @@ ruby_music_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	music := extract_native(Music, self)
 	if music == nil { return mrb.NIL }
 
-	if argc == 1 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "volume" in hash { music.volume = f32(mrb.to_f64(hash["volume"])) }
-		if "fade_in" in hash { music.fade_time = f32(mrb.to_f64(hash["fade_in"])) }
-		if "loop" in hash { music.looping = mrb.boolean(hash["loop"]) }
+	if argc == 1 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, g.sym.volume)
+		if val != mrb.NIL { music.volume = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.fade_in)
+		if val != mrb.NIL { music.fade_time = f32(mrb.to_f64(val)) }
+		val = mrb.kwarg(state, kwargs, g.sym.loop)
+		if val != mrb.NIL { music.looping = mrb.boolean(val) }
 	}
 
 	music_play(music)
@@ -218,9 +221,9 @@ ruby_music_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	fade_time := f32(0.0)
 
-	if argc == 1 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
+	if argc == 1 {
+		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {
@@ -250,9 +253,9 @@ ruby_music_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	fade_time := f32(0.0)
 
-	if argc == 1 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "fade_out" in hash { fade_time = f32(mrb.to_f64(hash["fade_out"])) }
+	if argc == 1 {
+		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {

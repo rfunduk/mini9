@@ -132,9 +132,9 @@ ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	pos := lin.floor(pos_ptr^)
 	did_clip := false
 
-	if argc == 2 && kwargs != mrb.NIL {
-		hash := mrb.parse_kwargs(state, kwargs)
-		if "clip" in hash { did_clip = _clip(hash["clip"], pos) }
+	if argc == 2 {
+		val := mrb.kwarg(state, kwargs, g.sym.clip)
+		if val != mrb.NIL { did_clip = _clip(val, pos) }
 	}
 
 	tex := texture.tex
