@@ -2,6 +2,7 @@
 
 MRUBY_VERSION="fafb52d72a2c09b6979c32ea5b97ce6f1af6a53d" # ideally 3.4.0 but it prevents loading any bytecode
 EMSDK_VERSION="4.0.13"
+BOX2D_VERSION="v3.1.1"
 
 ENGINE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
 
@@ -39,3 +40,26 @@ echo "Building mruby..."
 cd $ENGINE_DIR/vendor/mruby
 export MRUBY_CONFIG="$ENGINE_DIR/mruby.rb"
 rake
+
+# box2d
+echo -e "\n\nbox2d"
+echo "====="
+if [ -d "$ENGINE_DIR/vendor/box2d" ]; then
+    echo "box2d already exists, updating..."
+    (cd $ENGINE_DIR/vendor/box2d && git fetch --tags && git checkout $BOX2D_VERSION)
+else
+    echo "Cloning box2d..."
+    git clone --branch $BOX2D_VERSION https://github.com/erincatto/box2d.git $ENGINE_DIR/vendor/box2d
+fi
+
+echo "Building box2d (native)..."
+cd $ENGINE_DIR/vendor/box2d
+cmake -S . -B build -DBOX2D_SAMPLES=OFF -DBOX2D_BENCHMARKS=OFF -DBOX2D_DOCS=OFF -DBOX2D_UNIT_TESTS=OFF -DCMAKE_BUILD_TYPE=Release > /dev/null
+cmake --build build --config Release > /dev/null
+
+echo "Building box2d (emscripten/wasm)..."
+source $ENGINE_DIR/vendor/emsdk/emsdk_env.sh
+mkdir -p $ENGINE_DIR/vendor/box2d/build-wasm
+cd $ENGINE_DIR/vendor/box2d/build-wasm
+emcmake cmake -S .. -B . -DBOX2D_SAMPLES=OFF -DBOX2D_BENCHMARKS=OFF -DBOX2D_DOCS=OFF -DBOX2D_UNIT_TESTS=OFF -DCMAKE_BUILD_TYPE=Release > /dev/null
+emmake make > /dev/null

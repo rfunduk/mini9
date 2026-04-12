@@ -36,7 +36,7 @@ fi
 echo "  Building for web..."
 if ! odin build source/main_web \
       -define:RAYLIB_WASM_LIB=env.o \
-      -define:BOX2D_WASM_LIB=env.o \
+      -define:BOX2D_LIB=env.o \
       -define:MRUBY_LIB=env.o \
       -define:MRUBY_MACROS_LIB=env.o \
       -collection:lib=lib \
@@ -45,7 +45,7 @@ if ! odin build source/main_web \
       -vet -strict-style \
       -define:ENGINE_DEBUG=$ENGINE_DEBUG \
       -out:$WEB_OUT_DIR/engine; then
-	echo "  Web build failed!"
+  echo "  Web build failed!"
   exit 1
 fi
 
@@ -55,6 +55,7 @@ files="
   $WEB_OUT_DIR/engine.wasm
   ${ODIN_PATH}/vendor/raylib/wasm/libraylib.a
   vendor/mruby/build/emscripten/lib/libmruby.a
+  vendor/box2d/build-wasm/src/libbox2d.a
   $WEB_OUT_DIR/macros.o
 "
 flags="
@@ -96,29 +97,30 @@ echo "  Building mruby macros..."
 cc -c -I"$MRUBY_INCLUDE" "$MACROS_SRC" -o "$OUT_DIR/macros.o"
 
 FLAGS="
-	-out:$OUT_DIR/mini9 \
-	-define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a \
+  -out:$OUT_DIR/mini9 \
+  -define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a \
   -define:MRUBY_MACROS_LIB=../../build/$TARGET/macros.o \
-	-define:BYTECODE_PACKAGING=true \
-	-collection:lib=lib \
-	-vet-packages:engine,mrb \
-	-vet-style -vet-semicolon -vet-cast -vet \
+  -define:BOX2D_LIB=../../vendor/box2d/build/src/libbox2d.a \
+  -define:BYTECODE_PACKAGING=true \
+  -collection:lib=lib \
+  -vet-packages:engine,mrb \
+  -vet-style -vet-semicolon -vet-cast -vet \
 "
 
 if [ $TARGET == "debug" ]; then
-	FLAGS+="
-		-debug \
-		-define:SAFE_DISPATCH=true \
-		-define:CHECK_MRUBY_DATA_TYPES=true \
-		-define:ENGINE_DEBUG=true \
-		-define:USE_TRACKING_ALLOCATOR=true
-	"
+  FLAGS+="
+    -debug \
+    -define:SAFE_DISPATCH=true \
+    -define:CHECK_MRUBY_DATA_TYPES=true \
+    -define:ENGINE_DEBUG=true \
+    -define:USE_TRACKING_ALLOCATOR=true
+  "
 else
-	FLAGS+="
-		-no-bounds-check \
-		-o:speed \
-		-define:ENGINE_DEBUG=false
-	"
+  FLAGS+="
+    -no-bounds-check \
+    -o:speed \
+    -define:ENGINE_DEBUG=false
+  "
 fi
 
 echo "  Building native binary..."
