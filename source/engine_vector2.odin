@@ -204,7 +204,7 @@ ruby_vector2_round :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return create_vector2(lin.round(self_vec^))
 }
 
-ruby_vector2_is_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -219,7 +219,7 @@ ruby_vector2_is_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 	return equal ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_vector2_is_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_vector2_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	self_vec := extract_native(rl.Vector2, self)
@@ -451,8 +451,8 @@ setup_vector2 :: proc() {
 	mrb.define_method(g.mrb_state, c, "floor", cast(rawptr)ruby_vector2_floor, 0)
 	mrb.define_method(g.mrb_state, c, "ceil", cast(rawptr)ruby_vector2_ceil, 0)
 	mrb.define_method(g.mrb_state, c, "round", cast(rawptr)ruby_vector2_round, 0)
-	mrb.define_method(g.mrb_state, c, "is_zero_approx?", cast(rawptr)ruby_vector2_is_zero_approx, 0)
-	mrb.define_method(g.mrb_state, c, "is_equal_approx?", cast(rawptr)ruby_vector2_is_equal_approx, 1)
+	mrb.define_method(g.mrb_state, c, "zero_approx?", cast(rawptr)ruby_vector2_zero_approx, 0)
+	mrb.define_method(g.mrb_state, c, "equal_approx?", cast(rawptr)ruby_vector2_equal_approx, 1)
 	mrb.define_method(g.mrb_state, c, "length", cast(rawptr)ruby_vector2_length, 0)
 	mrb.define_method(g.mrb_state, c, "length_squared", cast(rawptr)ruby_vector2_length_squared, 0)
 	mrb.define_method(g.mrb_state, c, "normalized", cast(rawptr)ruby_vector2_normalized, 0)

@@ -142,38 +142,38 @@ ruby_color_get_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 ruby_color_set_r :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	value: f64
-	mrb.get_args(state, "f", &value)
+	val: mrb.Value
+	mrb.get_args(state, "o", &val)
 	color := extract_native(rl.Color, self)
-	if color != nil { color.r = u8(clamp(value, 0, 255)) }
-	return self
+	if color != nil { color.r = u8(clamp(mrb.to_f64(val), 0, 255)) }
+	return val
 }
 
 ruby_color_set_g :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	value: f64
-	mrb.get_args(state, "f", &value)
+	val: mrb.Value
+	mrb.get_args(state, "o", &val)
 	color := extract_native(rl.Color, self)
-	if color != nil { color.g = u8(clamp(value, 0, 255)) }
-	return self
+	if color != nil { color.g = u8(clamp(mrb.to_f64(val), 0, 255)) }
+	return val
 }
 
 ruby_color_set_b :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	value: f64
-	mrb.get_args(state, "f", &value)
+	val: mrb.Value
+	mrb.get_args(state, "o", &val)
 	color := extract_native(rl.Color, self)
-	if color != nil { color.b = u8(clamp(value, 0, 255)) }
-	return self
+	if color != nil { color.b = u8(clamp(mrb.to_f64(val), 0, 255)) }
+	return val
 }
 
 ruby_color_set_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	value: f64
-	mrb.get_args(state, "f", &value)
+	val: mrb.Value
+	mrb.get_args(state, "o", &val)
 	color := extract_native(rl.Color, self)
-	if color != nil { color.a = u8(clamp(value, 0, 255)) }
-	return self
+	if color != nil { color.a = u8(clamp(mrb.to_f64(val), 0, 255)) }
+	return val
 }
 
 setup_color :: proc() {

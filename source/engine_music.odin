@@ -301,7 +301,7 @@ ruby_music_set_volume :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	mrb.get_args(state, "o", &volume_val)
 
 	music := extract_native(Music, self)
-	if music == nil { return self }
+	if music == nil { return volume_val }
 
 	new_volume := f32(mrb.to_f64(volume_val))
 	music.volume = new_volume
@@ -309,7 +309,7 @@ ruby_music_set_volume :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	// update Raylib volume if music is active
 	if music.active { rl.SetMusicVolume(music.music, new_volume) }
 
-	return self
+	return volume_val
 }
 
 // RUBY METHOD: music.fade_time -> returns float (for debugging)

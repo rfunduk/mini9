@@ -62,7 +62,7 @@ create_anim :: proc(interval: f32, direction: i32, mode: Animation_Mode, values:
 	return ruby_obj
 }
 
-// RUBY FUNCTION: anim(interval:, frames:, direction: 1, mode: Anim::LOOP) -> returns Anim object
+// RUBY FUNCTION: anim(interval:, values:, direction: 1, mode: Anim::LOOP) -> returns Anim object
 // @engine_method: name="anim", arity=1
 ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
@@ -73,13 +73,20 @@ ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	hash := mrb.parse_kwargs(state, kwargs)
 
 	// required: interval
-	interval: f32 = 0.1
-	if "interval" in hash { interval = f32(mrb.to_f64(hash["interval"])) }
+	interval: f32 = 0
+	if "interval" in hash {
+		interval = f32(mrb.to_f64(hash["interval"]))
+	} else {
+		return mrb.raise_error(state, "ArgumentError", "Animations must have `interval`")
+	}
 
-	// required: frames
+	// required: values
 	values := mrb.NIL
-	if "frames" in hash { values = hash["frames"] }
-	if values == mrb.NIL { values = mrb.ary_new(state) }
+	if "values" in hash {
+		values = hash["values"]
+	} else {
+		return mrb.raise_error(state, "ArgumentError", "Animations must have `values`")
+	}
 
 	// optional: direction (default +1)
 	direction: i32 = 1
@@ -142,14 +149,14 @@ ruby_anim_reset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
-ruby_anim_frame :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_anim_current :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	anim := extract_native(Anim, self)
 	if anim == nil { return mrb.NIL }
 	return mrb.ary_entry(anim.values, c.int(anim.current_index))
 }
 
-ruby_anim_current_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_anim_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	anim := extract_native(Anim, self)
 	if anim == nil { return mrb.boxing_int_value(state, 0) }
@@ -246,7 +253,7 @@ ruby_anim_progress :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return mrb.word_boxing_float_value(state, progress)
 }
 
-ruby_anim_last_frame :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_anim_last :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	anim := extract_native(Anim, self)
@@ -267,8 +274,8 @@ setup_animation :: proc() {
 
 	mrb.define_method(g.mrb_state, c, "update", cast(rawptr)ruby_anim_update, 1)
 	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_anim_reset, 0)
-	mrb.define_method(g.mrb_state, c, "frame", cast(rawptr)ruby_anim_frame, 0)
-	mrb.define_method(g.mrb_state, c, "current_index", cast(rawptr)ruby_anim_current_index, 0)
+	mrb.define_method(g.mrb_state, c, "current", cast(rawptr)ruby_anim_current, 0)
+	mrb.define_method(g.mrb_state, c, "index", cast(rawptr)ruby_anim_index, 0)
 	mrb.define_method(g.mrb_state, c, "values", cast(rawptr)ruby_anim_values, 0)
 	mrb.define_method(g.mrb_state, c, "direction", cast(rawptr)ruby_anim_direction, 0)
 	mrb.define_method(g.mrb_state, c, "direction=", cast(rawptr)ruby_anim_set_direction, 1)
@@ -277,16 +284,5 @@ setup_animation :: proc() {
 	mrb.define_method(g.mrb_state, c, "mode", cast(rawptr)ruby_anim_mode, 0)
 	mrb.define_method(g.mrb_state, c, "mode=", cast(rawptr)ruby_anim_set_mode, 1)
 	mrb.define_method(g.mrb_state, c, "progress", cast(rawptr)ruby_anim_progress, 0)
-	mrb.define_method(g.mrb_state, c, "last_frame?", cast(rawptr)ruby_anim_last_frame, 0)
-
-	// aliases
-	frame_sym := mrb.intern_cstr(g.mrb_state, "frame")
-	current_index_sym := mrb.intern_cstr(g.mrb_state, "current_index")
-	values_sym := mrb.intern_cstr(g.mrb_state, "values")
-	last_frame_sym := mrb.intern_cstr(g.mrb_state, "last_frame?")
-
-	mrb.alias_method(g.mrb_state, c, mrb.intern_cstr(g.mrb_state, "current"), frame_sym)
-	mrb.alias_method(g.mrb_state, c, mrb.intern_cstr(g.mrb_state, "frame_index"), current_index_sym)
-	mrb.alias_method(g.mrb_state, c, mrb.intern_cstr(g.mrb_state, "frames"), values_sym)
-	mrb.alias_method(g.mrb_state, c, mrb.intern_cstr(g.mrb_state, "last_value?"), last_frame_sym)
+	mrb.define_method(g.mrb_state, c, "last?", cast(rawptr)ruby_anim_last, 0)
 }

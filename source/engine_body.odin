@@ -133,7 +133,7 @@ ruby_body_set_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 		body.size = size_val
 	}
 
-	return self
+	return size_val
 }
 
 // RUBY METHOD: body.offset = v2(10) -> sets body offset
@@ -152,7 +152,7 @@ ruby_body_set_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 		body.offset = offset_val
 	}
 
-	return self
+	return offset_val
 }
 
 // RUBY METHOD: body.layer -> gets layer in radians
@@ -182,31 +182,31 @@ ruby_body_get_parent :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 // RUBY METHOD: body.layer=(angle) -> sets layer
 ruby_body_set_layer :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	layer: u16
-	mrb.get_args(state, "i", &layer)
+	layer_val: mrb.Value
+	mrb.get_args(state, "o", &layer_val)
 
 	body := extract_native(Body, self)
 	if body == nil { return mrb.NIL }
 
 	cleanup_body_from_layers(body)
-	body.layer = layer
+	body.layer = u16(mrb.integer(layer_val))
 	register_body_on_layers(body)
 
-	return self
+	return layer_val
 }
 
 // RUBY METHOD: body.mask=(angle) -> sets mask in radians
 ruby_body_set_mask :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	mask: u16
-	mrb.get_args(state, "i", &mask)
+	mask_val: mrb.Value
+	mrb.get_args(state, "o", &mask_val)
 
 	body := extract_native(Body, self)
 	if body == nil { return mrb.NIL }
 
-	body.mask = mask
+	body.mask = u16(mrb.integer(mask_val))
 
-	return self
+	return mask_val
 }
 
 body_to_rect :: proc(b: Body) -> rl.Rectangle {

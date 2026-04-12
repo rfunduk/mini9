@@ -195,7 +195,7 @@ ruby_sprite_set_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 	size_ptr := extract_native(rl.Vector2, size_val)
 	if size_ptr != nil { sprite.size = size_ptr^ }
 
-	return self
+	return size_val
 }
 
 // RUBY METHOD: sprite.set_frame(n) -> sets sprite frame index with wrapping
@@ -216,7 +216,7 @@ ruby_sprite_set_frame :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 		sprite.frame = new_frame
 	}
 
-	return self
+	return frame_val
 }
 
 // RUBY METHOD: sprite._set_flip(fliph, flipv) -> sets sprite flip flags
@@ -245,7 +245,7 @@ ruby_sprite_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 
 	sprite.rotation = f32(mrb.to_f64(rotation_val))
 
-	return self
+	return rotation_val
 }
 
 // RUBY METHOD: sprite.offset=(v2) -> sets offset vector
@@ -260,7 +260,7 @@ ruby_sprite_set_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	offset_ptr := extract_native(rl.Vector2, offset_val)
 	if offset_ptr != nil { sprite.offset = offset_ptr^ }
 
-	return self
+	return offset_val
 }
 
 // RUBY METHOD: sprite.scale=(v2) -> sets scale vector
@@ -275,7 +275,7 @@ ruby_sprite_set_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	scale_ptr := extract_native(rl.Vector2, scale_val)
 	if scale_ptr != nil { sprite.scale = scale_ptr^ }
 
-	return self
+	return scale_val
 }
 
 // RUBY METHOD: sprite.rotation_degrees=(angle) -> sets rotation in degrees
@@ -289,7 +289,7 @@ ruby_sprite_set_rotation_degrees :: proc "c" (state: mrb.State, self: mrb.Value)
 
 	sprite.rotation = f32(mrb.to_f64(rotation_val) * math.PI / 180.0)
 
-	return self
+	return rotation_val
 }
 
 ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {

@@ -35,8 +35,8 @@ ruby_numeric_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, result)
 }
 
-// RUBY METHOD: number.is_zero_approx(epsilon = 1e-5) -> checks if number is approximately zero
-ruby_numeric_is_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// RUBY METHOD: number.zero_approx?(epsilon = 1e-5) -> checks if number is approximately zero
+ruby_numeric_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	epsilon: f64
 	argc := mrb.get_args(state, "|f", &epsilon)
@@ -47,8 +47,8 @@ ruby_numeric_is_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 	return math.abs(current) <= epsilon ? mrb.TRUE : mrb.FALSE
 }
 
-// RUBY METHOD: number.is_equal_approx(other, epsilon = 1e-5) -> checks if numbers are approximately equal
-ruby_numeric_is_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// RUBY METHOD: number.equal_approx?(other, epsilon = 1e-5) -> checks if numbers are approximately equal
+ruby_numeric_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other, epsilon: f64
 	argc := mrb.get_args(state, "f|f", &other, &epsilon)
@@ -137,8 +137,8 @@ setup_numeric :: proc() {
 
 	mrb.define_method(g.mrb_state, c, "move_toward", cast(rawptr)ruby_numeric_move_toward, 2)
 	mrb.define_method(g.mrb_state, c, "lerp", cast(rawptr)ruby_numeric_lerp, 2)
-	mrb.define_method(g.mrb_state, c, "is_zero_approx?", cast(rawptr)ruby_numeric_is_zero_approx, -1)
-	mrb.define_method(g.mrb_state, c, "is_equal_approx?", cast(rawptr)ruby_numeric_is_equal_approx, -1)
+	mrb.define_method(g.mrb_state, c, "zero_approx?", cast(rawptr)ruby_numeric_zero_approx, -1)
+	mrb.define_method(g.mrb_state, c, "equal_approx?", cast(rawptr)ruby_numeric_equal_approx, -1)
 	mrb.define_method(g.mrb_state, c, "sign", cast(rawptr)ruby_numeric_sign, 0)
 	mrb.define_method(g.mrb_state, c, "clamp", cast(rawptr)ruby_numeric_clamp, 2)
 	mrb.define_method(g.mrb_state, c, "wrapf", cast(rawptr)ruby_numeric_wrapf, 2)
