@@ -8,9 +8,9 @@ I really like pico8 but I'm old and I just want to do whatever I want, see? I li
 
 So here we have a _slightly larger_, _slightly more flexible_ thing. It's written in [Odin](https://odin-lang.org) and uses [Ruby](https://www.ruby-lang.org/) as the game language (actually [mruby](https://mruby.org/) so no gems/etc).
 
-**Note to self**: Really need a couple examples.
+See [DOCS.md](DOCS.md) for the full API reference.
 
-For now you could just make a directory with a `main.rb` in it:
+Smallest possible game — directory with a `main.rb`:
 
 ```ruby
 def update
@@ -28,8 +28,6 @@ end
 ```
 
 See below for how to build & run that.
-
-...I realise there needs to be API docs because otherwise it'll be near impossible to go further than this. It's similar to pico8 but not _that_ similar.
 
 
 ## More specific details on how to get going.
