@@ -6,6 +6,9 @@ import "core:time"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
+@(private = "file")
+pending_tweens: [dynamic]^Tween_Instance
+
 Tween_Type :: union {
 	f32,
 	rl.Vector2,
@@ -107,9 +110,9 @@ ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc >= 4 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.delay)
+		val = mrb.kwarg(state, kwargs, sym.delay)
 		if val != mrb.NIL { tween.delay = mrb.to_f64(val) }
-		val = mrb.kwarg(state, kwargs, g.sym.easing)
+		val = mrb.kwarg(state, kwargs, sym.easing)
 		if val != mrb.NIL { tween.easing = ease.Ease(mrb.integer(val)) }
 	}
 
@@ -142,7 +145,7 @@ start_or_queue_tween :: proc(tween: ^Tween_Instance) {
 	context = global_context
 
 	if g.phase == .FLUX {
-		append(&g.pending_tweens, tween)
+		append(&pending_tweens, tween)
 	} else {
 		switch &v in tween.value {
 		case rl.Vector2:
@@ -167,8 +170,8 @@ start_or_queue_tween :: proc(tween: ^Tween_Instance) {
 }
 
 start_pending_tweens :: proc() {
-	for t in g.pending_tweens { start_or_queue_tween(t) }
-	clear(&g.pending_tweens)
+	for t in pending_tweens { start_or_queue_tween(t) }
+	clear(&pending_tweens)
 }
 
 start_tween :: proc(tween: ^Tween_Instance, value_ptr: ^f32, goal: f32, primary: bool = false) {
@@ -359,4 +362,8 @@ setup_tween :: proc() {
 	mrb.define_method(g.mrb_state, c, "time_left", cast(rawptr)ruby_tween_time_left, 0)
 	mrb.define_method(g.mrb_state, c, "progress", cast(rawptr)ruby_tween_progress, 0)
 	mrb.define_method(g.mrb_state, c, "stop", cast(rawptr)ruby_tween_stop, 0)
+}
+
+cleanup_tween :: proc() {
+	delete(pending_tweens)
 }

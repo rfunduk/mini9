@@ -9,6 +9,12 @@ import rl "vendor:raylib"
 PHYSICS_SUB_STEPS :: 4
 MAX_COLLISION_PLANES :: 16
 
+@(private = "file")
+physics_world: b2.WorldId
+
+// shared with engine_game_object (body create/destroy bumps this)
+dynamic_body_count: int
+
 Body_Type :: enum {
 	NONE,
 	STATIC,
@@ -57,27 +63,21 @@ setup_physics :: proc() {
 	world_def.gravity = {0, 0}
 	world_def.enableSleep = false
 
-	g.physics_world = b2.CreateWorld(world_def)
-}
-
-cleanup_physics :: proc() {
-	if b2.World_IsValid(g.physics_world) {
-		b2.DestroyWorld(g.physics_world)
-	}
+	physics_world = b2.CreateWorld(world_def)
 }
 
 step_physics :: proc(dt: f32) {
-	if !b2.World_IsValid(g.physics_world) { return }
+	if !b2.World_IsValid(physics_world) { return }
 	// only step if dynamic bodies exist — static/kinematic don't need simulation
-	if g.dynamic_body_count == 0 { return }
+	if dynamic_body_count == 0 { return }
 
-	b2.World_Step(g.physics_world, dt, PHYSICS_SUB_STEPS)
+	b2.World_Step(physics_world, dt, PHYSICS_SUB_STEPS)
 	sync_dynamic_bodies()
 }
 
 // push box2d positions back to game objects for dynamic bodies
 sync_dynamic_bodies :: proc() {
-	events := b2.World_GetBodyEvents(g.physics_world)
+	events := b2.World_GetBodyEvents(physics_world)
 	for i in 0 ..< events.moveCount {
 		event := events.moveEvents[i]
 		if !b2.Body_IsValid(event.bodyId) { continue }
@@ -125,7 +125,7 @@ create_physics_body :: proc(
 	// set position at creation — center of the box
 	body_def.position = {pos.x + half_size.x, pos.y + half_size.y}
 
-	body_id := b2.CreateBody(g.physics_world, body_def)
+	body_id := b2.CreateBody(physics_world, body_def)
 
 	shape_def := b2.DefaultShapeDef()
 	shape_def.density = density
@@ -179,7 +179,7 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 	query_filter.maskBits = obj.mask
 
 	// cast mover to find safe travel fraction
-	fraction := b2.World_CastMover(g.physics_world, mover, {translation.x, translation.y}, query_filter)
+	fraction := b2.World_CastMover(physics_world, mover, {translation.x, translation.y}, query_filter)
 
 	// move to safe position
 	safe_t := b2.Vec2{translation.x * fraction, translation.y * fraction}
@@ -205,7 +205,7 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 	ctx := Plane_Ctx{&planes, &plane_count}
 
 	b2.World_CollideMover(
-		g.physics_world,
+		physics_world,
 		mover,
 		query_filter,
 		proc "c" (shape_id: b2.ShapeId, result: ^b2.PlaneResult, raw_ctx: rawptr) -> bool {
@@ -266,9 +266,9 @@ ruby_gravity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	grav := extract_native(rl.Vector2, gravity_val)
 	if grav != nil {
-		b2.World_SetGravity(g.physics_world, {grav.x, grav.y})
+		b2.World_SetGravity(physics_world, {grav.x, grav.y})
 	} else if mrb.float_p(gravity_val) || mrb.integer_p(gravity_val) {
-		b2.World_SetGravity(g.physics_world, {0, f32(mrb.to_f64(gravity_val))})
+		b2.World_SetGravity(physics_world, {0, f32(mrb.to_f64(gravity_val))})
 	} else {
 		return mrb.raise_error(state, "ArgumentError", "gravity expects a Vector2 or number")
 	}
@@ -294,7 +294,7 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	query_filter.maskBits = u64(mrb.integer(mask_val))
 	query_filter.categoryBits = 0xFFFFFFFFFFFFFFFF
 
-	result := b2.World_CastRayClosest(g.physics_world, {origin.x, origin.y}, {dir.x, dir.y}, query_filter)
+	result := b2.World_CastRayClosest(physics_world, {origin.x, origin.y}, {dir.x, dir.y}, query_filter)
 
 	result_array := mrb.ary_new(g.mrb_state)
 	mrb.ary_push(g.mrb_state, result_array, result.hit ? mrb.TRUE : mrb.FALSE)
@@ -311,4 +311,10 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.ary_push(g.mrb_state, result_array, mrb.word_boxing_float_value(state, f64(result.fraction)))
 
 	return result_array
+}
+
+cleanup_physics :: proc() {
+	if b2.World_IsValid(physics_world) {
+		b2.DestroyWorld(physics_world)
+	}
 }

@@ -4,12 +4,16 @@ import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
+@(private = "file")
 FontLoadData :: struct {
 	file_type: string,
 	bytes:     []u8,
 	size:      i32,
 	ruby_ptr:  mrb.Value,
 }
+
+@(private = "file")
+deferred_fonts: [dynamic]FontLoadData
 
 ruby_font_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
@@ -84,7 +88,7 @@ create_font_from_memory :: proc(file_type: string, bytes: []u8, size: i32) -> mr
 		copy(bytes_copy, bytes)
 
 		append(
-			&g.deferred_fonts,
+			&deferred_fonts,
 			FontLoadData {
 				file_type = strings.clone(file_type),
 				bytes = bytes_copy,
@@ -122,12 +126,12 @@ load_deferred_fonts :: proc() {
 	g.fonts.large = load_font_from_memory(".png", pixel_font_15_data[:])
 
 	// load user-defined deferred fonts
-	for &data in g.deferred_fonts {
+	for &data in deferred_fonts {
 		load_font(data.file_type, data.bytes, data.size, data.ruby_ptr)
 		delete(data.file_type)
 		delete(data.bytes)
 	}
-	clear(&g.deferred_fonts)
+	clear(&deferred_fonts)
 }
 
 // load font from memory (Odin version, doesn't create Ruby object)
@@ -199,4 +203,8 @@ setup_font :: proc() {
 	mrb.define_const(g.mrb_state, c, "SMALL", create_font(&g.fonts.small))
 	mrb.define_const(g.mrb_state, c, "MEDIUM", create_font(&g.fonts.medium))
 	mrb.define_const(g.mrb_state, c, "LARGE", create_font(&g.fonts.large))
+}
+
+cleanup_font :: proc() {
+	delete(deferred_fonts)
 }

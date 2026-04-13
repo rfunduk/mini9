@@ -5,6 +5,9 @@ import "core:math/rand"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
+@(private = "file")
+next_shake_id: u32 = 1
+
 Shake_Instance :: struct {
 	id:         u32,
 	duration:   f32,
@@ -26,7 +29,7 @@ ruby_shake_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 
 create_shake :: proc() -> mrb.Value {
 	s := Shake_Instance {
-		id         = g.next_shake_id,
+		id         = next_shake_id,
 		duration   = 0,
 		frequency  = 0,
 		amplitude  = 0,
@@ -34,7 +37,7 @@ create_shake :: proc() -> mrb.Value {
 		start_time = 0,
 		is_active  = false,
 	}
-	g.next_shake_id += 1
+	next_shake_id += 1
 	shake_ptr := mrb.alloc(g.mrb_state, s)
 
 	// add to global shake instances
@@ -145,4 +148,8 @@ setup_shake :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Shake")
 	mrb.define_method(g.mrb_state, c, "shake", cast(rawptr)ruby_shake_shake, 3)
 	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_shake_offset, 0)
+}
+
+cleanup_shake :: proc() {
+	delete(g.shake_instances)
 }

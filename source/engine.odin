@@ -12,31 +12,21 @@ _engine_init :: proc(rom_data: ^Rom_Data) {
 	g = new(Engine_Memory)
 
 	g^ = Engine_Memory {
-		rom_data            = rom_data,
-		title               = strings.clone(""),
-		debug               = ENGINE_DEBUG,
-		metrics             = false,
-		resolution          = rl.Vector2{128, 128},
-		clear_color         = rl.Color{0, 0, 0, 255},
-		fps                 = 60,
-		run                 = true,
-		flux                = ease.flux_init(f32, 128),
-		phase               = .INIT,
-		cursor              = true,
-		fixed_dt            = 1.0 / 60.0, // 16.67ms fixed timestep
-		accumulator         = 0.0,
-		max_frame_time      = 0.25, // cap at 250ms (prevents spiral of death)
-		deferred_textures   = make([dynamic]Texture_Load_Data),
-		deferred_fonts      = make([dynamic]FontLoadData),
-		cameras             = make([dynamic]^Camera_Instance),
-		shake_instances     = make([dynamic]^Shake_Instance),
-		sounds              = make([dynamic]^Sound),
-		music               = make([dynamic]^Music),
-		pending_tweens      = make([dynamic]^Tween_Instance),
-		pressed_this_frame  = make(map[i32]bool),
-		released_this_frame = make(map[i32]bool),
-		next_shake_id       = 1,
+		rom_data    = rom_data,
+		title       = strings.clone(""),
+		debug       = ENGINE_DEBUG,
+		metrics     = false,
+		resolution  = rl.Vector2{128, 128},
+		clear_color = rl.Color{0, 0, 0, 255},
+		fps         = 60,
+		run         = true,
+		flux        = ease.flux_init(f32, 128),
+		phase       = .INIT,
+		cursor      = true,
 	}
+
+	pressed_this_frame = make(map[i32]bool)
+	released_this_frame = make(map[i32]bool)
 
 	g.camera.zoom = 1
 
@@ -95,6 +85,15 @@ _engine_init :: proc(rom_data: ^Rom_Data) {
 	set_cursor_visible(g.cursor)
 }
 
+@(private = "file")
+fixed_dt: f32 = 1.0 / 60.0 // 16.67ms fixed timestep
+
+@(private = "file")
+accumulator: f32
+
+@(private = "file")
+max_frame_time: f32 = 0.25 // cap at 250ms (prevents spiral of death)
+
 _engine_update :: proc() {
 	ensure_audio_initialized()
 
@@ -102,42 +101,42 @@ _engine_update :: proc() {
 	frame_time := rl.GetFrameTime()
 
 	// clamp frame time to prevent spiral of death
-	if frame_time > g.max_frame_time {
-		frame_time = g.max_frame_time
+	if frame_time > max_frame_time {
+		frame_time = max_frame_time
 	}
 
-	g.accumulator += frame_time
+	accumulator += frame_time
 
-	clear(&g.pressed_this_frame)
-	clear(&g.released_this_frame)
+	clear(&pressed_this_frame)
+	clear(&released_this_frame)
 
 	// run fixed timestep updates until we've consumed all accumulated time
-	for g.accumulator >= g.fixed_dt {
+	for accumulator >= fixed_dt {
 		g.frame_count += 1
 
 		g.phase = .UPDATE
 		reset_camera_system()
 
 		// update systems with fixed timestep
-		ease.flux_update(&g.flux, f64(g.fixed_dt))
+		ease.flux_update(&g.flux, f64(fixed_dt))
 		start_pending_tweens()
 
 		// process events first, before update
 		call_user_events()
 
 		// user update gets consistent fixed timestep
-		call_user_update(g.fixed_dt)
+		call_user_update(fixed_dt)
 
 		// only update audio systems if audio is initialized
 		if g.audio_initialized {
-			update_audio_system(g.fixed_dt)
-			update_music_system(g.fixed_dt)
+			update_audio_system(fixed_dt)
+			update_music_system(fixed_dt)
 		}
 
 		update_shake_system()
-		step_physics(g.fixed_dt)
+		step_physics(fixed_dt)
 
-		g.accumulator -= g.fixed_dt
+		accumulator -= fixed_dt
 	}
 
 	g.phase = .DRAW
@@ -187,6 +186,8 @@ _engine_update :: proc() {
 }
 
 _engine_shutdown :: proc() {
+	engine_cleanup_ruby_api()
+
 	// shutdown mruby
 	if g.mrb_ctx != nil {
 		mrb.ccontext_free(g.mrb_state, g.mrb_ctx)
@@ -200,21 +201,6 @@ _engine_shutdown :: proc() {
 	rl.CloseAudioDevice()
 	rl.UnloadRenderTexture(g.render_texture)
 	ease.flux_destroy(g.flux)
-
-	// cleanup dynamic arrays
-	delete(g.cameras)
-	delete(g.deferred_fonts)
-	delete(g.deferred_textures)
-	delete(g.shake_instances)
-	delete(g.sounds)
-	delete(g.music)
-	delete(g.pending_tweens)
-
-	// cleanup maps
-	delete(g.pressed_this_frame)
-	delete(g.released_this_frame)
-	cleanup_vector2()
-	cleanup_physics()
 
 	// cleanup strings
 	delete(g.title)

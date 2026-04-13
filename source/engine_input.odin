@@ -3,6 +3,22 @@ package engine
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
+@(private = "file")
+cached_mouse_frame: u32
+@(private = "file")
+cached_mouse_world: rl.Vector2
+@(private = "file")
+cached_mouse_ui: rl.Vector2
+
+@(private = "file")
+cached_keys_frame: u32
+@(private = "file")
+cached_keys: [10]rl.KeyboardKey
+
+// shared with engine.odin (cleared per render frame in the main loop)
+pressed_this_frame: map[i32]bool
+released_this_frame: map[i32]bool
+
 // RUBY FUNCTION: _key_down_impl(keycode, gamepad=nil) -> bool
 // @engine_method: name="_key_down_impl", arity=-1
 ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -48,7 +64,7 @@ ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 
 	// if we already saw pressed recorded this render frame,
 	// we dont want to report it as pressed again
-	if keycode in g.pressed_this_frame { return mrb.FALSE }
+	if keycode in pressed_this_frame { return mrb.FALSE }
 
 	pressed := false
 
@@ -74,7 +90,7 @@ ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	}
 
 	// record that we saw pressed this render frame
-	if pressed { g.pressed_this_frame[keycode] = true }
+	if pressed { pressed_this_frame[keycode] = true }
 
 	return pressed ? mrb.TRUE : mrb.FALSE
 }
@@ -89,7 +105,7 @@ ruby_key_released_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 
 	// if we already saw released recorded this render frame,
 	// we dont want to report it as released again
-	if keycode in g.released_this_frame { return mrb.FALSE }
+	if keycode in released_this_frame { return mrb.FALSE }
 
 	released := false
 
@@ -115,7 +131,7 @@ ruby_key_released_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	}
 
 	// record that we saw released this render frame
-	if released { g.released_this_frame[keycode] = true }
+	if released { released_this_frame[keycode] = true }
 
 	return released ? mrb.TRUE : mrb.FALSE
 }
@@ -127,19 +143,19 @@ ruby_keys_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	keys_array := mrb.ary_new(g.mrb_state)
 
-	if g.cached_keys_frame != g.frame_count {
-		for i := 0; i < len(g.cached_keys); i += 1 {
+	if cached_keys_frame != g.frame_count {
+		for i := 0; i < len(cached_keys); i += 1 {
 			key := rl.GetKeyPressed()
 			if key == .KEY_NULL {
-				g.cached_keys[i] = .KEY_NULL
+				cached_keys[i] = .KEY_NULL
 				break
 			}
-			g.cached_keys[i] = key
+			cached_keys[i] = key
 		}
-		g.cached_keys_frame = g.frame_count
+		cached_keys_frame = g.frame_count
 	}
 
-	for key in g.cached_keys {
+	for key in cached_keys {
 		if key == .KEY_NULL { break }
 		mrb.ary_push(g.mrb_state, keys_array, mrb.boxing_int_value(g.mrb_state, i32(key)))
 	}
@@ -158,11 +174,11 @@ ruby_mouse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	argc := mrb.get_args(state, "|n", &layer_sym)
 
 	// return cached result if already calculated this frame
-	if g.cached_mouse_frame == g.frame_count {
+	if cached_mouse_frame == g.frame_count {
 		if argc == 0 || layer_sym == mrb.intern_cstr(state, "world") {
-			return create_vector2(g.cached_mouse_world)
+			return create_vector2(cached_mouse_world)
 		} else if layer_sym == mrb.intern_cstr(state, "ui") {
-			return create_vector2(g.cached_mouse_ui)
+			return create_vector2(cached_mouse_ui)
 		}
 		return mrb.NIL
 	}
@@ -210,15 +226,15 @@ ruby_mouse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	}
 
 	// cache both world and UI positions
-	g.cached_mouse_world = rl.GetScreenToWorld2D(mouse_pos, g.camera)
-	g.cached_mouse_ui = rl.GetScreenToWorld2D(mouse_pos, {zoom = 1})
-	g.cached_mouse_frame = g.frame_count
+	cached_mouse_world = rl.GetScreenToWorld2D(mouse_pos, g.camera)
+	cached_mouse_ui = rl.GetScreenToWorld2D(mouse_pos, {zoom = 1})
+	cached_mouse_frame = g.frame_count
 
 	// return appropriate cached result
 	if argc == 0 || layer_sym == mrb.intern_cstr(state, "world") {
-		return create_vector2(g.cached_mouse_world)
+		return create_vector2(cached_mouse_world)
 	} else if layer_sym == mrb.intern_cstr(state, "ui") {
-		return create_vector2(g.cached_mouse_ui)
+		return create_vector2(cached_mouse_ui)
 	}
 
 	return mrb.NIL
@@ -255,4 +271,9 @@ ruby_get_gamepad_axis_value :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 	}
 
 	return create_vector2({0, 0})
+}
+
+cleanup_input :: proc() {
+	delete(pressed_this_frame)
+	delete(released_this_frame)
 }

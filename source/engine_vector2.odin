@@ -74,11 +74,6 @@ v2_pool_return :: #force_inline proc(ptr: ^rl.Vector2) {
 	v2_pool.free_list = node
 }
 
-cleanup_vector2 :: proc() {
-	for s in v2_pool.slabs { free(s) }
-	delete(v2_pool.slabs)
-}
-
 // RUBY FUNCTION: v2(x, y) -> returns Vector2 object
 // @engine_method: name="v2", arity=-1
 ruby_v2 :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -468,7 +463,7 @@ ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	// parse wrap kwarg (default false)
 	wrap := false
 	{
-		val := mrb.kwarg(state, kwargs, g.sym.wrap)
+		val := mrb.kwarg(state, kwargs, sym.wrap)
 		if val != mrb.NIL { wrap = mrb.boolean(val) }
 	}
 
@@ -533,4 +528,9 @@ setup_vector2 :: proc() {
 	mrb.alias_method(g.mrb_state, c, mrb.intern_cstr(g.mrb_state, "h"), y_sym)
 	mrb.alias_method(g.mrb_state, c, mrb.intern_cstr(g.mrb_state, "left"), x_sym)
 	mrb.alias_method(g.mrb_state, c, mrb.intern_cstr(g.mrb_state, "top"), y_sym)
+}
+
+cleanup_vector2 :: proc() {
+	for s in v2_pool.slabs { free(s) }
+	delete(v2_pool.slabs)
 }

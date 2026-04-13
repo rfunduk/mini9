@@ -5,6 +5,27 @@ import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
+@(private = "file")
+gc_live: uint
+@(private = "file")
+gc_threshold: uint
+@(private = "file")
+gc_history: [120]f32 // 2 seconds at 60fps
+@(private = "file")
+gc_history_index: int
+
+@(private = "file")
+fps_current: f32
+@(private = "file")
+fps_history: [120]f32 // 2 seconds at 60fps
+@(private = "file")
+fps_history_index: int
+
+@(private = "file")
+tweens_history: [120]f32 // 2 seconds at 60fps
+@(private = "file")
+tweens_history_index: int
+
 Graph_Config :: struct {
 	title:       string,
 	color:       rl.Color,
@@ -14,29 +35,29 @@ Graph_Config :: struct {
 collect_metrics :: proc() {
 	// update displayed stats only every 10 frames for readability
 	if g.frame_count % 10 == 0 {
-		g.gc_live = mrb.gc_live(g.mrb_state)
-		g.gc_threshold = mrb.gc_threshold(g.mrb_state)
-		g.fps_current = f32(rl.GetFPS())
+		gc_live = mrb.gc_live(g.mrb_state)
+		gc_threshold = mrb.gc_threshold(g.mrb_state)
+		fps_current = f32(rl.GetFPS())
 	}
 
 	// sample graph data every 2 frames
 	if g.frame_count % 2 == 0 {
-		gc_live := mrb.gc_live(g.mrb_state)
-		gc_threshold := mrb.gc_threshold(g.mrb_state)
-		percentage := f32(gc_live) / f32(max(gc_threshold, 1))
-		g.gc_history[g.gc_history_index] = percentage
-		g.gc_history_index = (g.gc_history_index + 1) % len(g.gc_history)
+		live := mrb.gc_live(g.mrb_state)
+		threshold := mrb.gc_threshold(g.mrb_state)
+		percentage := f32(live) / f32(max(threshold, 1))
+		gc_history[gc_history_index] = percentage
+		gc_history_index = (gc_history_index + 1) % len(gc_history)
 
 		// also sample FPS - clamp relative to target FPS to avoid startup spikes
 		fps := f32(rl.GetFPS())
 		fps = clamp(fps, 0, f32(g.fps) * 3) // clamp to 3x target FPS
-		g.fps_history[g.fps_history_index] = fps
-		g.fps_history_index = (g.fps_history_index + 1) % len(g.fps_history)
+		fps_history[fps_history_index] = fps
+		fps_history_index = (fps_history_index + 1) % len(fps_history)
 
 		// sample active tweens count
 		tweens := f32(len(g.flux.values))
-		g.tweens_history[g.tweens_history_index] = tweens
-		g.tweens_history_index = (g.tweens_history_index + 1) % len(g.tweens_history)
+		tweens_history[tweens_history_index] = tweens
+		tweens_history_index = (tweens_history_index + 1) % len(tweens_history)
 	}
 }
 
@@ -145,14 +166,14 @@ draw_fps_graph :: proc() {
 
 	draw_graph_frame(graph_x, graph_y, config)
 
-	fps_text := fmt.ctprintf("Current: %3.0f", g.fps_current)
+	fps_text := fmt.ctprintf("Current: %3.0f", fps_current)
 	rl.DrawText(fps_text, i32(graph_x + 5), i32(graph_y + 14), 10, rl.WHITE)
 
 	sum: f32 = 0
 	count: int = 0
-	for i in 0 ..< len(g.fps_history) {
-		if g.fps_history[i] > 0 {
-			sum += g.fps_history[i]
+	for i in 0 ..< len(fps_history) {
+		if fps_history[i] > 0 {
+			sum += fps_history[i]
 			count += 1
 		}
 	}
@@ -164,7 +185,7 @@ draw_fps_graph :: proc() {
 	ratios := [4]f32{0.5, 1.0, 1.5, 2.0}
 	draw_reference_lines(graph_x, graph_y, ratios[:], max_fps, f32(g.fps))
 
-	draw_history_lines(graph_x, graph_y, g.fps_history[:], g.fps_history_index, max_fps, fps_color_fn)
+	draw_history_lines(graph_x, graph_y, fps_history[:], fps_history_index, max_fps, fps_color_fn)
 }
 
 memory_color_fn :: proc(val: f32, max_val: f32) -> rl.Color {
@@ -182,21 +203,21 @@ draw_memory_graph :: proc() {
 
 	draw_graph_frame(graph_x, graph_y, config)
 
-	percentage := f32(g.gc_live) / f32(max(g.gc_threshold, 1)) * 100
-	live_text := fmt.ctprintf("Live: %7d", g.gc_live)
+	percentage := f32(gc_live) / f32(max(gc_threshold, 1)) * 100
+	live_text := fmt.ctprintf("Live: %7d", gc_live)
 	rl.DrawText(live_text, i32(graph_x + 5), i32(graph_y + 14), 10, rl.WHITE)
 
 	percent_text := fmt.ctprintf("%.0f%%", percentage)
 	rl.DrawText(percent_text, i32(graph_x + 110), i32(graph_y + 14), 10, rl.WHITE)
 
-	threshold_text := fmt.ctprintf("Thresh: %7d", g.gc_threshold)
+	threshold_text := fmt.ctprintf("Thresh: %7d", gc_threshold)
 	rl.DrawText(threshold_text, i32(graph_x + 5), i32(graph_y + 26), 10, rl.GRAY)
 
 	// draw reference lines (25%, 50%, 75%, 100%)
 	ratios := [4]f32{0.25, 0.5, 0.75, 1.0}
 	draw_reference_lines(graph_x, graph_y, ratios[:], 1.0, 1.0) // max 100%, highlight 100%
 
-	draw_history_lines(graph_x, graph_y, g.gc_history[:], g.gc_history_index, 1.0, memory_color_fn)
+	draw_history_lines(graph_x, graph_y, gc_history[:], gc_history_index, 1.0, memory_color_fn)
 }
 
 draw_tweens_graph :: proc() {
@@ -231,9 +252,9 @@ draw_tweens_graph :: proc() {
 
 	sum: f32 = 0
 	count: int = 0
-	for i in 0 ..< len(g.tweens_history) {
-		if g.tweens_history[i] >= 0 {
-			sum += g.tweens_history[i]
+	for i in 0 ..< len(tweens_history) {
+		if tweens_history[i] >= 0 {
+			sum += tweens_history[i]
 			count += 1
 		}
 	}
@@ -247,9 +268,9 @@ draw_tweens_graph :: proc() {
 
 	// find max value in history for scaling
 	max_tweens: f32 = 100 // minimum scale
-	for i in 0 ..< len(g.tweens_history) {
-		if g.tweens_history[i] > max_tweens {
-			max_tweens = g.tweens_history[i]
+	for i in 0 ..< len(tweens_history) {
+		if tweens_history[i] > max_tweens {
+			max_tweens = tweens_history[i]
 		}
 	}
 
@@ -279,24 +300,24 @@ draw_tweens_graph :: proc() {
 		rl.DrawText(label, i32(graph_x + graph_width - 25), i32(y - 5), 8, color)
 	}
 
-	point_width := f32(graph_width) / f32(len(g.tweens_history))
+	point_width := f32(graph_width) / f32(len(tweens_history))
 
-	for i in 1 ..< len(g.tweens_history) {
+	for i in 1 ..< len(tweens_history) {
 		// calculate indices for scrolling effect
-		prev_idx := (g.tweens_history_index + i - 1) % len(g.tweens_history)
-		curr_idx := (g.tweens_history_index + i) % len(g.tweens_history)
+		prev_idx := (tweens_history_index + i - 1) % len(tweens_history)
+		curr_idx := (tweens_history_index + i) % len(tweens_history)
 
-		prev_val := g.tweens_history[prev_idx] / max_tweens // scale to 0-1 range
-		curr_val := g.tweens_history[curr_idx] / max_tweens
+		prev_val := tweens_history[prev_idx] / max_tweens // scale to 0-1 range
+		curr_val := tweens_history[curr_idx] / max_tweens
 
-		if g.tweens_history[curr_idx] < 0 { continue }
+		if tweens_history[curr_idx] < 0 { continue }
 
 		x1 := graph_x + f32(i - 1) * point_width
 		x2 := graph_x + f32(i) * point_width
 		y1 := graph_start_y + graph_draw_height - (prev_val * graph_draw_height)
 		y2 := graph_start_y + graph_draw_height - (curr_val * graph_draw_height)
 
-		tweens := g.tweens_history[curr_idx]
+		tweens := tweens_history[curr_idx]
 		color := rl.Color{255, 165, 0, 255} // orange
 		if tweens >
 		   max_tweens * 0.75 { color = rl.RED } else if tweens > max_tweens * 0.5 { color = rl.YELLOW }

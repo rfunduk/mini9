@@ -31,7 +31,7 @@ ruby_gameobject_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 
 		if b2.Body_IsValid(obj.body_id) {
 			b2.DestroyBody(obj.body_id)
-			if obj.body_type == .DYNAMIC { g.dynamic_body_count -= 1 }
+			if obj.body_type == .DYNAMIC { dynamic_body_count -= 1 }
 		}
 
 		mrb.free(state, ptr)
@@ -54,33 +54,33 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if kwargs != mrb.NIL {
 		val: mrb.Value
 
-		val = mrb.kwarg(state, kwargs, g.sym.pos)
+		val = mrb.kwarg(state, kwargs, sym.pos)
 		if val != mrb.NIL {
 			pos_ptr := extract_native(rl.Vector2, val)
 			if pos_ptr == nil {
 				return mrb.raise_error(state, "TypeError", "obj: pos must be a Vector2")
 			}
 			pos_vec = pos_ptr^
-			mrb.hash_delete_key(state, kwargs, g.sym.pos)
+			mrb.hash_delete_key(state, kwargs, sym.pos)
 		}
-		val = mrb.kwarg(state, kwargs, g.sym.rotation)
+		val = mrb.kwarg(state, kwargs, sym.rotation)
 		if val != mrb.NIL {
 			rotation = f32(mrb.to_f64(val))
-			mrb.hash_delete_key(state, kwargs, g.sym.rotation)
+			mrb.hash_delete_key(state, kwargs, sym.rotation)
 		}
-		val = mrb.kwarg(state, kwargs, g.sym.visible)
+		val = mrb.kwarg(state, kwargs, sym.visible)
 		if val != mrb.NIL {
 			visible = mrb.boolean(val)
-			mrb.hash_delete_key(state, kwargs, g.sym.visible)
+			mrb.hash_delete_key(state, kwargs, sym.visible)
 		}
-		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		val = mrb.kwarg(state, kwargs, sym.scale)
 		if val != mrb.NIL {
 			scale_ptr := extract_native(rl.Vector2, val)
 			if scale_ptr == nil {
 				return mrb.raise_error(state, "TypeError", "obj: scale must be a Vector2")
 			}
 			scale_vec = scale_ptr^
-			mrb.hash_delete_key(state, kwargs, g.sym.scale)
+			mrb.hash_delete_key(state, kwargs, sym.scale)
 		}
 	}
 
@@ -94,9 +94,9 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	restitution: f32 = 0.0
 	sensor := false
 
-	body_val := mrb.kwarg(state, kwargs, g.sym.body)
+	body_val := mrb.kwarg(state, kwargs, sym.body)
 	if body_val != mrb.NIL {
-		mrb.hash_delete_key(state, kwargs, g.sym.body)
+		mrb.hash_delete_key(state, kwargs, sym.body)
 
 		if mrb.symbol_p(body_val) {
 			type_str := mrb.to_string(state, body_val)
@@ -117,22 +117,22 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.size)
+		val = mrb.kwarg(state, kwargs, sym.size)
 		if val != mrb.NIL {
 			sz := extract_native(rl.Vector2, val)
 			if sz != nil { half_size = sz^ / 2 }
 		}
-		val = mrb.kwarg(state, kwargs, g.sym.layer)
+		val = mrb.kwarg(state, kwargs, sym.layer)
 		if val != mrb.NIL { layer = layer_to_bitmask(state, val) }
-		val = mrb.kwarg(state, kwargs, g.sym.mask)
+		val = mrb.kwarg(state, kwargs, sym.mask)
 		if val != mrb.NIL { mask = layer_to_bitmask(state, val) }
-		val = mrb.kwarg(state, kwargs, g.sym.density)
+		val = mrb.kwarg(state, kwargs, sym.density)
 		if val != mrb.NIL { density = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.friction)
+		val = mrb.kwarg(state, kwargs, sym.friction)
 		if val != mrb.NIL { friction = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.restitution)
+		val = mrb.kwarg(state, kwargs, sym.restitution)
 		if val != mrb.NIL { restitution = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.sensor)
+		val = mrb.kwarg(state, kwargs, sym.sensor)
 		if val != mrb.NIL { sensor = mrb.boolean(val) }
 	}
 
@@ -170,7 +170,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			restitution,
 			sensor,
 		)
-		if body_type == .DYNAMIC { g.dynamic_body_count += 1 }
+		if body_type == .DYNAMIC { dynamic_body_count += 1 }
 	}
 
 	obj_val := create_game_object(obj, argc, raw_data(argv))

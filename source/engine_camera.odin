@@ -56,11 +56,11 @@ ruby_camera :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	{
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.target)
+		val = mrb.kwarg(state, kwargs, sym.target)
 		if val != mrb.NIL { target = extract_native(rl.Vector2, val)^ }
-		val = mrb.kwarg(state, kwargs, g.sym.offset)
+		val = mrb.kwarg(state, kwargs, sym.offset)
 		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
-		val = mrb.kwarg(state, kwargs, g.sym.zoom)
+		val = mrb.kwarg(state, kwargs, sym.zoom)
 		if val != mrb.NIL { zoom = mrb.to_f64(val) }
 	}
 
@@ -213,9 +213,9 @@ ruby_camera_reset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.target)
+		val = mrb.kwarg(state, kwargs, sym.target)
 		if val != mrb.NIL { reset_target = val != mrb.FALSE }
-		val = mrb.kwarg(state, kwargs, g.sym.zoom)
+		val = mrb.kwarg(state, kwargs, sym.zoom)
 		if val != mrb.NIL { reset_zoom = val != mrb.FALSE }
 	}
 
@@ -259,4 +259,8 @@ setup_camera :: proc() {
 	mrb.define_method(g.mrb_state, c, "offset=", cast(rawptr)ruby_camera_set_offset, 1)
 	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_camera_get_offset, 0)
 	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_camera_reset, -1)
+}
+
+cleanup_camera :: proc() {
+	delete(g.cameras)
 }

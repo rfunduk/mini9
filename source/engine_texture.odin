@@ -17,10 +17,14 @@ Texture :: struct {
 	status: Texture_Load_Status,
 }
 
+@(private = "file")
 Texture_Load_Data :: struct {
 	path:     cstring,
 	ruby_ptr: mrb.Value,
 }
+
+@(private = "file")
+deferred_textures: [dynamic]Texture_Load_Data
 
 ruby_texture_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
@@ -78,18 +82,18 @@ create_texture :: proc(path: string) -> mrb.Value {
 	} else {
 		// we still need to set a pointer to a Texture_Ruby, but it's a null pointer
 		// defer loading the texture until after window is initialized
-		append(&g.deferred_textures, Texture_Load_Data{strings.clone_to_cstring(path), ruby_obj})
+		append(&deferred_textures, Texture_Load_Data{strings.clone_to_cstring(path), ruby_obj})
 	}
 
 	return ruby_obj
 }
 
 load_deferred_textures :: proc() {
-	for &data in g.deferred_textures {
+	for &data in deferred_textures {
 		load_texture(data.path, data.ruby_ptr)
 		delete(data.path) // free the cloned cstring
 	}
-	clear(&g.deferred_textures)
+	clear(&deferred_textures)
 }
 
 // RUBY FUNCTION: texture(path, size=nil) -> returns Texture object
@@ -133,7 +137,7 @@ ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip := false
 
 	if argc == 2 {
-		val := mrb.kwarg(state, kwargs, g.sym.clip)
+		val := mrb.kwarg(state, kwargs, sym.clip)
 		if val != mrb.NIL { did_clip = _clip(val, pos) }
 	}
 
@@ -149,4 +153,8 @@ setup_texture :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Texture")
 	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_texture_get_size, 0)
 	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_texture_draw, 1)
+}
+
+cleanup_texture :: proc() {
+	delete(deferred_textures)
 }

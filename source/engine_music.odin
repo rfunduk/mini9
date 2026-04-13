@@ -158,11 +158,11 @@ ruby_music_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.volume)
+		val = mrb.kwarg(state, kwargs, sym.volume)
 		if val != mrb.NIL { music.volume = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.fade_in)
+		val = mrb.kwarg(state, kwargs, sym.fade_in)
 		if val != mrb.NIL { music.fade_time = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.loop)
+		val = mrb.kwarg(state, kwargs, sym.loop)
 		if val != mrb.NIL { music.looping = mrb.boolean(val) }
 	}
 
@@ -222,7 +222,7 @@ ruby_music_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 {
-		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		val := mrb.kwarg(state, kwargs, sym.fade_out)
 		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
@@ -254,7 +254,7 @@ ruby_music_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 {
-		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		val := mrb.kwarg(state, kwargs, sym.fade_out)
 		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
@@ -365,4 +365,8 @@ setup_music :: proc() {
 	mrb.define_method(g.mrb_state, mus, "volume", cast(rawptr)ruby_music_volume, 0)
 	mrb.define_method(g.mrb_state, mus, "volume=", cast(rawptr)ruby_music_set_volume, 1)
 	mrb.define_method(g.mrb_state, mus, "fade_time", cast(rawptr)ruby_music_fade_time, 0)
+}
+
+cleanup_music :: proc() {
+	delete(g.music)
 }

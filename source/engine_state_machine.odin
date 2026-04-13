@@ -63,11 +63,11 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc >= 2 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.enter)
+		val = mrb.kwarg(state, kwargs, sym.enter)
 		if val != mrb.NIL { enter_proc = val }
-		val = mrb.kwarg(state, kwargs, g.sym.exit)
+		val = mrb.kwarg(state, kwargs, sym.exit)
 		if val != mrb.NIL { exit_proc = val }
-		val = mrb.kwarg(state, kwargs, g.sym.update)
+		val = mrb.kwarg(state, kwargs, sym.update)
 		if val != mrb.NIL { update_proc = val }
 	}
 
@@ -112,8 +112,8 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	kwargs: mrb.Value
 	mrb.get_args(state, "H", &kwargs)
 
-	default_name := mrb.kwarg(state, kwargs, g.sym.default)
-	states_array := mrb.kwarg(state, kwargs, g.sym.states)
+	default_name := mrb.kwarg(state, kwargs, sym.default)
+	states_array := mrb.kwarg(state, kwargs, sym.states)
 
 	if states_array == mrb.NIL { states_array = mrb.ary_new(state) }
 

@@ -24,10 +24,12 @@ def ruby_api_files
     api_name = Pathname.new(ruby_file).basename(".rb").to_s
 
     auto = "load"
+    has_cleanup = false
     odin_file = File.join(SRC_DIR, "engine_#{api_name}.odin")
     if File.exist?(odin_file)
       odin_content = File.read(odin_file)
       auto = "init" if odin_content.include?("setup_#{api_name} ::")
+      has_cleanup = odin_content.include?("cleanup_#{api_name} ::")
     end
 
     # Collect all ENGINE declarations from leading comments
@@ -39,7 +41,7 @@ def ruby_api_files
       end
     end
 
-    $ruby_api_files << [api_name, auto, type_mappings]
+    $ruby_api_files << [api_name, auto, type_mappings, has_cleanup]
   end
 
   $ruby_api_files = $ruby_api_files.sort_by(&:first)
@@ -164,6 +166,13 @@ def generate
     init_content << "\tsetup_#{api_name}()" if type == "init"
   end
 
+  init_content << "}"
+
+  init_content << ""
+  init_content << "engine_cleanup_ruby_api :: proc() {"
+  ruby_api_files.each do |api_name, _, _, has_cleanup|
+    init_content << "\tcleanup_#{api_name}()" if has_cleanup
+  end
   init_content << "}"
 
   puts "  Generating engine_ruby_api__generated.odin..."

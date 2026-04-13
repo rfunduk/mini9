@@ -226,7 +226,7 @@ ruby_sound :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	polyphony := 8 // default polyphony
 
 	if argc == 2 {
-		val := mrb.kwarg(state, kwargs, g.sym.polyphony)
+		val := mrb.kwarg(state, kwargs, sym.polyphony)
 		if val != mrb.NIL { polyphony = int(mrb.integer(val)) }
 	}
 
@@ -266,9 +266,9 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 1 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.pitch)
+		val = mrb.kwarg(state, kwargs, sym.pitch)
 		if val != mrb.NIL { pitch = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.volume)
+		val = mrb.kwarg(state, kwargs, sym.volume)
 		if val != mrb.NIL { volume = f32(mrb.to_f64(val)) }
 	}
 
@@ -298,7 +298,7 @@ ruby_sound_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 {
-		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		val := mrb.kwarg(state, kwargs, sym.fade_out)
 		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
@@ -332,7 +332,7 @@ ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fade_time := f32(0.0)
 
 	if argc == 1 {
-		val := mrb.kwarg(state, kwargs, g.sym.fade_out)
+		val := mrb.kwarg(state, kwargs, sym.fade_out)
 		if val != mrb.NIL { fade_time = f32(mrb.to_f64(val)) }
 	}
 
@@ -387,4 +387,8 @@ setup_sound :: proc() {
 	mrb.define_method(g.mrb_state, snd, "play", cast(rawptr)ruby_sound_play, -1)
 	mrb.define_method(g.mrb_state, snd, "stop", cast(rawptr)ruby_sound_stop, -1)
 	mrb.define_method(g.mrb_state, snd, "pause", cast(rawptr)ruby_sound_pause, -1)
+}
+
+cleanup_sound :: proc() {
+	delete(g.sounds)
 }

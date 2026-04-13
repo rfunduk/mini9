@@ -45,21 +45,21 @@ ruby_text :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 4 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.font)
+		val = mrb.kwarg(state, kwargs, sym.font)
 		if val != mrb.NIL { font = extract_native(rl.Font, val) }
-		val = mrb.kwarg(state, kwargs, g.sym.offset)
+		val = mrb.kwarg(state, kwargs, sym.offset)
 		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
-		val = mrb.kwarg(state, kwargs, g.sym.align)
+		val = mrb.kwarg(state, kwargs, sym.align)
 		if val != mrb.NIL { align = Text_Align(mrb.integer(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.rotation)
+		val = mrb.kwarg(state, kwargs, sym.rotation)
 		if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.spacing)
+		val = mrb.kwarg(state, kwargs, sym.spacing)
 		if val != mrb.NIL { spacing = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		val = mrb.kwarg(state, kwargs, sym.scale)
 		if val != mrb.NIL { scale = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.color)
+		val = mrb.kwarg(state, kwargs, sym.color)
 		if val != mrb.NIL { color = extract_native(rl.Color, val)^ }
-		val = mrb.kwarg(state, kwargs, g.sym.outline)
+		val = mrb.kwarg(state, kwargs, sym.outline)
 		if val != mrb.NIL {
 			outline = val == mrb.TRUE ? {0, 0, 0, 255} : extract_native(rl.Color, val)^
 		}
@@ -113,9 +113,9 @@ ruby_text_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	spacing: f32 = 1.0
 	if argc == 3 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		val = mrb.kwarg(state, kwargs, sym.scale)
 		if val != mrb.NIL { scale = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.spacing)
+		val = mrb.kwarg(state, kwargs, sym.spacing)
 		if val != mrb.NIL { spacing = f32(mrb.to_f64(val)) }
 	}
 

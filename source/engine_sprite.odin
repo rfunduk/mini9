@@ -43,23 +43,23 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 2 {
 		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, g.sym.size)
+		val = mrb.kwarg(state, kwargs, sym.size)
 		if val != mrb.NIL { size = extract_native(rl.Vector2, val)^ }
-		val = mrb.kwarg(state, kwargs, g.sym.frame)
+		val = mrb.kwarg(state, kwargs, sym.frame)
 		if val != mrb.NIL { frame = uint(mrb.integer(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.frames)
+		val = mrb.kwarg(state, kwargs, sym.frames)
 		if val != mrb.NIL { frames = uint(mrb.integer(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.fliph)
+		val = mrb.kwarg(state, kwargs, sym.fliph)
 		if val != mrb.NIL { fliph = mrb.boolean(val) }
-		val = mrb.kwarg(state, kwargs, g.sym.flipv)
+		val = mrb.kwarg(state, kwargs, sym.flipv)
 		if val != mrb.NIL { flipv = mrb.boolean(val) }
-		val = mrb.kwarg(state, kwargs, g.sym.rotation)
+		val = mrb.kwarg(state, kwargs, sym.rotation)
 		if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, g.sym.offset)
+		val = mrb.kwarg(state, kwargs, sym.offset)
 		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
-		val = mrb.kwarg(state, kwargs, g.sym.scale)
+		val = mrb.kwarg(state, kwargs, sym.scale)
 		if val != mrb.NIL { scale = extract_native(rl.Vector2, val)^ }
-		val = mrb.kwarg(state, kwargs, g.sym.atlas)
+		val = mrb.kwarg(state, kwargs, sym.atlas)
 		if val != mrb.NIL {
 			atlas = extract_native(Texture, val)
 			if atlas != nil { found_atlas = true }
@@ -317,7 +317,7 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip := false
 
 	if argc == 2 {
-		val := mrb.kwarg(state, kwargs, g.sym.clip)
+		val := mrb.kwarg(state, kwargs, sym.clip)
 		if val != mrb.NIL { did_clip = _clip(val, pos) }
 	}
 

@@ -71,26 +71,26 @@ ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "H", &kwargs)
 
 	// required: interval
-	interval_val := mrb.kwarg(state, kwargs, g.sym.interval)
+	interval_val := mrb.kwarg(state, kwargs, sym.interval)
 	if interval_val == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "Animations must have `interval`")
 	}
 	interval := f32(mrb.to_f64(interval_val))
 
 	// required: values
-	values := mrb.kwarg(state, kwargs, g.sym.values)
+	values := mrb.kwarg(state, kwargs, sym.values)
 	if values == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "Animations must have `values`")
 	}
 
 	// optional: direction (default +1)
 	direction: i32 = 1
-	dir_val := mrb.kwarg(state, kwargs, g.sym.direction)
+	dir_val := mrb.kwarg(state, kwargs, sym.direction)
 	if dir_val != mrb.NIL { direction = i32(mrb.integer(dir_val)) }
 
 	// optional: mode (default LOOP = 0)
 	mode: Animation_Mode = .LOOP
-	mode_val := mrb.kwarg(state, kwargs, g.sym.mode)
+	mode_val := mrb.kwarg(state, kwargs, sym.mode)
 	if mode_val != mrb.NIL { mode = Animation_Mode(mrb.integer(mode_val)) }
 
 	return create_anim(interval, direction, mode, values)
