@@ -508,7 +508,7 @@ Time-based interpolation from one value to another, with easing. Works on Numeri
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `tween(from, to, duration, delay: 0, easing: Tween::LINEAR) { \|value\| ... }` | Tween | Block fires every frame |
+| `tween(from, to, duration, delay: 0, easing: Easing::LINEAR) { \|value\| ... }` | Tween | Block fires every frame |
 | `t.value` | Numeric/Vector2 | Current interpolated value |
 | `t.running?` | bool | |
 | `t.finished?` | bool | |
@@ -517,13 +517,26 @@ Time-based interpolation from one value to another, with easing. Works on Numeri
 | `t.progress` | Float | 0.0–1.0 |
 | `t.stop` | nil | |
 
-**Easing constants** (all `Tween::*`):
+**Easing constants** (all `Easing::*`):
 
-`LINEAR`, plus `IN` / `OUT` / `IN_OUT` variants of: `QUADRATIC`, `CUBIC`, `QUARTIC`, `QUINTIC`, `EXPONENTIAL`, `SINE`, `CIRCULAR`, `ELASTIC`, `BACK`, `BOUNCE`. Total: 31 easings.
+`LINEAR`, plus `IN` / `OUT` / `IN_OUT` variants of: `QUADRATIC`, `CUBIC`, `QUARTIC`, `QUINTIC`, `SINE`, `CIRCULAR`, `EXPONENTIAL`, `ELASTIC`, `BACK`, `BOUNCE`. Total: 31 easings.
 
 ```ruby
-tween(v2(0, 0), v2(100, 50), 1.0, easing: Tween::EASE_OUT) do |pos|
+tween(v2(0, 0), v2(100, 50), 1.0, easing: Easing::CUBIC_OUT) do |pos|
   PLAYER.pos = pos
+end
+```
+
+`Easing.at(t, easing = Easing::LINEAR)` returns the eased value of `t` (0.0–1.0). Useful standalone.
+
+`range(from, to, count, easing: Easing::LINEAR)` returns an Array of `count` floats from `from` to `to`, with easing applied. First and last entries are exactly `from` / `to`. `count` must be ≥ 2. Feed into `anim`'s `values:` for eased numeric sequences (fades, scales, color channels):
+
+```ruby
+fade = anim(interval: 0.05, values: range(255, 0, 30, easing: Easing::CUBIC_OUT))
+
+def update(dt)
+  fade.update(dt)
+  clear(color(0, 0, 0, fade.current))
 end
 ```
 
