@@ -57,6 +57,7 @@ Ruby_Call_Context :: enum {
 	UI,
 	EVENT,
 	TWEEN_CALLBACK,
+	TIMER_CALLBACK,
 }
 
 // Top-level Ruby callback dispatch with engine policy applied:
@@ -92,10 +93,10 @@ dispatch_funcall :: proc(
 }
 
 // Yield to a block under mrb_protect, routing any exception through the
-// engine's error handler. Always protected because the only current caller
-// is the tween update path, which runs inside flux iteration where a raise
-// would otherwise crash the VM.
-dispatch_yield :: proc(block: mrb.Value, arg: mrb.Value, ctx: Ruby_Call_Context = .TWEEN_CALLBACK) -> bool {
+// engine's error handler. Always protected — callers run in contexts where
+// a raise would otherwise corrupt VM state (e.g. tween inside flux iteration)
+// or where local recovery beats unwinding to the outer protect frame.
+dispatch_yield :: proc(block: mrb.Value, arg: mrb.Value, ctx: Ruby_Call_Context) -> bool {
 	ok, exc := mrb.protected_yield(g.mrb_state, block, arg)
 	if !ok { handle_ruby_exception(g.mrb_state, exc, ctx) }
 	return ok

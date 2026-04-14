@@ -124,6 +124,9 @@ _engine_update :: proc() {
 		// process events first, before update
 		call_user_events()
 
+		// fire any timers whose interval has elapsed
+		update_timers(f64(fixed_dt))
+
 		// user update gets consistent fixed timestep
 		call_user_update(fixed_dt)
 

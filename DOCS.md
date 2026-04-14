@@ -42,6 +42,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Music](#music)
 - [Animation](#animation)
 - [Tweening](#tweening)
+- [Timers](#timers)
 - [Camera](#camera)
 - [Screen Shake](#screen-shake)
 - [Game Objects](#game-objects)
@@ -542,6 +543,57 @@ end
 
 ---
 
+## Timers
+
+Fire a block once after a delay (`after`) or repeatedly on an interval (`every`). Both return a `Timer` handle. Timers tick once per fixed-timestep update.
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `after(seconds) { \|this\| ... }` | Timer | Fires once, then auto-removes |
+| `every(seconds, leading: false) { \|this\| ... }` | Timer | Fires repeatedly until cancelled. `leading: true` fires once on the next tick instead of waiting `seconds` first |
+| `t.cancel` | nil | Stops the timer; safe to call repeatedly |
+| `t.cancelled?` / `t.finished?` | bool | |
+| `t.repeating?` | bool | |
+| `t.interval` / `t.elapsed` / `t.remaining` | Float | Seconds. `remaining` clamps at 0 |
+
+The block's `this` parameter is whatever object the timer was attached to via `init(parent)`. `obj()` calls `init` automatically on any field that responds to it (same convention as `fsm`):
+
+```ruby
+PLAYER = obj(
+  hp: 10,
+  pos: v2(0, 0),
+  burn: every(1.0) { |this| this.hp -= 1 }
+)
+
+# stop it later
+PLAYER.burn.cancel
+```
+
+Standalone (no parent) is fine — the block just gets `nil`:
+
+```ruby
+every(10) { spawn_wave }
+after(0.5) { play_sound(:explode) }
+```
+
+If a timer's block raises, the timer is cancelled (one warning, no recurring crash).
+
+Common FSM pattern — store the timer on `state.data` so `exit:` can cancel it:
+
+```ruby
+state(
+  :calm,
+  enter: ->(this, state) {
+    state.data.timer = after(STORM_INTERVAL) { this.fsm.transition(:storm) }
+  },
+  exit: ->(this, state) {
+    state.data.timer.cancel
+  }
+)
+```
+
+---
+
 ## Camera
 
 Every `draw` call is camera-transformed. `ui` is not.
@@ -642,7 +694,7 @@ Used for per-entity state (player idle/run/jump) or game states (menu/play/pause
 | `f.transition(name)` | nil | Force a transition |
 | `f.state` | State | Current state |
 | `s.name` | Symbol | |
-| `s.data` | GameObject | Per-state scratch data (pre-created with `pos`, `scale`, `visible`) |
+| `s.data` | GameObject | Per-state scratch — assign anything: `state.data.timer = after(...) { ... }` |
 | `s.fsm` | FSM | Parent FSM |
 | `s.transition(name)` | nil | Shortcut for `state.fsm.transition(name)` |
 | `s == :symbol` | bool | Compares by name |

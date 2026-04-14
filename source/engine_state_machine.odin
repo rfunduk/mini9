@@ -44,11 +44,6 @@ ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	}
 }
 
-get_proc_arity :: proc(proc_val: mrb.Value) -> i32 {
-	if proc_val == mrb.NIL { return 0 }
-	return i32(mrb.proc_arity(proc_val))
-}
-
 // RUBY FUNCTION: state(:name, enter: nil, exit: nil, update: nil) -> returns State object
 // @engine_method: name="state", arity=-1
 ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -85,9 +80,9 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		enter_proc   = enter_proc,
 		update_proc  = update_proc,
 		exit_proc    = exit_proc,
-		enter_arity  = get_proc_arity(enter_proc),
-		update_arity = get_proc_arity(update_proc),
-		exit_arity   = get_proc_arity(exit_proc),
+		enter_arity  = mrb.safe_proc_arity(enter_proc),
+		update_arity = mrb.safe_proc_arity(update_proc),
+		exit_arity   = mrb.safe_proc_arity(exit_proc),
 	}
 	state_ptr := mrb.alloc(g.mrb_state, s)
 

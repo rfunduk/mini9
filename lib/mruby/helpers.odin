@@ -124,7 +124,6 @@ kwarg :: #force_inline proc(state: State, hash: Value, key: Value) -> Value {
 	return hash_get(state, hash, key)
 }
 
-
 // Look up an existing Ruby class by name and tag it with the DATA
 // instance type, so instances can carry a native pointer via `data_init`.
 // Pairs with the `MRB_DEFINE_DATA_CLASS` pattern from mruby C examples.
@@ -132,6 +131,12 @@ get_data_class :: proc(state: State, name: string) -> rawptr {
 	class := class_get(state, strings.clone_to_cstring(name, context.temp_allocator))
 	set_instance_tt(class, TT_DATA)
 	return class
+}
+
+// return arity of a proc, or 0 if nil passed
+safe_proc_arity :: #force_inline proc(proc_val: Value) -> i32 {
+	if proc_val == NIL { return 0 }
+	return i32(proc_arity(proc_val))
 }
 
 // Format a message and raise a Ruby exception of the named class. The
