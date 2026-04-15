@@ -107,9 +107,8 @@ create_sprite :: proc(s: Sprite) -> mrb.Value {
 // get sprite frame count, auto-calculating if needed
 get_sprite_frames :: proc(sprite: ^Sprite) -> uint {
 	if sprite.frames == 0 && sprite.size.x > 0 && sprite.size.y > 0 && sprite.atlas.status == .LOADED {
-		tex := sprite.atlas.tex
-		cols := int(f32(tex.width) / sprite.size.x)
-		rows := int(f32(tex.height) / sprite.size.y)
+		cols := int(sprite.atlas.w / sprite.size.x)
+		rows := int(sprite.atlas.h / sprite.size.y)
 		if cols > 0 && rows > 0 {
 			sprite.frames = uint(cols * rows)
 		} else {
@@ -321,26 +320,23 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		if val != mrb.NIL { did_clip = _clip(val, pos) }
 	}
 
-	// calculate source rectangle from sprite settings
-	tex := sprite.atlas.tex
-	frame_width := sprite.size.x > 0 ? sprite.size.x : f32(tex.width)
-	frame_height := sprite.size.y > 0 ? sprite.size.y : f32(tex.height)
+	// calculate source rectangle in logical (sprite-sheet) coords
+	frame_width := sprite.size.x > 0 ? sprite.size.x : sprite.atlas.w
+	frame_height := sprite.size.y > 0 ? sprite.size.y : sprite.atlas.h
 
-	// calculate frame position in atlas
-	cols := int(f32(tex.width) / frame_width)
+	cols := int(sprite.atlas.w / frame_width)
 	if cols == 0 { cols = 1 }
 
-	// calculate position based on frame index within the grid
 	col := int(sprite.frame) % cols
 	row := int(sprite.frame) / cols
 
 	frame_x := f32(col) * frame_width
 	frame_y := f32(row) * frame_height
 
-	// source rectangle (handle flipping)
+	// translate into atlas pixel space (no-op for STANDALONE since origin = 0)
 	source := rl.Rectangle {
-		x      = math.floor(frame_x),
-		y      = math.floor(frame_y),
+		x      = math.floor(sprite.atlas.tex_origin.x + frame_x),
+		y      = math.floor(sprite.atlas.tex_origin.y + frame_y),
 		width  = math.floor(sprite.fliph ? -frame_width : frame_width),
 		height = math.floor(sprite.flipv ? -frame_height : frame_height),
 	}
@@ -352,7 +348,7 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		height = math.floor(abs(frame_height) * sprite.scale.y),
 	}
 
-	rl.DrawTexturePro(tex, source, dest, -sprite.offset, sprite.rotation * 180.0 / math.PI, rl.WHITE)
+	rl.DrawTexturePro(sprite.atlas.tex, source, dest, -sprite.offset, sprite.rotation * 180.0 / math.PI, rl.WHITE)
 
 	if did_clip { rl.EndScissorMode() }
 

@@ -269,7 +269,18 @@ Load a GIMP `.gpl` palette file. Colors become methods on the palette object, na
 | `pal.dup` | Palette | Independent deep copy — mutating the copy never touches the original |
 | `pal.replace(other)` | self | Swap this palette's contents with `other`'s. Mutates in place — every existing reference to `pal` sees the new colors |
 
-**Built-in palette:** `Palette::DEFAULT`. Loaded from a baked-in `.gpl` file with 16 named colors (`black`, `white`, `red`, `blue`, etc.).
+**Built-in palette:** `Palette::DEFAULT`. 16 named colors:
+
+| Name | RGB | | Name | RGB |
+|---|---|---|---|---|
+| `black` | 0, 0, 0 | | `red` | 237, 0, 24 |
+| `white` | 255, 255, 255 | | `yellow` | 255, 225, 39 |
+| `blue` | 38, 149, 240 | | `peach` | 255, 212, 184 |
+| `dark_blue` | 22, 44, 102 | | `orange` | 227, 148, 0 |
+| `green` | 0, 189, 28 | | `pink` | 255, 119, 168 |
+| `dark_green` | 0, 115, 25 | | `purple` | 112, 77, 179 |
+| `magenta` | 176, 40, 90 | | `brown` | 161, 76, 48 |
+| `light_gray` | 143, 144, 148 | | `dark_gray` | 61, 59, 56 |
 
 **`P`** is a predefined top-level constant — an independent copy of `Palette::DEFAULT`. Use it directly without any setup. To swap in a different palette without breaking existing references, use `P.replace(...)`:
 

@@ -12,9 +12,17 @@ Texture_Load_Status :: enum {
 	UNLOADED,
 }
 
+Texture_Kind :: enum {
+	ATLAS,     // tex points at the shared atlas; tex_origin/w/h locate sub-image
+	STANDALONE, // tex is owned by this Texture
+}
+
 Texture :: struct {
-	tex:    rl.Texture2D,
-	status: Texture_Load_Status,
+	tex:        rl.Texture2D,
+	tex_origin: rl.Vector2, // top-left within tex (0,0 for STANDALONE)
+	w, h:       f32,        // logical size of this texture (NOT atlas size)
+	kind:       Texture_Kind,
+	status:     Texture_Load_Status,
 }
 
 @(private = "file")
@@ -31,13 +39,15 @@ ruby_texture_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	if ptr != nil {
 		texture_ptr := cast(^Texture)ptr
 		texture_ptr.status = .UNLOADED
-		rl.UnloadTexture(texture_ptr.tex)
+		// only STANDALONE owns its texture; ATLAS-kind shares the atlas texture
+		if texture_ptr.kind == .STANDALONE { rl.UnloadTexture(texture_ptr.tex) }
 		mrb.free(state, ptr)
 	}
 }
 
-load_texture :: proc(path: cstring, ruby_obj: mrb.Value) -> ^Texture {
-	// read file data into memory first
+// load_texture_standalone — used after init phase OR for atlas spillover.
+// Decodes file → texture, assigns to Texture struct as STANDALONE.
+load_texture_standalone :: proc(path: cstring, ruby_obj: mrb.Value) -> ^Texture {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
 	if !ok {
@@ -46,22 +56,48 @@ load_texture :: proc(path: cstring, ruby_obj: mrb.Value) -> ^Texture {
 	}
 	defer delete(file_data)
 
-	// get file extension for LoadImageFromMemory
 	file_ext_cstr := strings.clone_to_cstring(slashpath.ext(path_str), context.temp_allocator)
-
-	// load image from memory data
 	image := rl.LoadImageFromMemory(file_ext_cstr, raw_data(file_data), i32(len(file_data)))
 	defer rl.UnloadImage(image)
 
-	// convert image to texture
 	tex := rl.LoadTextureFromImage(image)
 	rl.SetTextureFilter(tex, .POINT)
 
 	texture_ptr := extract_native(Texture, ruby_obj)
+	texture_ptr.kind = .STANDALONE
 	texture_ptr.tex = tex
+	texture_ptr.tex_origin = {0, 0}
+	texture_ptr.w = f32(image.width)
+	texture_ptr.h = f32(image.height)
 	texture_ptr.status = .LOADED
 
 	return texture_ptr
+}
+
+// load_texture_for_atlas — decodes image during init phase, queues for atlas
+// pack. Image is owned by atlas module until pack_atlas runs.
+load_texture_for_atlas :: proc(path: cstring, ruby_obj: mrb.Value) {
+	path_str := string(path)
+	file_data, ok := read_entire_file(path_str)
+	if !ok {
+		mrb.raise_error(g.mrb_state, "RuntimeError", "Could not load texture file: %s", path_str)
+		return
+	}
+	defer delete(file_data)
+
+	file_ext_cstr := strings.clone_to_cstring(slashpath.ext(path_str), context.temp_allocator)
+	image := rl.LoadImageFromMemory(file_ext_cstr, raw_data(file_data), i32(len(file_data)))
+	// note: do NOT UnloadImage here — atlas owns it until pack_atlas runs
+
+	texture_ptr := extract_native(Texture, ruby_obj)
+	if texture_ptr != nil {
+		texture_ptr.kind = .ATLAS
+		texture_ptr.w = f32(image.width)
+		texture_ptr.h = f32(image.height)
+		texture_ptr.status = .PENDING
+	}
+
+	queue_texture_for_atlas(ruby_obj, image)
 }
 
 create_texture :: proc(path: string) -> mrb.Value {
@@ -75,13 +111,12 @@ create_texture :: proc(path: string) -> mrb.Value {
 	texture_ptr := mrb.alloc(g.mrb_state, Texture{})
 	mrb.data_init(ruby_obj, texture_ptr, NATIVE_TO_MRUBY_TYPE[Texture])
 
-	// if we're in UPDATE phase (window initialized), load immediately
 	if g.phase == .UPDATE {
+		// post-init lazy load → standalone (atlas already built)
 		cpath := strings.clone_to_cstring(path, context.temp_allocator)
-		load_texture(cpath, ruby_obj)
+		load_texture_standalone(cpath, ruby_obj)
 	} else {
-		// we still need to set a pointer to a Texture_Ruby, but it's a null pointer
-		// defer loading the texture until after window is initialized
+		// during init: defer; load_deferred_textures will route to atlas
 		append(&deferred_textures, Texture_Load_Data{strings.clone_to_cstring(path), ruby_obj})
 	}
 
@@ -90,13 +125,15 @@ create_texture :: proc(path: string) -> mrb.Value {
 
 load_deferred_textures :: proc() {
 	for &data in deferred_textures {
-		load_texture(data.path, data.ruby_ptr)
-		delete(data.path) // free the cloned cstring
+		load_texture_for_atlas(data.path, data.ruby_ptr)
+		delete(data.path)
 	}
 	clear(&deferred_textures)
+	// pack_atlas() is called from engine.odin after both fonts AND textures
+	// are loaded, so they share one atlas pass.
 }
 
-// RUBY FUNCTION: texture(path, size=nil) -> returns Texture object
+// RUBY FUNCTION: texture(path) -> returns Texture object
 // @engine_method: name="texture", arity=1
 ruby_texture :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
@@ -114,12 +151,8 @@ ruby_texture :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_texture_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	texture := extract_native(Texture, self)
-	tex := texture.tex
-	if texture != nil {
-		return create_vector2({f32(tex.width), f32(tex.height)})
-	} else {
-		return mrb.NIL
-	}
+	if texture == nil { return mrb.NIL }
+	return create_vector2({texture.w, texture.h})
 }
 
 ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -141,8 +174,9 @@ ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		if val != mrb.NIL { did_clip = _clip(val, pos) }
 	}
 
-	tex := texture.tex
-	rl.DrawTextureV(tex, pos, rl.WHITE)
+	source := rl.Rectangle{texture.tex_origin.x, texture.tex_origin.y, texture.w, texture.h}
+	dest := rl.Rectangle{pos.x, pos.y, texture.w, texture.h}
+	rl.DrawTexturePro(texture.tex, source, dest, {0, 0}, 0, rl.WHITE)
 
 	if did_clip { rl.EndScissorMode() }
 

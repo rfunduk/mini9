@@ -64,7 +64,7 @@ flags="
   -sWARN_ON_UNDEFINED_SYMBOLS=0
   -sASSERTIONS
   -sASYNCIFY
-  -sASYNCIFY_ONLY=[\"mrb_load_irep_cxt\",\"mrb_load_string_cxt\"]
+  -sASYNCIFY_ONLY=[\"mrbm_load_irep_top\",\"mrb_load_string_cxt\"]
   -sALLOW_TABLE_GROWTH=1
   -sALLOW_MEMORY_GROWTH=1
   -sINITIAL_MEMORY=67108864

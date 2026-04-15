@@ -24,7 +24,13 @@ ruby_font_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 		builtin_start := rawptr(&g.fonts)
 		builtin_end := rawptr(uintptr(builtin_start) + size_of(g.fonts))
 
-		rl.UnloadFont(font_ptr^)
+		if font_is_atlas_backed(font_ptr) {
+			// atlas owns texture — free raylib-allocated arrays only
+			if font_ptr.recs != nil { rl.MemFree(rawptr(font_ptr.recs)) }
+			if font_ptr.glyphs != nil { rl.MemFree(rawptr(font_ptr.glyphs)) }
+		} else {
+			rl.UnloadFont(font_ptr^)
+		}
 
 		// only free if it's not a built-in font
 		if ptr < builtin_start || ptr >= builtin_end {
@@ -125,9 +131,16 @@ load_deferred_fonts :: proc() {
 	g.fonts.medium = load_font_from_memory(".png", pixel_font_11_data[:])
 	g.fonts.large = load_font_from_memory(".png", pixel_font_15_data[:])
 
+	queue_font_for_atlas(&g.fonts.tiny)
+	queue_font_for_atlas(&g.fonts.small)
+	queue_font_for_atlas(&g.fonts.medium)
+	queue_font_for_atlas(&g.fonts.large)
+
 	// load user-defined deferred fonts
 	for &data in deferred_fonts {
 		load_font(data.file_type, data.bytes, data.size, data.ruby_ptr)
+		font_ptr := extract_native(rl.Font, data.ruby_ptr)
+		if font_ptr != nil { queue_font_for_atlas(font_ptr) }
 		delete(data.file_type)
 		delete(data.bytes)
 	}

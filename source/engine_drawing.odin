@@ -1,5 +1,6 @@
 package engine
 
+import "core:math"
 import lin "core:math/linalg"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -47,7 +48,9 @@ ruby_circle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if val != mrb.NIL { did_clip = _clip(val, pos) }
 
 	if filled {
-		rl.DrawCircleV(pos, radius, draw_color)
+		// DrawCircleSector uses the shapes texture (batches with atlas);
+		// DrawCircleV bypasses it. 36 segments matches DrawCircleV quality.
+		rl.DrawCircleSector(pos, radius, 0, 360, 36, draw_color)
 	} else {
 		rl.DrawCircleLinesV(pos, radius, draw_color)
 	}
@@ -122,7 +125,22 @@ ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	val = mrb.kwarg(state, kwargs, sym.clip)
 	if val != mrb.NIL { did_clip = _clip(val, from) }
 
-	rl.DrawLineEx(from, to, f32(thickness), draw_color)
+	// rotated stretched white-texel quad — batches with the atlas since
+	// DrawLineEx uses RL_LINES mode which forces a batch flush.
+	delta := to - from
+	length := lin.length(delta)
+	if length > 0 {
+		angle_deg := math.atan2(delta.y, delta.x) * 180.0 / math.PI
+		th := f32(thickness)
+		rl.DrawTexturePro(
+			atlas_texture,
+			atlas_white_uv,
+			{from.x, from.y, length, th},
+			{0, th / 2},
+			angle_deg,
+			draw_color,
+		)
+	}
 
 	if did_clip { rl.EndScissorMode() }
 
@@ -188,7 +206,9 @@ ruby_rectangle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		if rounded > 0 {
 			rl.DrawRectangleRounded({pos.x, pos.y, size.x, size.y}, rounded, 10, draw_color)
 		} else {
-			rl.DrawRectangleV(pos, size, draw_color)
+			// DrawRectanglePro uses the shapes texture (batches with atlas);
+			// DrawRectangleV bypasses it.
+			rl.DrawRectanglePro({pos.x, pos.y, size.x, size.y}, {0, 0}, 0, draw_color)
 		}
 	} else {
 		if rounded > 0 {

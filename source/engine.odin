@@ -83,9 +83,11 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	// calculate initial screen layout
 	calculate_screen_layout()
 
-	// load deferred assets
+	// load deferred assets — fonts first so their glyph images exist,
+	// then textures; finally pack them all into one atlas.
 	load_deferred_fonts()
 	load_deferred_textures()
+	pack_atlas()
 
 	// apply cursor state set during initialization
 	set_cursor_visible(g.cursor)
