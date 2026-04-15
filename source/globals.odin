@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:math/ease"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
+import rlgl "vendor:raylib/rlgl"
 
 Game_Phase :: enum {
 	INIT,
@@ -29,6 +30,8 @@ Engine_Memory :: struct {
 	cursor:            bool,
 	audio_initialized: bool,
 	dest_rect:         rl.Rectangle,
+	batch:             rlgl.RenderBatch,
+	draw_calls:        i32,
 	has_init:          bool,
 	has_event:         bool,
 	has_update:        bool,

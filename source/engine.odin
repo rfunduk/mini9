@@ -5,6 +5,7 @@ import "core:math/ease"
 import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
+import rlgl "vendor:raylib/rlgl"
 
 
 _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
@@ -74,6 +75,10 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 
 	g.render_texture = rl.LoadRenderTexture(i32(g.resolution.x), i32(g.resolution.y))
 	rl.SetTextureFilter(g.render_texture.texture, .POINT)
+
+	// custom render batch so we can inspect drawCounter for metrics
+	g.batch = rlgl.LoadRenderBatch(1, rlgl.DEFAULT_BATCH_BUFFER_ELEMENTS)
+	rlgl.SetRenderBatchActive(&g.batch)
 
 	// calculate initial screen layout
 	calculate_screen_layout()
@@ -148,8 +153,14 @@ _engine_update :: proc() {
 
 	rl.BeginTextureMode(g.render_texture)
 
+	// draw_calls accumulates across flush points (EndMode2D + EndTextureMode each flush).
+	// peek drawCounter just before each flush, sum. Baseline of 1/flush means count is
+	// slightly inflated but stable — useful as relative metric.
+	g.draw_calls = 0
+
 	rl.BeginMode2D(g.camera)
 	call_user_draw()
+	g.draw_calls += i32(g.batch.drawCounter)
 	rl.EndMode2D()
 
 	// draw ui elements
@@ -157,6 +168,7 @@ _engine_update :: proc() {
 	//         the reguar mode does except like camera(..., layer: :ui) or something
 	rl.BeginMode2D({zoom = 1})
 	call_user_ui()
+	g.draw_calls += i32(g.batch.drawCounter)
 	rl.EndMode2D()
 
 	rl.EndTextureMode()
@@ -179,6 +191,7 @@ _engine_update :: proc() {
 		draw_memory_graph()
 		draw_fps_graph()
 		draw_tweens_graph()
+		draw_draws_graph()
 	}
 
 	rl.EndMode2D()
@@ -203,6 +216,8 @@ _engine_shutdown :: proc() {
 	}
 
 	rl.CloseAudioDevice()
+	// custom batch intentionally not unloaded here — raylib's CloseWindow
+	// tears down rlgl state; explicit unload races with that and corrupts heap
 	rl.UnloadRenderTexture(g.render_texture)
 	ease.flux_destroy(g.flux)
 

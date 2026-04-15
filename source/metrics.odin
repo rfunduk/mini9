@@ -1,7 +1,6 @@
 package engine
 
 import "core:fmt"
-import "core:strings"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
@@ -25,6 +24,11 @@ fps_history_index: int
 tweens_history: [120]f32 // 2 seconds at 60fps
 @(private = "file")
 tweens_history_index: int
+
+@(private = "file")
+draws_history: [120]f32 // 2 seconds at 60fps
+@(private = "file")
+draws_history_index: int
 
 Graph_Config :: struct {
 	title:       string,
@@ -58,6 +62,10 @@ collect_metrics :: proc() {
 		tweens := f32(len(g.flux.values))
 		tweens_history[tweens_history_index] = tweens
 		tweens_history_index = (tweens_history_index + 1) % len(tweens_history)
+
+		// sample draw call count
+		draws_history[draws_history_index] = f32(g.draw_calls)
+		draws_history_index = (draws_history_index + 1) % len(draws_history)
 	}
 }
 
@@ -92,7 +100,7 @@ draw_graph_frame :: proc(x, y: f32, config: Graph_Config) {
 	rl.DrawRectangle(i32(x), i32(y), graph_width, graph_height, {0, 0, 0, 180})
 	rl.DrawRectangleLines(i32(x), i32(y), graph_width, graph_height, config.color)
 
-	rl.DrawText(strings.clone_to_cstring(config.title), i32(x + 5), i32(y + 2), 10, config.color)
+	rl.DrawText(fmt.ctprintf("%s", config.title), i32(x + 5), i32(y + 2), 10, config.color)
 }
 
 // helper to draw reference lines
@@ -323,5 +331,105 @@ draw_tweens_graph :: proc() {
 		   max_tweens * 0.75 { color = rl.RED } else if tweens > max_tweens * 0.5 { color = rl.YELLOW }
 
 		rl.DrawLine(i32(x1), i32(y1), i32(x2), i32(y2), color)
+	}
+}
+
+draw_draws_graph :: proc() {
+	graph_width :: 240
+	graph_height :: 80
+	margin :: 10
+	stack :: 4 // 4th from bottom (above tweens)
+
+	screen_h := f32(rl.GetScreenHeight())
+	graph_x := f32(margin)
+
+	total_graphs_height := f32(graph_height * stack + margin * (stack + 1))
+	graph_y: f32
+	if total_graphs_height > screen_h {
+		graph_y = screen_h - f32(graph_height * stack) - f32(margin)
+	} else {
+		graph_y = screen_h - f32(graph_height * stack) - f32(margin * stack)
+	}
+	graph_y = max(0, graph_y)
+
+	color_main :: rl.Color{255, 100, 255, 255} // magenta
+
+	rl.DrawRectangle(i32(graph_x), i32(graph_y), graph_width, graph_height, {0, 0, 0, 180})
+	rl.DrawRectangleLines(i32(graph_x), i32(graph_y), graph_width, graph_height, color_main)
+
+	rl.DrawText("Draw Calls", i32(graph_x + 5), i32(graph_y + 2), 10, color_main)
+
+	count_text := fmt.ctprintf("Current: %3d", g.draw_calls)
+	rl.DrawText(count_text, i32(graph_x + 5), i32(graph_y + 14), 10, rl.WHITE)
+
+	sum: f32 = 0
+	count: int = 0
+	peak: f32 = 0
+	for i in 0 ..< len(draws_history) {
+		if draws_history[i] >= 0 {
+			sum += draws_history[i]
+			count += 1
+			if draws_history[i] > peak { peak = draws_history[i] }
+		}
+	}
+	avg := count > 0 ? sum / f32(count) : 0
+
+	avg_text := fmt.ctprintf("Avg: %3.0f  Peak: %3.0f", avg, peak)
+	rl.DrawText(avg_text, i32(graph_x + 5), i32(graph_y + 26), 10, rl.GRAY)
+
+	graph_start_y := graph_y + 40
+	graph_draw_height := f32(graph_height - 45)
+
+	max_val: f32 = 20 // minimum scale
+	for i in 0 ..< len(draws_history) {
+		if draws_history[i] > max_val { max_val = draws_history[i] }
+	}
+	if max_val < 50 {
+		max_val = 50
+	} else if max_val < 100 {
+		max_val = 100
+	} else if max_val < 250 {
+		max_val = 250
+	} else if max_val < 500 {
+		max_val = 500
+	} else {
+		max_val = ((max_val / 100) + 1) * 100
+	}
+
+	reference_lines := [4]f32{0.25, 0.5, 0.75, 1.0}
+	for i in 0 ..< 4 {
+		ref_count := max_val * reference_lines[i]
+		y := graph_start_y + graph_draw_height - (graph_draw_height * reference_lines[i])
+		ref_color := rl.Color{100, 100, 100, 50}
+		rl.DrawLine(i32(graph_x), i32(y), i32(graph_x + graph_width), i32(y), ref_color)
+		label := fmt.ctprintf("%.0f", ref_count)
+		rl.DrawText(label, i32(graph_x + graph_width - 25), i32(y - 5), 8, ref_color)
+	}
+
+	point_width := f32(graph_width) / f32(len(draws_history))
+
+	for i in 1 ..< len(draws_history) {
+		prev_idx := (draws_history_index + i - 1) % len(draws_history)
+		curr_idx := (draws_history_index + i) % len(draws_history)
+
+		prev_val := draws_history[prev_idx] / max_val
+		curr_val := draws_history[curr_idx] / max_val
+
+		if draws_history[curr_idx] < 0 { continue }
+
+		x1 := graph_x + f32(i - 1) * point_width
+		x2 := graph_x + f32(i) * point_width
+		y1 := graph_start_y + graph_draw_height - (prev_val * graph_draw_height)
+		y2 := graph_start_y + graph_draw_height - (curr_val * graph_draw_height)
+
+		v := draws_history[curr_idx]
+		line_color := color_main
+		if v > max_val * 0.75 {
+			line_color = rl.RED
+		} else if v > max_val * 0.5 {
+			line_color = rl.YELLOW
+		}
+
+		rl.DrawLine(i32(x1), i32(y1), i32(x2), i32(y2), line_color)
 	}
 }
