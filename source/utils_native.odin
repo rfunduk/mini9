@@ -5,6 +5,7 @@ package engine
 
 import "core:log"
 import "core:os"
+import "core:path/filepath"
 import "core:strings"
 import rl "vendor:raylib"
 import zlib "vendor:zlib"
@@ -87,6 +88,32 @@ _read_entire_file :: proc(
 
 _write_entire_file :: proc(name: string, data: []byte, truncate := true) -> (success: bool) {
 	return os.write_entire_file(name, data, truncate = truncate) == nil
+}
+
+// path for the save file, derived from the rom path passed at engine_init.
+// rom mode: `<rom sans .rom>.m9` (sibling of the rom, so renaming rom orphans
+// the save — accept tradeoff; using metadata name would add runtime parse).
+// dir mode: `./save.m9` in cwd (main_native chdirs into the game dir).
+_save_file_path :: proc(allocator := context.temp_allocator) -> string {
+	if len(g.rom_path) > 0 && os.is_file(g.rom_path) {
+		ext := filepath.ext(g.rom_path)
+		base := g.rom_path[:len(g.rom_path) - len(ext)]
+		return strings.concatenate({base, ".m9"}, allocator)
+	}
+	// dir mode: main_native chdirs into the game dir, so cwd = game dir
+	return strings.clone("save.m9", allocator)
+}
+
+_save_file_read :: proc(allocator := context.allocator) -> (data: []byte, ok: bool) {
+	path := _save_file_path()
+	if !os.exists(path) { return nil, false }
+	d, err := os.read_entire_file(path, allocator)
+	return d, err == nil
+}
+
+_save_file_write :: proc(data: []byte) -> bool {
+	path := _save_file_path()
+	return os.write_entire_file(path, data) == nil
 }
 
 _file_exists :: proc(name: string) -> bool {

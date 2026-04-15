@@ -27,6 +27,7 @@ rom_data: ^engine.Rom_Data
 Rom_Metadata :: struct {
 	title:            string `json:"title"`,
 	exclude_patterns: []string `json:"exclude"`,
+	name:             string, // not user-authored — set to source dir basename at package time. used as stable save-file identity (web localStorage key, etc) so renaming the .rom doesn't orphan saves.
 	rom_size:         i64,
 	wasm_size:        i64,
 	total_size:       i64,
@@ -47,6 +48,7 @@ packager :: proc(args: ^Args) {
 	}
 
 	metadata := parse_metadata(args.source)
+	metadata.name = filepath.base(args.source)
 	args.output = prepare_output_path(args)
 
 	fmt.printfln("Source: %s", args.source)
@@ -353,6 +355,12 @@ update_html_metadata :: proc(path: string, metadata: Rom_Metadata) {
 
 	// replace placeholders
 	html_str, _ = strings.replace_all(html_str, "{{ TITLE }}", metadata.title, context.temp_allocator)
+	html_str, _ = strings.replace_all(
+		html_str,
+		`const SAVE = "__NAME__"`,
+		fmt.tprintf(`const SAVE = "m9:%s"`, metadata.name),
+		context.temp_allocator,
+	)
 	html_str, _ = strings.replace_all(
 		html_str,
 		"const WASM_SIZE = -1",

@@ -63,7 +63,7 @@ main :: proc() {
 			rom_data = engine.get_rom_data(args.command)
 		}
 	}
-	engine.engine_init(rom_data)
+	engine.engine_init(rom_data, args.command)
 
 	for engine.engine_is_running() {
 		engine.engine_update()

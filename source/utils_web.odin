@@ -24,6 +24,22 @@ foreign js {
 	web_set_cursor_visible :: proc(visible: c.bool) ---
 	web_get_rom_size :: proc() -> c.int ---
 	web_load_rom_data :: proc(ptr: rawptr) ---
+	web_save_size :: proc() -> c.int ---
+	web_save_read :: proc(ptr: rawptr) ---
+	web_save_write :: proc(ptr: rawptr, len: c.int) ---
+}
+
+_save_file_read :: proc(allocator := context.allocator) -> (data: []byte, ok: bool) {
+	n := int(web_save_size())
+	if n <= 0 { return nil, false }
+	buf := make([]byte, n, allocator)
+	web_save_read(raw_data(buf))
+	return buf, true
+}
+
+_save_file_write :: proc(data: []byte) -> bool {
+	web_save_write(raw_data(data), c.int(len(data)))
+	return true
 }
 
 // these will be linked in by emscripten.

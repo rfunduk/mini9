@@ -14,6 +14,7 @@ Game_Phase :: enum {
 
 Engine_Memory :: struct {
 	rom_data:          ^Rom_Data,
+	rom_path:          string,
 	title:             string,
 	resolution:        rl.Vector2,
 	debug:             bool,

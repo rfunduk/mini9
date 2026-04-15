@@ -52,6 +52,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Numeric Helpers](#numeric-helpers)
 - [Global Store](#global-store)
 - [File Data](#file-data)
+- [Save & Load](#save--load)
 - [Debug & System](#debug--system)
 - [Importing Code](#importing-code)
 - [Cookbook](#cookbook)
@@ -854,6 +855,71 @@ Simple file loading for game data (levels, configs, text).
 ```ruby
 LEVEL = file("assets/level1.txt")
 LEVEL.lines.each_with_index { |row, y| parse_row(row, y) }
+```
+
+---
+
+## Save & Load
+
+Persistent key-value store. One JSON blob per game. On native, written sibling
+to the `.rom` (or `save.m9` inside the game dir when running unpackaged). On web,
+stored in `localStorage` under a key derived from the source dir basename at
+package time — survives `.rom` renames, doesn't collide across games.
+
+Plain JSON on disk — players can hand-edit their save. That's intentional.
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `save(key, value)` | nil | Stores `value` under `key`. `nil` value removes the key. |
+| `load(key)` | value or nil | Returns `nil` if key absent or no save exists yet. |
+
+Top-level keys passed to `save`/`load` are coerced to String — so
+`save(:foo, ...)` and `save("foo", ...)` reach the same slot.
+
+```ruby
+# top-level: rehydrate on startup
+g.score    = load(:high_score) || 0
+g.unlocks  = load(:unlocks)    || []
+
+def update
+  g.score += 1 if some_condition
+
+  if game_over?
+    save(:high_score, g.score)
+    save(:unlocks, g.unlocks << current_level_id)
+  end
+end
+```
+
+```ruby
+# multiple "slots" — just use different keys
+save("slot1", { level: 3, hp: 80 })
+save("slot2", { level: 7, hp: 100 })
+load("slot1")   # => {"level"=>3, "hp"=>80}
+save("slot1", nil)   # delete slot
+```
+
+Hash keys inside values may be Symbol or String, freely mixed. `load` returns
+hashes wrapped in [`IndifferentHash`](#indifferenthash) so both
+`data[:level]` and `data["level"]` look up the same entry. Nested hashes are
+wrapped recursively.
+
+Values must be JSON-safe: `Hash` / `Array` / `Integer` / `Float` / `String` /
+`true` / `false` / `nil`. Symbol *values* and any other type raise
+`ArgumentError` — convert before saving (`save(:name, sym.to_s)`) so the load
+side has no ambiguity about what type comes back.
+
+### IndifferentHash
+
+A Hash-like container where Symbol and String keys are equivalent. `data[:hp]`
+and `data["hp"]` look up the same entry; same for `key?`, `fetch`, `dig`,
+`delete`, `[]=`. Exposed as a general utility — handy whenever game data
+crosses the Symbol/String boundary.
+
+```ruby
+BOSSES = IndifferentHash.new(grunk: false, grog: false, uglug: false)
+# later: current_boss.name returns the String "grunk"
+BOSSES[current_boss.name] = true   # finds the :grunk entry, not a new one
 ```
 
 ---

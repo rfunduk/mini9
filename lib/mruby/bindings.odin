@@ -95,7 +95,9 @@ foreign lib {
 	str_new_cstr :: proc(state: State, str: cstring) -> Value ---
 
 	// hash operations
+	hash_new :: proc(state: State) -> Value ---
 	hash_get :: proc(state: State, hash: Value, key: Value) -> Value ---
+	hash_set :: proc(state: State, hash: Value, key: Value, val: Value) ---
 	hash_delete_key :: proc(state: State, hash: Value, key: Value) -> Value ---
 	hash_keys :: proc(state: State, hash: Value) -> Value ---
 	hash_size :: proc(state: State, hash: Value) -> c.int ---

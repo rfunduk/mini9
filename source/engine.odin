@@ -7,12 +7,13 @@ import mrb "lib:mruby"
 import rl "vendor:raylib"
 
 
-_engine_init :: proc(rom_data: ^Rom_Data) {
+_engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	global_context = context
 	g = new(Engine_Memory)
 
 	g^ = Engine_Memory {
 		rom_data    = rom_data,
+		rom_path    = strings.clone(rom_path),
 		title       = strings.clone(""),
 		debug       = ENGINE_DEBUG,
 		metrics     = false,
@@ -207,6 +208,7 @@ _engine_shutdown :: proc() {
 
 	// cleanup strings
 	delete(g.title)
+	delete(g.rom_path)
 
 	// cleanup global type map
 	delete(NATIVE_TO_MRUBY_TYPE)

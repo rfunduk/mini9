@@ -75,22 +75,31 @@
     </div>
     <script type="text/javascript" src="odin.js"></script>
     <script>
-        const canvas = document.getElementById('canvas')
-        let romData = null
-        const odinMem = new odin.WasmMemoryInterface()
-        odinMem.setIntSize(4)
-        const odinImp = odin.setupDefaultImports(odinMem)
-
-        // expose js functions to odin
-        odinImp.expose = odinImp.expose || {}
-        odinImp.expose.web_set_cursor_visible = (yn) => canvas.classList[yn ? 'remove' : 'add']('cursor_hidden')
-        odinImp.expose.web_get_rom_size = () => romData ? romData.length : 0
-        odinImp.expose.web_load_rom_data = (ptr) => romData ? odinMem.loadBytes(ptr, romData.length).set(romData) : null
+        // localStorage key for save data
+        const SAVE = "__NAME__"
 
         // file sizes for progress calculation
         const WASM_SIZE = -1
         const ROM_SIZE = -1
         const TOTAL_SIZE = WASM_SIZE + ROM_SIZE
+
+        const enc = new TextEncoder()
+        const dec = new TextDecoder()
+        const ls = localStorage
+        const canvas = document.getElementById('canvas')
+        const odinMem = new odin.WasmMemoryInterface()
+        odinMem.setIntSize(4)
+        const odinImp = odin.setupDefaultImports(odinMem)
+        let romData = null
+
+        // expose js functions to odin
+        odinImp.expose = {}
+        odinImp.expose.web_set_cursor_visible = (yn) => canvas.classList[yn ? 'remove' : 'add']('cursor_hidden')
+        odinImp.expose.web_get_rom_size = () => romData ? romData.length : 0
+        odinImp.expose.web_load_rom_data = (ptr) => romData ? odinMem.loadBytes(ptr, romData.length).set(romData) : null
+        odinImp.expose.web_save_size = () => enc.encode(ls.getItem(SAVE) || "").length
+        odinImp.expose.web_save_write = (ptr, len) => ls.setItem(SAVE, dec.decode(odinMem.loadBytes(ptr, len)))
+        odinImp.expose.web_save_read = (ptr, s=ls.getItem(SAVE), b=s && enc.encode(s)) => b && odinMem.loadBytes(ptr, b.length).set(b)
 
         var Module = {
             instantiateWasm: (baseImports, successCallback) => {
@@ -161,17 +170,13 @@
                         setTimeout(() => canvas.focus(), 100)
                     }
 
-                    window.addEventListener('resize', function (event) { send_resize() }, true)
+                    window.addEventListener('resize', (event) => send_resize(), true)
 
                     // also regain focus on fullscreen changes
-                    document.addEventListener('fullscreenchange', function () {
-                        setTimeout(() => canvas.focus(), 100)
-                    })
+                    document.addEventListener('fullscreenchange', () => setTimeout(() => canvas.focus(), 100))
 
                     // and on any click in the document (for itch.io UI interactions)
-                    document.addEventListener('click', function () {
-                        setTimeout(() => canvas.focus(), 50)
-                    })
+                    document.addEventListener('click', () => setTimeout(() => canvas.focus(), 50))
 
                     // this can probably be done better: ideally we'd feed the
                     // initial size to `main_start`. but there seems to be a
