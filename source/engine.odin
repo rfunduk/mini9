@@ -205,9 +205,10 @@ _engine_update :: proc() {
 }
 
 _engine_shutdown :: proc() {
-	engine_cleanup_ruby_api()
-
-	// shutdown mruby
+	// close mruby first — mrb_close runs finalizers synchronously; they may
+	// return native ptrs to subsystem pools (e.g. Vector2 slab) or reference
+	// subsystem state. cleanup_* below only tears down Odin-side arrays +
+	// resources, none of it calls into mruby, so finalizers must fire first.
 	if g.mrb_ctx != nil {
 		mrb.ccontext_free(g.mrb_state, g.mrb_ctx)
 		g.mrb_ctx = nil
@@ -216,6 +217,8 @@ _engine_shutdown :: proc() {
 		mrb.close(g.mrb_state)
 		g.mrb_state = nil
 	}
+
+	engine_cleanup_ruby_api()
 
 	rl.CloseAudioDevice()
 	// custom batch intentionally not unloaded here — raylib's CloseWindow
