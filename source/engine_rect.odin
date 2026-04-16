@@ -1,5 +1,6 @@
 package engine
 
+import "core:math/rand"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
@@ -84,14 +85,14 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_rect_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r := extract_native(rl.Rectangle, self)
-	if r == nil { return create_vector2({0, 0}) }
+	if r == nil { return create_vector2({}) }
 	return create_vector2({r.x, r.y})
 }
 
 ruby_rect_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r := extract_native(rl.Rectangle, self)
-	if r == nil { return create_vector2({0, 0}) }
+	if r == nil { return create_vector2({}) }
 	return create_vector2({r.width, r.height})
 }
 
@@ -195,6 +196,13 @@ ruby_inflate_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	}
 }
 
+ruby_rect_sample_point :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	r := extract_native(rl.Rectangle, self)
+	if r == nil { return create_vector2({}) }
+	return create_vector2({r.x + rand.float32() * r.width, r.y + rand.float32() * r.height})
+}
+
 inflate_rect :: proc {
 	inflate_rect_trbl,
 	inflate_rect_uniform,
@@ -232,4 +240,5 @@ setup_rect :: proc() {
 	mrb.define_method(g.mrb_state, c, "y=", cast(rawptr)ruby_rect_set_y, 1)
 	mrb.define_method(g.mrb_state, c, "w=", cast(rawptr)ruby_rect_set_w, 1)
 	mrb.define_method(g.mrb_state, c, "h=", cast(rawptr)ruby_rect_set_h, 1)
+	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_rect_sample_point, 0)
 }
