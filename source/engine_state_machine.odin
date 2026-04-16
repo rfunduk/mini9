@@ -1,5 +1,8 @@
 package engine
 
+import "core:c"
+import "core:fmt"
+import "core:log"
 import mrb "lib:mruby"
 
 State :: struct {
@@ -19,6 +22,22 @@ FSM :: struct {
 	current_state: mrb.Value, // Current State ruby object
 	default_name:  mrb.Value, // Symbol
 	states:        mrb.Value, // Array of State objects (linear search - most FSMs have 2-5 states)
+}
+
+// Protected call of an FSM enter/exit/update block. `arity` is the cached
+// proc arity from the State struct — trim argv to match (or pass all 3 for
+// variadic / arity > 3). `ctx_msg` is logged before the exception handler
+// on raise so the user sees which transition blew up.
+@(private)
+dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: ^[3]mrb.Value, ctx_msg: string) -> bool {
+	effective := arity
+	if effective < 0 || effective > 3 { effective = 3 }
+	ok, exc := mrb.protected_funcall(g.mrb_state, block, "call", c.int(effective), raw_data(argv[:]))
+	if !ok {
+		log.errorf("[FSM] %s raised:", ctx_msg)
+		handle_ruby_exception(g.mrb_state, exc, .FSM_CALLBACK)
+	}
+	return ok
 }
 
 ruby_state_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -191,16 +210,13 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 	if fsm.current_state != mrb.NIL {
 		current := extract_native(State, fsm.current_state)
 		if current != nil && current.exit_proc != mrb.NIL {
-			switch current.exit_arity {
-			case 0:
-				mrb.funcall(state, current.exit_proc, "call", 0)
-			case 1:
-				mrb.funcall(state, current.exit_proc, "call", 1, fsm.this_obj)
-			case 2:
-				mrb.funcall(state, current.exit_proc, "call", 2, fsm.this_obj, fsm.current_state)
-			case 3:
-				mrb.funcall(state, current.exit_proc, "call", 3, fsm.this_obj, fsm.current_state, next_state)
-			}
+			argv := [3]mrb.Value{fsm.this_obj, fsm.current_state, next_state}
+			msg := fmt.tprintf(
+				"%s exit → %s",
+				mrb.inspect(state, current.name, context.temp_allocator),
+				mrb.inspect(state, next_name, context.temp_allocator),
+			)
+			dispatch_fsm_callback(current.exit_proc, current.exit_arity, &argv, msg)
 		}
 	}
 
@@ -210,16 +226,15 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 	// Call enter on new state
 	next := extract_native(State, next_state)
 	if next != nil && next.enter_proc != mrb.NIL {
-		switch next.enter_arity {
-		case 0:
-			mrb.funcall(state, next.enter_proc, "call", 0)
-		case 1:
-			mrb.funcall(state, next.enter_proc, "call", 1, fsm.this_obj)
-		case 2:
-			mrb.funcall(state, next.enter_proc, "call", 2, fsm.this_obj, next_state)
-		case 3:
-			mrb.funcall(state, next.enter_proc, "call", 3, fsm.this_obj, next_state, last_state)
-		}
+		argv := [3]mrb.Value{fsm.this_obj, next_state, last_state}
+		from_name :=
+			last_state == mrb.NIL ? "nil" : mrb.inspect(state, extract_native(State, last_state).name, context.temp_allocator)
+		msg := fmt.tprintf(
+			"%s → %s enter",
+			from_name,
+			mrb.inspect(state, next.name, context.temp_allocator),
+		)
+		dispatch_fsm_callback(next.enter_proc, next.enter_arity, &argv, msg)
 	}
 }
 
@@ -254,16 +269,9 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if current == nil { return mrb.NIL }
 
 	if current.update_proc != mrb.NIL {
-		switch current.update_arity {
-		case 0:
-			mrb.funcall(state, current.update_proc, "call", 0)
-		case 1:
-			mrb.funcall(state, current.update_proc, "call", 1, fsm.this_obj)
-		case 2:
-			mrb.funcall(state, current.update_proc, "call", 2, fsm.this_obj, fsm.current_state)
-		case 3:
-			mrb.funcall(state, current.update_proc, "call", 3, fsm.this_obj, fsm.current_state, dt_val)
-		}
+		argv := [3]mrb.Value{fsm.this_obj, fsm.current_state, dt_val}
+		msg := fmt.tprintf("%s update", mrb.inspect(state, current.name, context.temp_allocator))
+		dispatch_fsm_callback(current.update_proc, current.update_arity, &argv, msg)
 	}
 
 	return mrb.NIL

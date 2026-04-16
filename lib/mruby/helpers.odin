@@ -139,6 +139,14 @@ safe_proc_arity :: #force_inline proc(proc_val: Value) -> i32 {
 	return i32(proc_arity(proc_val))
 }
 
+// Inspect a value (calls `inspect`). Cloned into `allocator` because the
+// underlying mruby cstring is invalidated by the next mruby allocation.
+inspect :: proc(state: State, val: Value, allocator := context.allocator) -> string {
+	if val == NIL { return strings.clone("nil", allocator) }
+	s := funcall(state, val, "inspect", 0)
+	return strings.clone(string(string_cstr(state, s)), allocator)
+}
+
 // Format a message and raise a Ruby exception of the named class. The
 // message is logged via `core:log` for visibility (since the longjmp from
 // `raise` skips any defers in the caller and won't otherwise leave a
