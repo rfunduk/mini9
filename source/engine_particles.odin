@@ -624,6 +624,6 @@ setup_particles :: proc() {
 }
 
 cleanup_particles :: proc() {
-	for p in particles_list { particles_free_storage(p) }
+	// `Particles_Instance`s will be cleaned up by mruby shutdown
 	delete(particles_list)
 }
