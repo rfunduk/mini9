@@ -42,6 +42,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Music](#music)
 - [Animation](#animation)
 - [Tweening](#tweening)
+- [Particles](#particles)
 - [Timers](#timers)
 - [Camera](#camera)
 - [Screen Shake](#screen-shake)
@@ -401,8 +402,7 @@ spr.draw(v2(100, 100))
 | `s.frames` | Integer | Total frame count (auto-calculated from texture + size) |
 | `s.fliph` / `s.fliph = yn` | bool | |
 | `s.flipv` / `s.flipv = yn` | bool | |
-| `s.rotation` / `s.rotation = r` | Float | Radians |
-| `s.rotation_degrees` / `s.rotation_degrees = d` | Float | |
+| `s.rotation` / `s.rotation = r` | Float | Radians (use `n.to_rad` / `n.to_deg` to convert) |
 | `s.offset` / `s.offset = v2` | Vector2 | Draw offset (pivot) |
 | `s.scale` / `s.scale = v2` | Vector2 | |
 
@@ -542,7 +542,15 @@ end
 
 `Easing.at(t, easing = Easing::LINEAR)` returns the eased value of `t` (0.0–1.0). Useful standalone.
 
-`range(from, to, count, easing: Easing::LINEAR)` returns an Array of `count` floats from `from` to `to`, with easing applied. First and last entries are exactly `from` / `to`. `count` must be ≥ 2. Feed into `anim`'s `values:` for eased numeric sequences (fades, scales, color channels):
+`range(from, to, count, easing: Easing::LINEAR)` returns an Array of `count` values from `from` to `to`, with easing applied. First and last entries are exactly `from` / `to`. `count` must be ≥ 2. Supports Numeric, Vector2, and Color — type is detected from `from`/`to` (both must match). Feed into `anim`'s `values:` for eased sequences, or pass directly to `particles` for curve-over-life:
+
+```ruby
+range(1.0, 0.0, 20)                    # Array of 20 Floats
+range(v2(0, 0), v2(100, 50), 10)       # Array of 10 Vector2s
+range(P.yellow, P.red, 8)              # Array of 8 Colors (channel-lerped)
+```
+
+Concat ranges for piecewise curves — each segment's count controls its time weight:
 
 ```ruby
 fade = anim(interval: 0.05, values: range(255, 0, 30, easing: Easing::CUBIC_OUT))
@@ -550,6 +558,145 @@ fade = anim(interval: 0.05, values: range(255, 0, 30, easing: Easing::CUBIC_OUT)
 def update(dt)
   fade.update(dt)
   clear(color(0, 0, 0, fade.current))
+end
+```
+
+---
+
+## Particles
+
+Native SOA particle system. Hundreds cheap, thousands OK. Auto-updated each tick; manual draw for user-controlled draw order.
+
+### `particles`
+
+```ruby
+particles(
+  max:,                # required Integer — ring buffer capacity
+  rate:,               # required Numeric — particles/sec (0 = burst-only)
+  lifetime:,           # required Numeric | sampler()
+  pos:,                # required v2 | rect | circ | sampler(v2, v2)
+  velocity: v2(0,0),   # v2 | sampler(v2, v2)
+  accel: v2(0,0),      # v2 | sampler(v2, v2) | range(v2)
+  drag: nil,           # Float (0..1) | range(Float) — drag amount per tick
+  rotation: 0,         # Float radians | sampler(f, f)
+  ang_vel: 0,          # Float radians/sec | sampler(f, f)
+  ang_accel: 0,        # Float radians/sec² | sampler(f, f) | range(Float)
+  ang_drag: nil,       # Float (0..1) | range(Float) — angular drag per tick
+  shape: :pixel,       # :pixel | :rect | :circle | :line
+  size: v2(1,1),       # v2 | range(Float) | range(v2)
+  color: P.white,      # Color | range(Color)
+  start: true,         # false to create paused
+)
+```
+
+**Per-particle property values** — props accept several forms:
+
+| Form | Meaning | Sampled |
+|---|---|---|
+| scalar (`v2`, `Float`, `Color`) | All particles share one value | once at construct |
+| `sampler(lo, hi)` | Uniform random | per particle at spawn |
+| `range(from, to, n)` | Curve-over-life — adjacent entries lerped by particle age | per particle per frame |
+
+**`pos:` sources** — controls where particles spawn:
+
+| Form | Behavior |
+|---|---|
+| `v2(x, y)` | Fixed point |
+| `rect(pos, size)` | Random point inside rectangle each spawn |
+| `circ(center, radius)` | Random point inside circle each spawn (area-uniform) |
+| `sampler(v2, v2)` | Random point in axis-aligned box |
+
+`pos:` shape objects are mutable and shared — mutate the rect/circ at runtime to move where future particles spawn (live particles unaffected).
+
+**Shape DSL** — `shape:` + `size:` meaning:
+
+| Shape | `size:` meaning |
+|---|---|
+| `:pixel` | ignored |
+| `:rect` | `v2(w, h)` — rectangle dimensions, drawn centered, rotates with `ang_vel` |
+| `:circle` | radius — uses `size.x` for v2 forms |
+| `:line` | `v2(dx, dy)` — direction vector from particle pos, rotates with `ang_vel` |
+
+When `size:` is a `range()` array, it curves over life. Float arrays scale uniformly (circles shrink/grow radius, rects scale both axes, lines scale direction vector). Vector2 arrays interpolate per-component.
+
+**Drag** — `drag:` and `ang_drag:` are multiplicative per-tick reduction in (angular) velocity. `drag: 0.05` loses 5% velocity per tick. Clamped to `[0, 1]`. For acceleration use `accel:` / `ang_accel:`.
+
+**Color over life** — `color:` accepts a `range()` Color array. Concat ranges for stepped/piecewise effects:
+
+```ruby
+color: range(P.yellow, P.orange, 3) +
+       range(P.orange, P.red, 4) +
+       range(P.red, P.dark_gray, 5),
+```
+
+**Methods on Particles:**
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `p.draw` | self | Render alive particles. Place in `draw` or `ui` for draw-order control |
+| `p.burst(n)` | self | Emit `n` particles immediately |
+| `p.start` | self | Resume continuous emission |
+| `p.stop` | self | Pause emission (alive particles keep ticking) |
+| `p.running?` | bool | |
+| `p.count` | Integer | Currently alive |
+| `p.max` | Integer | Ring buffer capacity |
+| `p.pos` / `p.pos = x` | v2/rect/circ/sampler | Replace pos spec for future spawns |
+| `p.destroy` | nil | Remove from tick list, free storage |
+
+### `sampler`
+
+Deferred uniform random — sampled per particle at spawn time. Unlike `randf_range` (which returns an immediate float), `sampler` is a descriptor that the particle system evaluates natively.
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `sampler(lo, hi)` | Sampler | `lo`/`hi` both Numeric or both Vector2 |
+| `s.lo` | Numeric or Vector2 | |
+| `s.hi` | Numeric or Vector2 | |
+
+```ruby
+sampler(0.3, 0.8)                          # Float — random lifetime
+sampler(v2(-80, -120), v2(80, -20))        # Vector2 — random velocity
+```
+
+### Examples
+
+**Rain:**
+
+```ruby
+RAIN = particles(
+  max: 200, rate: 80, lifetime: 1.5,
+  pos: rect(v2(-5, -10), v2(330, 1)),
+  velocity: v2(-2, 325),
+  shape: :line, size: v2(0, -3),
+  color: P.blue,
+)
+
+def draw
+  clear(P.black)
+  RAIN.draw
+end
+```
+
+**Explosion — color ramp, drag, gravity ramp:**
+
+```ruby
+BOOM = particles(
+  max: 200, rate: 0,
+  lifetime: sampler(0.5, 1.0),
+  pos: v2(160, 120),
+  velocity: sampler(v2(-80, -80), v2(80, 80)),
+  accel: range(v2(0, 0), v2(0, 150), 10),      # gravity ramps up
+  drag: 0.04,                                  # 4% velocity loss per tick
+  shape: :circle,
+  size: range(0, 6, 3) + [6, 6, 6] + range(6, 0, 5),
+  color: range(P.yellow, P.orange, 3) +
+         range(P.orange, P.red, 3) +
+         range(P.red, P.dark_gray, 4) +
+         range(P.dark_gray, P.light_gray, 3),
+)
+
+def update(dt)
+  BOOM.burst(50) if pressed?(:space)
 end
 ```
 
@@ -662,8 +809,7 @@ end
 |---|---|---|
 | `obj(**attrs)` | GameObject | |
 | `o.pos` / `o.pos = v2` | Vector2 | Built-in |
-| `o.rotation` / `o.rotation = r` | Float | Radians |
-| `o.rotation_degrees` / `o.rotation_degrees = d` | Float | |
+| `o.rotation` / `o.rotation = r` | Float | Radians (use `n.to_rad` / `n.to_deg` to convert) |
 | `o.scale` / `o.scale = v2` | Vector2 | |
 | `o.visible` / `o.visible = yn` | bool | |
 | `o.init` | nil | Override to run logic when the object is constructed |
@@ -832,6 +978,8 @@ Mini9 adds these methods to `Numeric` (so `Integer` and `Float` both get them).
 | `n.zero_approx?(epsilon=1e-5)` | bool | |
 | `n.equal_approx?(other, epsilon=1e-5)` | bool | |
 | `n.grid_pos(width, height=width)` | Vector2 or nil | Index → 2D coordinate (inverse of `Vector2#grid_index`) |
+| `n.to_rad` | Float | Degrees → radians |
+| `n.to_deg` | Float | Radians → degrees |
 | `randf_range(min, max)` | Float | Standalone function, not a Numeric method |
 
 ---
@@ -906,7 +1054,7 @@ end
 # multiple "slots" — just use different keys
 save("slot1", { level: 3, hp: 80 })
 save("slot2", { level: 7, hp: 100 })
-load("slot1")   # => {"level"=>3, "hp"=>80}
+load("slot1")         # => {"level"=>3, "hp"=>80}
 save("slot1", nil)   # delete slot
 ```
 

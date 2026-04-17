@@ -135,6 +135,9 @@ _engine_update :: proc() {
 		// fire any timers whose interval has elapsed
 		update_timers(f64(fixed_dt))
 
+		// integrate particle systems
+		update_particles(f64(fixed_dt))
+
 		// user update gets consistent fixed timestep
 		call_user_update(fixed_dt)
 

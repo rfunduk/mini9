@@ -46,27 +46,67 @@ module Easing
   def self.at(t, easing = LINEAR); end
 end
 
-# count >= 2; returns `count` floats from `from` to `to` with easing applied.
+# count >= 2; returns `count` values from `from` to `to` with easing applied.
 # first == from, last == to exactly.
+# Supports Numeric, Vector2, and Color.
 def range(from, to, count, easing: Easing::LINEAR)
   raise ArgumentError, "range count must be >= 2 (got #{count})" if count < 2
 
-  from = from.to_f
-  to = to.to_f
-  span = to - from
   last = count - 1
   result = Array.new(count)
-  i = 0
-  while i < count
-    if i == 0
-      result[i] = from
-    elsif i == last
-      result[i] = to
-    else
-      t = i.to_f / last
-      result[i] = from + span * Easing.at(t, easing)
+
+  case from
+  when Vector2
+    raise ArgumentError, "range: both endpoints must be Vector2" unless to.is_a?(Vector2)
+    i = 0
+    while i < count
+      if i == 0
+        result[i] = from
+      elsif i == last
+        result[i] = to
+      else
+        t = Easing.at(i.to_f / last, easing)
+        result[i] = from.lerp(to, t)
+      end
+      i += 1
     end
-    i += 1
+  when Color
+    raise ArgumentError, "range: both endpoints must be Color" unless to.is_a?(Color)
+    fr, fg, fb, fa = from.r, from.g, from.b, from.a
+    dr, dg, db, da = to.r - fr, to.g - fg, to.b - fb, to.a - fa
+    i = 0
+    while i < count
+      if i == 0
+        result[i] = from
+      elsif i == last
+        result[i] = to
+      else
+        t = Easing.at(i.to_f / last, easing)
+        result[i] = color(
+          (fr + dr * t).round,
+          (fg + dg * t).round,
+          (fb + db * t).round,
+          (fa + da * t).round
+        )
+      end
+      i += 1
+    end
+  else
+    from = from.to_f
+    to = to.to_f
+    span = to - from
+    i = 0
+    while i < count
+      if i == 0
+        result[i] = from
+      elsif i == last
+        result[i] = to
+      else
+        t = i.to_f / last
+        result[i] = from + span * Easing.at(t, easing)
+      end
+      i += 1
+    end
   end
   result
 end

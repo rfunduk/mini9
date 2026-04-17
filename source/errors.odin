@@ -142,13 +142,7 @@ show_error_overlay :: proc(error_message: string, ctx: string) {
 	rl.DrawTextEx(g.fonts.medium, header_cstr, {10, 10}, f32(g.fonts.medium.baseSize), 1.0, rl.WHITE)
 
 	// draw error message, word-wrapped to the overlay width (with side padding)
-	wrapped := wrap_text(
-		error_message,
-		g.fonts.small,
-		f32(g.fonts.small.baseSize),
-		1.0,
-		f32(overlay_w - 20),
-	)
+	wrapped := wrap_text(error_message, g.fonts.small, f32(g.fonts.small.baseSize), 1.0, f32(overlay_w - 20))
 	message_cstr := strings.clone_to_cstring(wrapped, context.temp_allocator)
 	rl.DrawTextEx(g.fonts.small, message_cstr, {10, 60}, f32(g.fonts.small.baseSize), 1.0, rl.WHITE)
 

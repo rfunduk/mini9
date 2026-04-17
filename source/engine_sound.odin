@@ -35,14 +35,19 @@ Sound :: struct {
 
 // Fade_Result indicates what happened during fade processing
 Fade_Result :: enum {
-	FADING,         // still fading
-	COMPLETED,      // fade finished, target reached
-	STOPPED,        // fade finished with target 0 (should stop playback)
+	FADING, // still fading
+	COMPLETED, // fade finished, target reached
+	STOPPED, // fade finished with target 0 (should stop playback)
 }
 
 // apply_fade processes a single frame of fade logic, returning the result and new volume
 // Call this once per frame for any audio source that supports fading
-apply_fade :: proc(fade_time, fade_target, fade_speed, volume, dt: f32) -> (result: Fade_Result, new_fade_time, new_volume: f32) {
+apply_fade :: proc(
+	fade_time, fade_target, fade_speed, volume, dt: f32,
+) -> (
+	result: Fade_Result,
+	new_fade_time, new_volume: f32,
+) {
 	new_fade_time = fade_time - dt
 	new_volume = volume
 
@@ -362,7 +367,11 @@ update_audio_system :: proc(dt: f32) {
 			// handle fading
 			if instance.fade_time > 0 {
 				result, new_fade_time, new_volume := apply_fade(
-					instance.fade_time, instance.fade_target, instance.fade_speed, instance.volume, dt,
+					instance.fade_time,
+					instance.fade_target,
+					instance.fade_speed,
+					instance.volume,
+					dt,
 				)
 				instance.fade_time = new_fade_time
 				instance.volume = new_volume

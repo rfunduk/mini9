@@ -1,9 +1,8 @@
 package engine
 
 import "core:c"
-import "core:math"
-import mrb "lib:mruby"
 import b2 "lib:box2d"
+import mrb "lib:mruby"
 import rl "vendor:raylib"
 
 Game_Object :: struct {
@@ -227,14 +226,6 @@ ruby_game_object_get_rotation :: proc "c" (state: mrb.State, self: mrb.Value) ->
 	return mrb.word_boxing_float_value(state, f64(obj.rotation))
 }
 
-// RUBY METHOD: obj.rotation_degrees -> gets rotation in degrees
-ruby_game_object_get_rotation_deg :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	obj := extract_native(Game_Object, self)
-	if obj == nil { return mrb.NIL }
-	return mrb.word_boxing_float_value(state, f64(obj.rotation * 180.0 / math.PI))
-}
-
 // RUBY METHOD: obj.visible -> gets visible flag
 ruby_game_object_get_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
@@ -300,20 +291,6 @@ ruby_game_object_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) ->
 	if obj == nil { return mrb.NIL }
 
 	obj.rotation = f32(mrb.to_f64(rotation_val))
-
-	return rotation_val
-}
-
-// RUBY METHOD: obj.rotation_degrees=(angle) -> sets rotation in degrees
-ruby_game_object_set_rotation_deg :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	rotation_val: mrb.Value
-	mrb.get_args(state, "o", &rotation_val)
-
-	obj := extract_native(Game_Object, self)
-	if obj == nil { return mrb.NIL }
-
-	obj.rotation = f32(mrb.to_f64(rotation_val) * math.PI / 180.0)
 
 	return rotation_val
 }
@@ -414,8 +391,6 @@ setup_game_object :: proc() {
 	mrb.define_method(g.mrb_state, c, "pos=", cast(rawptr)ruby_game_object_set_pos, 1)
 	mrb.define_method(g.mrb_state, c, "rotation", cast(rawptr)ruby_game_object_get_rotation, 0)
 	mrb.define_method(g.mrb_state, c, "rotation=", cast(rawptr)ruby_game_object_set_rotation, 1)
-	mrb.define_method(g.mrb_state, c, "rotation_degrees", cast(rawptr)ruby_game_object_get_rotation_deg, 0)
-	mrb.define_method(g.mrb_state, c, "rotation_degrees=", cast(rawptr)ruby_game_object_set_rotation_deg, 1)
 	mrb.define_method(g.mrb_state, c, "scale", cast(rawptr)ruby_game_object_get_scale, 0)
 	mrb.define_method(g.mrb_state, c, "scale=", cast(rawptr)ruby_game_object_set_scale, 1)
 	mrb.define_method(g.mrb_state, c, "visible", cast(rawptr)ruby_game_object_get_visible, 0)

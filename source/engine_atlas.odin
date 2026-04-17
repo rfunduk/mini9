@@ -23,7 +23,7 @@ WHITE_TEXEL_SIZE :: 4
 @(private = "file")
 Pending_Tex :: struct {
 	ruby_obj: mrb.Value, // re-extract data pointer at pack time (GC-safe)
-	image:    rl.Image,  // decoded source image (we own it until packed)
+	image:    rl.Image, // decoded source image (we own it until packed)
 }
 
 @(private = "file")
@@ -58,7 +58,11 @@ font_is_atlas_backed :: proc(font: ^rl.Font) -> bool {
 
 // Pack_Rect — input/output for shelf packer.
 @(private = "file")
-Pack_Kind :: enum { WHITE, TEXTURE, FONT }
+Pack_Kind :: enum {
+	WHITE,
+	TEXTURE,
+	FONT,
+}
 
 @(private = "file")
 Pack_Rect :: struct {
@@ -142,9 +146,12 @@ pack_atlas :: proc() {
 	for r in rects {
 		if !r.was_packed {
 			switch r.kind {
-			case .WHITE:   log.errorf("[atlas] white texel did not fit — atlas broken")
-			case .TEXTURE: log.warnf("[atlas] texture did not fit; will load standalone")
-			case .FONT:    log.warnf("[atlas] font did not fit; will remain standalone")
+			case .WHITE:
+				log.errorf("[atlas] white texel did not fit — atlas broken")
+			case .TEXTURE:
+				log.warnf("[atlas] texture did not fit; will load standalone")
+			case .FONT:
+				log.warnf("[atlas] font did not fit; will remain standalone")
 			}
 			continue
 		}
@@ -154,7 +161,11 @@ pack_atlas :: proc() {
 
 		switch r.kind {
 		case .WHITE:
-			rl.ImageDrawRectangleRec(&composite, {dst_x, dst_y, WHITE_TEXEL_SIZE, WHITE_TEXEL_SIZE}, rl.WHITE)
+			rl.ImageDrawRectangleRec(
+				&composite,
+				{dst_x, dst_y, WHITE_TEXEL_SIZE, WHITE_TEXEL_SIZE},
+				rl.WHITE,
+			)
 			atlas_white_uv = rl.Rectangle {
 				x      = dst_x + 1,
 				y      = dst_y + 1,

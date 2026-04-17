@@ -38,7 +38,11 @@ main :: proc() {
 		}
 	}
 
-	context.logger = log.create_console_logger(.Debug, {.Level, .Date, .Time, .Terminal_Color}, allocator = default_allocator)
+	context.logger = log.create_console_logger(
+		.Debug,
+		{.Level, .Date, .Time, .Terminal_Color},
+		allocator = default_allocator,
+	)
 
 	args: Args
 	parse_error := flags.parse(&args, os.args[1:], .Unix)

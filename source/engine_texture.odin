@@ -13,14 +13,14 @@ Texture_Load_Status :: enum {
 }
 
 Texture_Kind :: enum {
-	ATLAS,     // tex points at the shared atlas; tex_origin/w/h locate sub-image
+	ATLAS, // tex points at the shared atlas; tex_origin/w/h locate sub-image
 	STANDALONE, // tex is owned by this Texture
 }
 
 Texture :: struct {
 	tex:        rl.Texture2D,
 	tex_origin: rl.Vector2, // top-left within tex (0,0 for STANDALONE)
-	w, h:       f32,        // logical size of this texture (NOT atlas size)
+	w, h:       f32, // logical size of this texture (NOT atlas size)
 	kind:       Texture_Kind,
 	status:     Texture_Load_Status,
 }

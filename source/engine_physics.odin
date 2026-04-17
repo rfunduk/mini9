@@ -1,7 +1,7 @@
 package engine
 
-import mrb "lib:mruby"
 import b2 "lib:box2d"
+import mrb "lib:mruby"
 import rl "vendor:raylib"
 
 // ─── types ───

@@ -334,7 +334,11 @@ update_music_system :: proc(dt: f32) {
 		// handle fading
 		if music.fade_time > 0 {
 			result, new_fade_time, new_volume := apply_fade(
-				music.fade_time, music.fade_target, music.fade_speed, music.volume, dt,
+				music.fade_time,
+				music.fade_target,
+				music.fade_speed,
+				music.volume,
+				dt,
 			)
 			music.fade_time = new_fade_time
 			music.volume = new_volume

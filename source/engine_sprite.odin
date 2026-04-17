@@ -182,14 +182,6 @@ ruby_sprite_get_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	return create_vector2(sprite.scale)
 }
 
-// RUBY METHOD: sprite.rotation_degrees -> gets rotation in degrees
-ruby_sprite_get_rotation_degrees :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	sprite := extract_native(Sprite, self)
-	if sprite == nil { return mrb.NIL }
-	return mrb.word_boxing_float_value(state, f64(sprite.rotation * 180.0 / math.PI))
-}
-
 // RUBY METHOD: sprite.set_size(v2) -> sets sprite frame size
 ruby_sprite_set_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
@@ -285,20 +277,6 @@ ruby_sprite_set_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	return scale_val
 }
 
-// RUBY METHOD: sprite.rotation_degrees=(angle) -> sets rotation in degrees
-ruby_sprite_set_rotation_degrees :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	rotation_val: mrb.Value
-	mrb.get_args(state, "o", &rotation_val)
-
-	sprite := extract_native(Sprite, self)
-	if sprite == nil { return mrb.NIL }
-
-	sprite.rotation = f32(mrb.to_f64(rotation_val) * math.PI / 180.0)
-
-	return rotation_val
-}
-
 ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val, kwargs: mrb.Value
@@ -348,7 +326,14 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		height = math.floor(abs(frame_height) * sprite.scale.y),
 	}
 
-	rl.DrawTexturePro(sprite.atlas.tex, source, dest, -sprite.offset, sprite.rotation * 180.0 / math.PI, rl.WHITE)
+	rl.DrawTexturePro(
+		sprite.atlas.tex,
+		source,
+		dest,
+		-sprite.offset,
+		sprite.rotation * 180.0 / math.PI,
+		rl.WHITE,
+	)
 
 	if did_clip { rl.EndScissorMode() }
 
@@ -368,8 +353,6 @@ setup_sprite :: proc() {
 	mrb.define_method(g.mrb_state, c, "_set_flip", cast(rawptr)ruby_sprite_set_flip, 2)
 	mrb.define_method(g.mrb_state, c, "rotation", cast(rawptr)ruby_sprite_get_rotation, 0)
 	mrb.define_method(g.mrb_state, c, "rotation=", cast(rawptr)ruby_sprite_set_rotation, 1)
-	mrb.define_method(g.mrb_state, c, "rotation_degrees", cast(rawptr)ruby_sprite_get_rotation_degrees, 0)
-	mrb.define_method(g.mrb_state, c, "rotation_degrees=", cast(rawptr)ruby_sprite_set_rotation_degrees, 1)
 	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_sprite_get_offset, 0)
 	mrb.define_method(g.mrb_state, c, "offset=", cast(rawptr)ruby_sprite_set_offset, 1)
 	mrb.define_method(g.mrb_state, c, "scale", cast(rawptr)ruby_sprite_get_scale, 0)
