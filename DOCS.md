@@ -215,7 +215,7 @@ circle(v2(50, 50), 8, filled: true)
 
 | Constant | Size |
 |---|---|
-| `Font::TINY` | 5px |
+| `Font::TINY` | 6px |
 | `Font::SMALL` | 8px |
 | `Font::MEDIUM` | 11px |
 | `Font::LARGE` | 15px |

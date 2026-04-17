@@ -126,7 +126,7 @@ create_font :: proc {
 
 load_deferred_fonts :: proc() {
 	// load built-in fonts into global storage first
-	g.fonts.tiny = load_font_from_memory(".png", pixel_font_5_data[:])
+	g.fonts.tiny = load_font_from_memory(".png", pixel_font_6_data[:])
 	g.fonts.small = load_font_from_memory(".png", pixel_font_8_data[:])
 	g.fonts.medium = load_font_from_memory(".png", pixel_font_11_data[:])
 	g.fonts.large = load_font_from_memory(".png", pixel_font_15_data[:])
