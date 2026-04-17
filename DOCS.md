@@ -43,6 +43,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Animation](#animation)
 - [Tweening](#tweening)
 - [Particles](#particles)
+- [Spawner](#spawner)
 - [Timers](#timers)
 - [Camera](#camera)
 - [Screen Shake](#screen-shake)
@@ -316,7 +317,7 @@ Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from 
 | `v * scalar_or_v2` | Vector2 | Scalar or componentwise |
 | `v / scalar_or_v2` | Vector2 | Scalar or componentwise |
 | `v == other` | bool | |
-| `v.clone` | Vector2 | |
+| `v.dup` | Vector2 | Fresh copy |
 | `v.xx` / `v.yy` / `v.yx` | Vector2 | Swizzles |
 | `v.floor` / `v.ceil` / `v.round` | Vector2 | |
 | `v.abs` | Vector2 | |
@@ -366,7 +367,15 @@ Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from 
 | `r.pos` | Vector2 | |
 | `r.size` | Vector2 | |
 | `r.x` / `r.x = n` | Float | Also `y`, `w`, `h` |
-| `r.clone` | Rect | |
+| `r.dup` | Rect | Fresh copy |
+| `r.inflate(n)` | Rect | Grow uniformly by `n` on all sides |
+| `r.inflate(v2)` | Rect | Grow by `v2.x` horizontally + `v2.y` vertically (per side) |
+| `r.inflate(t, r, b, l)` | Rect | Per-side inflate |
+| `r.deflate(n)` | Rect | Shrink uniformly by `n` on all sides |
+| `r.deflate(v2)` | Rect | Shrink by `v2.x` horizontally + `v2.y` vertically (per side) |
+| `r.deflate(t, r, b, l)` | Rect | Per-side deflate |
+| `r.contains?(v2)` | bool | Point inside rect (edge-inclusive) |
+| `r.sample_point` | Vector2 | Uniform random point inside rect |
 
 ---
 
@@ -699,6 +708,69 @@ def update(dt)
   BOOM.burst(50) if pressed?(:space)
 end
 ```
+
+---
+
+## Spawner
+
+A `Spawner` triggers a block on a recurring cadence. Use it for enemy waves, bullet patterns, periodic pickup drops, or any "particles-like" emission at game-object granularity. Pure Ruby helper built on `every`, so any spawn logic you can express in Ruby goes inside the block — the engine stays out of placement, object construction, and patterns.
+
+Unlike `particles`, which manages lightweight visual effects natively, a spawner is just a timer with a name. The block is where you construct game objects, fire bullets, pick positions, etc.
+
+### `spawner`
+
+```ruby
+spawner(rate:, count: 1, start: true) { |this| ... } -> Spawner
+```
+
+| Arg | Type | Notes |
+|---|---|---|
+| `rate:` | Numeric or Range | Seconds between emissions. A Range (e.g. `(1.0..3.0)`) is resampled each schedule for natural variance. |
+| `count:` | Integer or Range | Block invocations per tick (burst size). Ranges sampled each tick. Default `1`. |
+| `start:` | bool | Begin firing immediately. Default `true`. Pass `false` to configure, then call `.start`. |
+| `&block` | required | `|this|` is the parent GameObject via `init(parent)`, or `nil` standalone — same convention as Timer. |
+
+Follows the `init(parent)` convention: when used as a field on `obj(...)`, `this` inside the block is the owning object.
+
+```ruby
+BOSS = obj(
+  pos: v2(0, 0),
+  hp: 100,
+  gun: spawner(rate: 1.0) { |this| fire_bullet_ring(this.pos) }
+)
+
+# later
+BOSS.gun.stop           # pause emission
+BOSS.gun.start          # resume
+BOSS.gun.rate = 0.5     # twice as fast; reschedules on next tick
+BOSS.gun.fire!          # force one immediate emission cycle
+```
+
+Range rate + burst:
+
+```ruby
+swarm = spawner(rate: (0.3..0.8), count: (3..6)) do |this|
+  spawn_enemy(at: random_point_in(SPAWN_AREA))
+end
+```
+
+Standalone (no parent) — `this` is `nil`:
+
+```ruby
+spawner(rate: 5.0) { spawn_wave }
+```
+
+| Method | Returns | Notes |
+|---|---|---|
+| `s.start` | self | Begin firing; no-op if already running |
+| `s.stop` | self | Cancel internal timer; emission halts |
+| `s.running?` | bool | |
+| `s.fire!` | self | Force one immediate emission cycle (`count` block calls) outside normal cadence |
+| `s.rate` / `s.rate=` | Numeric or Range | Mutable at runtime; reschedules on next tick |
+| `s.count` / `s.count=` | Integer or Range | |
+| `s.parent` | GameObject or nil | Set by `init(parent)` when used as an `obj(...)` field |
+
+**Lifecycle note.** If a spawner is a field on a GameObject that later goes away, the internal timer keeps firing. Call `.stop` explicitly when you're done with it (e.g. from the parent's death FSM transition).
 
 ---
 

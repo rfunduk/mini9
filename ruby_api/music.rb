@@ -1,6 +1,8 @@
 # ENGINE native=Music ruby=Music
 
 class Music
+  undef_method :dup, :clone
+
   attr_reader :path
 
   def play(volume: 1.0, loop: true, fade_in: 0.0); end

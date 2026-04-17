@@ -133,6 +133,18 @@ get_data_class :: proc(state: State, name: string) -> rawptr {
 	return class
 }
 
+// Define a Ruby class (subclass of Object) and tag it with DATA instance
+// type. Must run BEFORE any bytecode creates instances of the class —
+// otherwise those instances get TT_OBJECT storage and any subsequent
+// `data_init` writes into the wrong offset.
+define_data_class :: proc(state: State, name: string) -> rawptr {
+	cname := strings.clone_to_cstring(name, context.temp_allocator)
+	object_class := class_get(state, "Object")
+	class := define_class(state, cname, object_class)
+	set_instance_tt(class, TT_DATA)
+	return class
+}
+
 // return arity of a proc, or 0 if nil passed
 safe_proc_arity :: #force_inline proc(proc_val: Value) -> i32 {
 	if proc_val == NIL { return 0 }

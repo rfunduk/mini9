@@ -1,6 +1,8 @@
 # ENGINE native=Camera_Instance ruby=Camera
 
 class Camera
+  undef_method :dup, :clone
+
   # camera properties are implemented in native code
   def active; end
   def active=(value); end

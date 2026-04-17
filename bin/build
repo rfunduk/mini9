@@ -160,8 +160,16 @@ def generate
     init_content << "\tmrb.define_method(g.mrb_state, kernel_module, \"#{name}\", cast(rawptr)#{f}, #{arity})"
   end
 
-  ruby_api_files.each do |api_name, type, _|
+  # For init-type files: pre-register the data class (sets TT_DATA) BEFORE
+  # loading bytecode. Otherwise class-body instances like `Vector2::ZERO = v2(0)`
+  # get TT_OBJECT storage and data_init writes into wrong offsets.
+  ruby_api_files.each do |api_name, type, type_mappings|
     init_content << "\n\t// #{api_name}"
+    if type == "init"
+      type_mappings.each do |(_, ruby)|
+        init_content << "\tmrb.define_data_class(g.mrb_state, \"#{ruby}\")"
+      end
+    end
     init_content << "\tload_engine_bytecode(\"#{api_name}\", #{api_name.gsub(/^_+|_+$/, "")}_bytecode[:])"
     init_content << "\tsetup_#{api_name}()" if type == "init"
   end

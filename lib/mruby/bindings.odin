@@ -73,6 +73,7 @@ foreign lib {
 
 	// class operations
 	class_get :: proc(state: State, name: cstring) -> rawptr ---
+	define_class :: proc(state: State, name: cstring, super: rawptr) -> rawptr ---
 	obj_new :: proc(state: State, cls: rawptr, argc: c.int, argv: rawptr) -> Value ---
 
 	// instance variable operations
@@ -186,6 +187,11 @@ foreign macros {
 
 	// Data object operations
 	data_init :: proc(v: Value, ptr: rawptr, type: ^Data_Type) ---
+
+	// Raises FrozenError if val is frozen. Call at top of native setters
+	// that mutate object state so `obj.freeze` + `obj.x = 10` raises
+	// instead of silently bypassing the frozen flag.
+	check_frozen :: proc(state: State, val: Value) ---
 
 	// Class operations
 	set_instance_tt :: proc(class: rawptr, tt: c.int) ---

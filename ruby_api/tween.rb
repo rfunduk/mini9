@@ -1,6 +1,8 @@
 # ENGINE native=Tween_Instance ruby=Tween
 
 class Tween
+  undef_method :dup, :clone
+
   # easing constants live in `Easing` (e.g. Easing::LINEAR, Easing::CUBIC_IN_OUT)
 
   # NOTE: methods implemented in native code

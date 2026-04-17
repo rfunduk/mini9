@@ -105,6 +105,7 @@ ruby_vector2_get_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 
 ruby_vector2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
+	mrb.check_frozen(state, self)
 
 	new_x: f64
 	mrb.get_args(state, "f", &new_x)
@@ -120,6 +121,7 @@ ruby_vector2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 
 ruby_vector2_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
+	mrb.check_frozen(state, self)
 
 	new_y: f64
 	mrb.get_args(state, "f", &new_y)

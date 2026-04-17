@@ -1,6 +1,8 @@
 # ENGINE native=Shake_Instance ruby=Shake
 
 class Shake
+  undef_method :dup, :clone
+
   # called when shake(duration, frequency, amplitude) is invoked
   # duration: time in seconds (float)
   # frequency: samples per second (float)

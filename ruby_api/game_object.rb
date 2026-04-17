@@ -1,6 +1,8 @@
 # ENGINE native=Game_Object ruby=GameObject
 
 class GameObject
+  undef_method :dup, :clone
+
   def initialize(args={})
     @_init_keys = []
     @_keys = []

@@ -65,6 +65,13 @@ void mrbm_data_init(mrb_value v, void* ptr, const mrb_data_type* type) { mrb_dat
 void* mrbm_data_ptr(mrb_value v) { return DATA_PTR(v); }
 const mrb_data_type* mrbm_data_type(mrb_value v) { return DATA_TYPE(v); }
 
+/* Frozen check - raises FrozenError if the object is frozen. No-op for
+ * immediates (they're conceptually immutable but not flagged). */
+void mrbm_check_frozen(mrb_state* mrb, mrb_value v) {
+    if (mrb_immediate_p(v)) return;
+    mrb_check_frozen(mrb, mrb_basic_ptr(v));
+}
+
 /* Class operations - wraps MRB_SET_INSTANCE_TT macro */
 void mrbm_set_instance_tt(struct RClass* c, enum mrb_vtype tt) { MRB_SET_INSTANCE_TT(c, tt); }
 

@@ -1,6 +1,8 @@
 # ENGINE native=Palette ruby=Palette
 
 class Palette
+  undef_method :clone
+
   def to_s = "Palette(path: #{path}, count: #{count})"
   alias_method :inspect, :to_s
 

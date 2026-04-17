@@ -1,23 +1,24 @@
 # ENGINE native=rl.Vector2 ruby=Vector2
 
 class Vector2
-  ZERO = v2(0)
-  ONE = v2(1)
+  ZERO = v2(0).freeze
+  ONE = v2(1).freeze
 
-  UP = N = v2(0, -1)
-  DOWN = S = v2(0, 1)
-  LEFT = W = v2(-1, 0)
-  RIGHT = E = v2(1, 0)
+  UP = N = v2(0, -1).freeze
+  DOWN = S = v2(0, 1).freeze
+  LEFT = W = v2(-1, 0).freeze
+  RIGHT = E = v2(1, 0).freeze
 
-  UP_LEFT = NW = v2(-1, -1)
-  UP_RIGHT = NE = v2(1, -1)
-  DOWN_LEFT = SW = v2(-1, 1)
-  DOWN_RIGHT = SE = v2(1, 1)
+  UP_LEFT = NW = v2(-1, -1).freeze
+  UP_RIGHT = NE = v2(1, -1).freeze
+  DOWN_LEFT = SW = v2(-1, 1).freeze
+  DOWN_RIGHT = SE = v2(1, 1).freeze
 
-  CARDINALS = [N, E, S, W]
-  COMPASS = [N, NE, E, SE, S, SW, W, NW]
+  CARDINALS = [N, E, S, W].freeze
+  COMPASS = [N, NE, E, SE, S, SW, W, NW].freeze
 
-  def clone = v2(x, y)
+  undef_method :clone
+  def dup = v2(x, y)
 
   def xx = v2(x, x)
   def yy = v2(y, y)

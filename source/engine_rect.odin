@@ -183,17 +183,48 @@ ruby_rect_set_h :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_inflate_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
-	amount_or_t, r, b, l: f64
-	argc := mrb.get_args(state, "f|fff", &amount_or_t, &r, &b, &l)
+	argv: ^mrb.Value
+	argc: i32
+	mrb.get_args(state, "*", &argv, &argc)
+	args := (cast([^]mrb.Value)argv)[:argc]
 
 	rect := extract_native(rl.Rectangle, self)
 	if rect == nil { return mrb.NIL }
 
-	if argc == 1 {
-		return create_rect(inflate_rect(rect^, f32(amount_or_t)))
-	} else {
-		return create_rect(inflate_rect(rect^, [4]f32{f32(amount_or_t), f32(r), f32(b), f32(l)}))
+	switch argc {
+	case 1:
+		v := args[0]
+		if is_native(rl.Vector2, v) {
+			vec := extract_native(rl.Vector2, v)
+			return create_rect(inflate_rect(rect^, [4]f32{vec.y, vec.x, vec.y, vec.x}))
+		}
+		if mrb.integer_p(v) || mrb.float_p(v) {
+			return create_rect(inflate_rect(rect^, f32(mrb.to_f64(v))))
+		}
+		return mrb.raise_error(state, "ArgumentError", "inflate: arg must be Numeric or Vector2")
+	case 4:
+		return create_rect(inflate_rect(rect^, [4]f32{
+			f32(mrb.to_f64(args[0])),
+			f32(mrb.to_f64(args[1])),
+			f32(mrb.to_f64(args[2])),
+			f32(mrb.to_f64(args[3])),
+		}))
+	case:
+		return mrb.raise_error(state, "ArgumentError", "inflate: expected 1 (Numeric or Vector2) or 4 (t,r,b,l) args")
 	}
+}
+
+ruby_rect_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	p_val: mrb.Value
+	mrb.get_args(state, "o", &p_val)
+	r := extract_native(rl.Rectangle, self)
+	p := extract_native(rl.Vector2, p_val)
+	if r == nil || p == nil { return mrb.FALSE }
+	if p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height {
+		return mrb.TRUE
+	}
+	return mrb.FALSE
 }
 
 ruby_rect_sample_point :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -241,4 +272,6 @@ setup_rect :: proc() {
 	mrb.define_method(g.mrb_state, c, "w=", cast(rawptr)ruby_rect_set_w, 1)
 	mrb.define_method(g.mrb_state, c, "h=", cast(rawptr)ruby_rect_set_h, 1)
 	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_rect_sample_point, 0)
+	mrb.define_method(g.mrb_state, c, "inflate", cast(rawptr)ruby_inflate_rect, -1)
+	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_rect_contains, 1)
 }
