@@ -1,6 +1,7 @@
 package engine
 
 import "core:math"
+import lin "core:math/linalg"
 import "core:math/rand"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -164,6 +165,25 @@ ruby_circ_sample_point :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	return create_vector2({c.cx + radius * math.cos(theta), c.cy + radius * math.sin(theta)})
 }
 
+ruby_circ_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	kwargs: mrb.Value
+	mrb.get_args(state, "|H", &kwargs)
+
+	c := extract_native(Circ, self)
+	if c == nil { return mrb.NIL }
+
+	offset := _parse_offset_kwarg(state, kwargs)
+	draw_circle(
+		pos = {c.cx + offset.x, c.cy + offset.y},
+		radius = c.r,
+		color = _parse_color_kwarg(state, kwargs),
+		filled = _parse_bool_kwarg(state, kwargs, sym.filled),
+		clip = _parse_clip_kwarg(state, kwargs),
+	)
+	return mrb.NIL
+}
+
 setup_circ :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Circ")
 	mrb.define_method(g.mrb_state, c, "center", cast(rawptr)ruby_circ_get_center, 0)
@@ -179,4 +199,27 @@ setup_circ :: proc() {
 	mrb.define_method(g.mrb_state, c, "distance", cast(rawptr)ruby_circ_distance, 1)
 	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_circ_overlaps, 1)
 	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_circ_sample_point, 0)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_circ_draw, -1)
+}
+
+draw_circle :: proc(
+	pos: rl.Vector2,
+	radius: f32,
+	color: rl.Color = {255, 255, 255, 255},
+	filled: bool = false,
+	clip: Maybe(rl.Rectangle) = nil,
+) {
+	p := lin.floor(pos)
+
+	did_clip := _clip(clip, p)
+
+	if filled {
+		// DrawCircleSector uses the shapes texture (batches with atlas);
+		// DrawCircleV bypasses it. 36 segments matches DrawCircleV quality.
+		rl.DrawCircleSector(p, radius, 0, 360, 36, color)
+	} else {
+		rl.DrawCircleLinesV(p, radius, color)
+	}
+
+	if did_clip { rl.EndScissorMode() }
 }

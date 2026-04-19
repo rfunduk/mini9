@@ -294,8 +294,7 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	did_clip := false
 
 	if argc == 2 {
-		val := mrb.kwarg(state, kwargs, sym.clip)
-		if val != mrb.NIL { did_clip = _clip(val, pos) }
+		did_clip = _clip(_parse_clip_kwarg(state, kwargs), pos)
 	}
 
 	// calculate source rectangle in logical (sprite-sheet) coords

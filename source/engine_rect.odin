@@ -1,5 +1,6 @@
 package engine
 
+import lin "core:math/linalg"
 import "core:math/rand"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
@@ -243,6 +244,27 @@ ruby_rect_sample_point :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	return create_vector2({r.x + rand.float32() * r.width, r.y + rand.float32() * r.height})
 }
 
+ruby_rect_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	kwargs: mrb.Value
+	mrb.get_args(state, "|H", &kwargs)
+
+	r := extract_native(rl.Rectangle, self)
+	if r == nil { return mrb.NIL }
+
+	offset := _parse_offset_kwarg(state, kwargs)
+	draw_rectangle(
+		pos = {r.x + offset.x, r.y + offset.y},
+		size = {r.width, r.height},
+		color = _parse_color_kwarg(state, kwargs),
+		thickness = _parse_f32_kwarg(state, kwargs, sym.thickness, 1),
+		rounded = _parse_f32_kwarg(state, kwargs, sym.rounded, 0) / 100.0,
+		filled = _parse_bool_kwarg(state, kwargs, sym.filled),
+		clip = _parse_clip_kwarg(state, kwargs),
+	)
+	return mrb.NIL
+}
+
 inflate_rect :: proc {
 	inflate_rect_trbl,
 	inflate_rect_uniform,
@@ -283,4 +305,44 @@ setup_rect :: proc() {
 	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_rect_sample_point, 0)
 	mrb.define_method(g.mrb_state, c, "inflate", cast(rawptr)ruby_inflate_rect, -1)
 	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_rect_contains, 1)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_rect_draw, -1)
+}
+
+draw_rectangle :: proc(
+	pos: rl.Vector2,
+	size: rl.Vector2,
+	color: rl.Color = {255, 255, 255, 255},
+	thickness: f32 = 1,
+	rounded: f32 = 0, // 0..1 (fraction of shorter edge)
+	filled: bool = false,
+	clip: Maybe(rl.Rectangle) = nil,
+) {
+	p := lin.floor(pos)
+	s := lin.floor(size)
+
+	did_clip := _clip(clip, p)
+
+	if filled {
+		if rounded > 0 {
+			rl.DrawRectangleRounded({p.x, p.y, s.x, s.y}, rounded, 10, color)
+		} else {
+			// DrawRectanglePro uses the shapes texture (batches with atlas);
+			// DrawRectangleV bypasses it.
+			rl.DrawRectanglePro({p.x, p.y, s.x, s.y}, {0, 0}, 0, color)
+		}
+	} else {
+		if rounded > 0 {
+			rl.DrawRectangleRoundedLinesEx(
+				{p.x, p.y, s.x, s.y},
+				rounded,
+				i32(max(s.x, s.y) / 2),
+				thickness,
+				color,
+			)
+		} else {
+			rl.DrawRectangleLinesEx({p.x, p.y, s.x, s.y}, thickness, color)
+		}
+	}
+
+	if did_clip { rl.EndScissorMode() }
 }

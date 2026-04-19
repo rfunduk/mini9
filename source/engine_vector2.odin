@@ -488,6 +488,23 @@ ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	return mrb.boxing_int_value(state, index)
 }
 
+ruby_vector2_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	kwargs: mrb.Value
+	mrb.get_args(state, "|H", &kwargs)
+
+	v := extract_native(rl.Vector2, self)
+	if v == nil { return mrb.NIL }
+
+	offset := _parse_offset_kwarg(state, kwargs)
+	draw_pixel(pos = {v.x + offset.x, v.y + offset.y}, color = _parse_color_kwarg(state, kwargs))
+	return mrb.NIL
+}
+
+draw_pixel :: proc(pos: rl.Vector2, color: rl.Color = {255, 255, 255, 255}) {
+	rl.DrawPixelV(lin.floor(pos), color)
+}
+
 setup_vector2 :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Vector2")
 
@@ -523,6 +540,7 @@ setup_vector2 :: proc() {
 	mrb.define_method(g.mrb_state, c, "angle_to", cast(rawptr)ruby_vector2_angle_to, 1)
 	mrb.define_method(g.mrb_state, c, "dot", cast(rawptr)ruby_vector2_dot, 1)
 	mrb.define_method(g.mrb_state, c, "grid_index", cast(rawptr)ruby_vector2_grid_index, -1)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_vector2_draw, -1)
 
 	x_sym := mrb.intern_cstr(g.mrb_state, "x")
 	y_sym := mrb.intern_cstr(g.mrb_state, "y")

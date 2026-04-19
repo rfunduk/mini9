@@ -1,5 +1,6 @@
 package engine
 
+import lin "core:math/linalg"
 import mrb "lib:mruby"
 import rl "vendor:raylib"
 
@@ -101,9 +102,148 @@ point_in_polygon :: proc(pt: rl.Vector2, poly: []rl.Vector2) -> bool {
 	return inside
 }
 
+ruby_poly_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	kwargs: mrb.Value
+	mrb.get_args(state, "|H", &kwargs)
+
+	p := extract_native(Poly, self)
+	if p == nil || len(p.verts) < 3 { return mrb.NIL }
+
+	draw_polygon(
+		verts = p.verts[:],
+		offset = _parse_offset_kwarg(state, kwargs),
+		color = _parse_color_kwarg(state, kwargs),
+		thickness = _parse_f32_kwarg(state, kwargs, sym.thickness, 1),
+		filled = _parse_bool_kwarg(state, kwargs, sym.filled),
+		clip = _parse_clip_kwarg(state, kwargs),
+	)
+	return mrb.NIL
+}
+
 setup_poly :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Poly")
 	mrb.define_method(g.mrb_state, c, "verts", cast(rawptr)ruby_poly_verts, 0)
 	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_poly_count, 0)
 	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_poly_contains, 1)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_poly_draw, -1)
+}
+
+draw_polygon :: proc(
+	verts: []rl.Vector2,
+	offset: rl.Vector2 = {0, 0},
+	color: rl.Color = {255, 255, 255, 255},
+	thickness: f32 = 1,
+	filled: bool = false,
+	clip: Maybe(rl.Rectangle) = nil,
+) {
+	n := len(verts)
+	if n < 3 { return }
+
+	pts := make([]rl.Vector2, n, context.temp_allocator)
+	for v, i in verts {
+		pts[i] = lin.floor(v + offset)
+	}
+
+	did_clip := _clip(clip, pts[0])
+
+	if filled {
+		// Ear-clip triangulates any simple polygon (convex or concave) and
+		// normalizes winding so Raylib's backface culling in 2D mode doesn't
+		// drop CW input.
+		tris := _triangulate_ear_clip(pts, context.temp_allocator)
+		for t in tris {
+			rl.DrawTriangle(t[0], t[1], t[2], color)
+		}
+	} else {
+		for i in 0 ..< n {
+			a := pts[i]
+			b := pts[(i + 1) % n]
+			rl.DrawLineEx(a, b, thickness, color)
+		}
+	}
+
+	if did_clip { rl.EndScissorMode() }
+}
+
+// Shoelace area in screen coords (y-down). Screen-CCW polygons return
+// negative — that's the orientation Raylib's 2D backface culling keeps.
+@(private = "file")
+_screen_signed_area :: proc(verts: []rl.Vector2) -> f32 {
+	sum: f32 = 0
+	n := len(verts)
+	for i in 0 ..< n {
+		a := verts[i]
+		b := verts[(i + 1) % n]
+		sum += a.x * b.y - b.x * a.y
+	}
+	return sum * 0.5
+}
+
+@(private = "file")
+_point_in_triangle :: proc(p, a, b, c: rl.Vector2) -> bool {
+	d1 := (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y)
+	d2 := (p.x - c.x) * (b.y - c.y) - (b.x - c.x) * (p.y - c.y)
+	d3 := (p.x - a.x) * (c.y - a.y) - (c.x - a.x) * (p.y - a.y)
+	has_neg := (d1 < 0) || (d2 < 0) || (d3 < 0)
+	has_pos := (d1 > 0) || (d2 > 0) || (d3 > 0)
+	return !(has_neg && has_pos)
+}
+
+// Ear-clipping triangulation. O(n²). Handles any simple polygon.
+// Normalizes to screen-CCW so emitted triangles survive Raylib's culling.
+_triangulate_ear_clip :: proc(verts: []rl.Vector2, allocator := context.temp_allocator) -> [][3]rl.Vector2 {
+	context.allocator = allocator
+	n := len(verts)
+	if n < 3 { return nil }
+
+	pts := make([dynamic]rl.Vector2, 0, n)
+	if _screen_signed_area(verts) > 0 {
+		// input is screen-CW; reverse to screen-CCW
+		for i := n - 1; i >= 0; i -= 1 { append(&pts, verts[i]) }
+	} else {
+		for v in verts { append(&pts, v) }
+	}
+
+	tris := make([dynamic][3]rl.Vector2, 0, n - 2)
+
+	// Guard against pathological input (collinear/degenerate). Max iterations
+	// bounded by n - each successful clip removes one vertex.
+	guard := 0
+	for len(pts) > 3 && guard < n * n {
+		guard += 1
+		m := len(pts)
+		found := false
+		for i in 0 ..< m {
+			pi := (i - 1 + m) % m
+			ni := (i + 1) % m
+			a := pts[pi]
+			b := pts[i]
+			c := pts[ni]
+
+			// convex vertex under screen-CCW winding → cross < 0
+			cross := (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
+			if cross >= 0 { continue }
+
+			// no other poly vert inside triangle abc?
+			ok := true
+			for j in 0 ..< m {
+				if j == pi || j == i || j == ni { continue }
+				if _point_in_triangle(pts[j], a, b, c) { ok = false; break }
+			}
+			if !ok { continue }
+
+			append(&tris, [3]rl.Vector2{a, b, c})
+			ordered_remove(&pts, i)
+			found = true
+			break
+		}
+		if !found { break } 	// degenerate; bail rather than loop forever
+	}
+
+	if len(pts) == 3 {
+		append(&tris, [3]rl.Vector2{pts[0], pts[1], pts[2]})
+	}
+
+	return tris[:]
 }
