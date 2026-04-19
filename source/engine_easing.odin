@@ -3,7 +3,9 @@ package engine
 import "core:math/ease"
 import mrb "lib:mruby"
 
-ruby_easing_at :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// RUBY FUNCTION: ease(t, fn=Easing::LINEAR) -> returns float
+// @engine_method: name="ease", arity=-1
+ruby_ease :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	t: f64
@@ -16,9 +18,4 @@ ruby_easing_at :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	v := ease.ease(ease.Ease(easing_int), t)
 	return mrb.word_boxing_float_value(state, v)
-}
-
-setup_easing :: proc() {
-	m := mrb.module_get(g.mrb_state, "Easing")
-	mrb.define_module_function(g.mrb_state, m, "at", cast(rawptr)ruby_easing_at, -1)
 }

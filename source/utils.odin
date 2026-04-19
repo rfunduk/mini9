@@ -37,8 +37,8 @@ extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
 // Type-sniff a Ruby value: true iff `val` is a native data object of type T.
 // Always uses the safe, no-raise check (independent of CHECK_MRUBY_DATA_TYPES)
 // because the only point of calling this is to *branch* on the type — e.g. a
-// method that accepts either rectangle(rect) or rectangle(pos, size). Use it
-// to discriminate, then call `extract_native` once you know which form it is.
+// shape-argument that accepts either a Rect or a Circ. Use it to discriminate,
+// then call `extract_native` once you know which form it is.
 is_native :: #force_inline proc($T: typeid, val: mrb.Value) -> bool {
 	return mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T]) != nil
 }

@@ -4,13 +4,13 @@ Here we have a game... ... I want to say 'framework'...? Yes, a **game framework
 
 ## But really what is it?
 
-I really like pico8 but I'm old and I just want to do whatever I want, see? I like limitations but it's just too much. I want to make art in aseprite and just load it up. I absolutely cannot make a decent sound effect or music to save my life in pico8. Also lua is not really my speed; it's fine, but I would rather not.
+I really like pico-8 but I'm old and I just want to do whatever I want, see? I like limitations but it's just too much. I want to make art in aseprite and just load it up. I absolutely cannot make a decent sound effect or music to save my life in pico-8. Also lua is not really my speed; it's fine, but I would rather not.
 
 So here we have a _slightly larger_, _slightly more flexible_ thing. It's written in [Odin](https://odin-lang.org) and uses [Ruby](https://www.ruby-lang.org/) as the game language (actually [mruby](https://mruby.org/) so no gems/etc).
 
 See [DOCS.md](DOCS.md) for the full API reference.
 
-Smallest possible game — directory with a `main.rb`:
+Make a directory with a `main.rb`:
 
 ```ruby
 def update
@@ -18,11 +18,9 @@ def update
 end
 
 def draw
-  rectangle(
-    mouse-v2(16),
-    v2(32),
+  rect(mouse - v2(16), v2(32)).draw(
     filled: true,
-    color: Palette::DEFAULT.blue
+    color: P.blue
   )
 end
 ```
@@ -80,16 +78,4 @@ build/debug/mini9 package --web \
   --source path/to/mygame \
   --output .
 # ./mygame contains index.html, etc
-```
-
-## Misc
-
-### Slopwatch
-
-Did I use an LLM occasionally to help me make sense of the mruby source code, finding obscure references, forum posts, and code snippets etc, to get the bindings working? Yes. Did I vibecode this whole thing resulting in a pile of utter garbage? No. Say no to slop.
-
-### Helpful memory watch:
-
-```bash
-watch -n 0.1 'ps -o pid,vsz,rss,comm -p $(pgrep mini9) 2>/dev/null || echo  "Process not running"'
 ```

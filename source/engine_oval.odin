@@ -22,20 +22,39 @@ create_oval :: proc(o: Oval) -> mrb.Value {
 	return ruby_obj
 }
 
-// RUBY FUNCTION: oval(pos, size) — pos = center, size = v2(w_radius, h_radius).
-// @engine_method: name="oval", arity=2
+// RUBY FUNCTION: oval(size) — centered at v2(0). Or oval(pos, size) — explicit center.
+// size = v2(w_radius, h_radius).
+// @engine_method: name="oval", arity=-1
 ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	pos_val, size_val: mrb.Value
-	mrb.get_args(state, "oo", &pos_val, &size_val)
 
-	pos := extract_native(rl.Vector2, pos_val)
-	size := extract_native(rl.Vector2, size_val)
-	if pos == nil || size == nil {
-		return mrb.raise_error(state, "ArgumentError", "oval(pos, size): both args must be Vector2")
+	argv: ^mrb.Value
+	argc: i32
+	mrb.get_args(state, "*", &argv, &argc)
+	args := (cast([^]mrb.Value)argv)[:argc]
+
+	switch argc {
+	case 1:
+		size := extract_native(rl.Vector2, args[0])
+		if size == nil {
+			return mrb.raise_error(state, "ArgumentError", "oval(size): argument must be Vector2")
+		}
+		return create_oval({{0, 0}, size^})
+	case 2:
+		pos := extract_native(rl.Vector2, args[0])
+		size := extract_native(rl.Vector2, args[1])
+		if pos == nil || size == nil {
+			return mrb.raise_error(state, "ArgumentError", "oval(pos, size): both args must be Vector2")
+		}
+		return create_oval({pos^, size^})
+	case:
+		return mrb.raise_error(
+			state,
+			"ArgumentError",
+			"oval(): wrong number of arguments (given %d, expected 1 or 2)",
+			argc,
+		)
 	}
-
-	return create_oval({pos^, size^})
 }
 
 ruby_oval_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {

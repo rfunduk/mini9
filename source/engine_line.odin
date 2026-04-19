@@ -23,21 +23,38 @@ create_line :: proc(l: Line) -> mrb.Value {
 	return ruby_obj
 }
 
-// RUBY FUNCTION: line(a, b) — a and b are Vector2.
-// @engine_method: name="line", arity=2
+// RUBY FUNCTION: line(to) — from v2(0) to `to`. Or line(a, b) — explicit endpoints.
+// @engine_method: name="line", arity=-1
 ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
-	a_val, b_val: mrb.Value
-	mrb.get_args(state, "oo", &a_val, &b_val)
+	argv: ^mrb.Value
+	argc: i32
+	mrb.get_args(state, "*", &argv, &argc)
+	args := (cast([^]mrb.Value)argv)[:argc]
 
-	ap := extract_native(rl.Vector2, a_val)
-	bp := extract_native(rl.Vector2, b_val)
-	if ap == nil || bp == nil {
-		return mrb.raise_error(state, "ArgumentError", "line(a, b): both args must be Vector2")
+	switch argc {
+	case 1:
+		bp := extract_native(rl.Vector2, args[0])
+		if bp == nil {
+			return mrb.raise_error(state, "ArgumentError", "line(to): argument must be Vector2")
+		}
+		return create_line({{0, 0}, bp^})
+	case 2:
+		ap := extract_native(rl.Vector2, args[0])
+		bp := extract_native(rl.Vector2, args[1])
+		if ap == nil || bp == nil {
+			return mrb.raise_error(state, "ArgumentError", "line(a, b): both args must be Vector2")
+		}
+		return create_line({ap^, bp^})
+	case:
+		return mrb.raise_error(
+			state,
+			"ArgumentError",
+			"line(): wrong number of arguments (given %d, expected 1 or 2)",
+			argc,
+		)
 	}
-
-	return create_line({ap^, bp^})
 }
 
 ruby_line_get_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {

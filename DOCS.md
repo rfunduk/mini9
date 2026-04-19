@@ -14,7 +14,7 @@ end
 
 def draw
   clear(P.black)
-  circle(v2(160, 120), 20, color: P.red, filled: true)
+  circ(v2(160, 120), 20).draw(color: P.red, filled: true)
 end
 ```
 
@@ -35,7 +35,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Text & Fonts](#text--fonts)
 - [Colors & Palettes](#colors--palettes)
 - [Vectors](#vectors)
-- [Rectangles](#rectangles)
+- [Shapes](#shapes)
 - [Textures & Sprites](#textures--sprites)
 - [Input](#input)
 - [Sound](#sound)
@@ -147,7 +147,7 @@ def draw
 end
 
 def ui
-  text("Score: #{g.score}", v2(4, 4), Font::SMALL)
+  text("Score: #{g.score}", Font::SMALL).draw(offset: v2(4))
 end
 
 def event(e)
@@ -177,39 +177,65 @@ Call during load (before the first frame). Most setup functions can only be chan
 
 ## Drawing
 
-All drawing happens inside `draw` (world-space, camera-transformed) or `ui` (screen-space). Positions are always `Vector2`. Styling is always kwargs. Default color is white.
+All drawing happens inside `draw` (world-space, camera-transformed) or `ui` (screen-space).
+
+Every shape is an object you construct once, then render with `.draw(**opts)`. Construction is cheap and constructors live alongside the geometry types (see [Shapes](#shapes), [Vectors](#vectors), and [Text & Fonts](#text--fonts) for their non-drawing methods).
+
+| Constructor | Shape | `.draw` options |
+|---|---|---|
+| `v2(x[, y])` | Vector2 (a single pixel) | `color:`, `offset:` |
+| `line(to)` or `line(a, b)` | Line | `color:`, `thickness:`, `offset:`, `clip:` |
+| `rect(...)` | Rect — see [Shapes](#shapes) for the 3 forms | `color:`, `filled:`, `thickness:`, `rounded:`, `offset:`, `clip:` |
+| `circ(r)` / `circ(center, r)` / `circ(x, y, r)` | Circ | `color:`, `filled:`, `offset:`, `clip:` |
+| `oval(size)` or `oval(pos, size)` | Oval — `size` is v2(w_radius, h_radius) | `color:`, `filled:`, `offset:`, `clip:` |
+| `poly(verts)` | Poly — `verts` is Array[Vector2], min 3 | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
+| `text(str, font)` | Text — see [Text & Fonts](#text--fonts) | `color:`, `outline:`, `align:`, `rotation:`, `scale:`, `spacing:`, `offset:` |
+
+Plus the screen-clearing primitive:
 
 | Signature | Returns | Notes |
 |---|---|---|
 | `clear(color)` | nil | Fills the screen. Safe to call in `draw` or once in setup |
-| `pixel(pos, color: P.white)` | nil | Single pixel |
-| `line(from, to, color: P.white, thickness: 1, clip: nil)` | nil | |
-| `rectangle(rect, **opts)` | nil | `rect` form |
-| `rectangle(pos, size, **opts)` | nil | `pos, size` form |
-| `circle(pos, radius, color: P.white, filled: false, clip: nil)` | nil | `radius` is scalar |
-| `oval(pos, size, color: P.white, filled: false, clip: nil)` | nil | `size` is v2 (half-axes) |
 
-Rectangle options (both forms): `color:`, `filled:`, `thickness:`, `rounded:`, `clip:`. `rounded:` is a percentage 0–100.
+**Shared draw options:**
 
-`clip:` takes a `Rect` (in local coordinates relative to the drawn shape's `pos`) and scissors the draw to that region.
+- `color:` — default white
+- `offset:` — a Vector2 added to the shape's native position before drawing. Lets you keep one shape constant and render it in many places
+- `filled:` — fills the interior
+- `thickness:` — outline stroke width in px
+- `rounded:` — rectangle corner radius, 0–100 (percentage of the shorter edge)
+- `clip:` — a `Rect` in coordinates relative to the shape's `pos` that scissors the draw to that region
 
 ```ruby
-rectangle(v2(10, 10), v2(40, 20), color: P.red, filled: true, rounded: 30)
-line(v2(0, 0), v2(100, 100), color: P.white, thickness: 2)
-circle(v2(50, 50), 8, filled: true)
+# construct once, draw many places
+DOT  = circ(4)
+LINE = line(v2(100, 0))
+
+def draw
+  clear(P.black)
+  LINE.draw(offset: v2(10, 50), color: P.white, thickness: 2)
+  DOT.draw(offset: v2(50), filled: true, color: P.red)
+  rect(v2(10), v2(40, 20)).draw(filled: true, color: P.red, rounded: 30)
+  poly([v2(0), v2(20, 0), v2(10, 20)]).draw(filled: true, color: P.yellow)
+end
 ```
 
 ---
 
 ## Text & Fonts
 
+Text is a shape like any other — construct with `text(str, font)`, render with `.draw(**opts)`. Call `.measure` to get rendered size without drawing.
+
 | Signature | Returns | Notes |
 |---|---|---|
-| `text(str, pos, font, **opts)` | nil | All three are required. Pass `nil` for the default font |
-| `text_size(str, font, scale: 1, spacing: 1)` | Vector2 | Rendered size without drawing |
+| `text(str, font)` | Text | Both args required; `font` must be a Font |
+| `t.str` | String | The stored string |
+| `t.font` | Font | |
+| `t.measure(scale: 1, spacing: 1)` | Vector2 | Rendered size without drawing |
+| `t.draw(**opts)` | nil | See options below |
 | `font(path, size=nil)` | Font | `size` required for TTF/OTF; not needed for `.png` bitmap fonts |
 
-`text` options: `align:` (`Text::LEFT`, `Text::CENTER`, `Text::RIGHT`), `rotation:`, `scale:`, `spacing:`, `color:`, `outline:`.
+`t.draw` options: `offset:`, `align:` (`Text::LEFT`, `Text::CENTER`, `Text::RIGHT`), `rotation:`, `scale:`, `spacing:`, `color:`, `outline:`. `outline:` accepts a Color or `true` (black).
 
 **Built-in fonts** (always available):
 
@@ -228,9 +254,11 @@ circle(v2(50, 50), 8, filled: true)
 | `font.size` | Integer |
 
 ```ruby
-text("Hello", v2(10, 10), Font::SMALL, color: P.yellow)
+text("Hello", Font::SMALL).draw(offset: v2(10), color: P.yellow)
 MY_FONT = font("assets/pixel.ttf", 16)
-text("Custom", v2(10, 30), MY_FONT, align: Text::CENTER)
+title = text("Custom", MY_FONT)
+title.draw(offset: v2(160, 30), align: Text::CENTER)
+size = title.measure(scale: 2)
 ```
 
 ---
@@ -288,7 +316,7 @@ Load a GIMP `.gpl` palette file. Colors become methods on the palette object, na
 
 ```ruby
 clear(P.black)
-circle(v2(50, 50), 10, color: P.red, filled: true)
+circ(v2(50), 10).draw(color: P.red, filled: true)
 
 # swap to a custom palette — every later P.foo lookup uses the new colors
 P.replace(palette("assets/pico8.gpl"))
@@ -296,7 +324,7 @@ clear(P.dark_blue)
 
 # or load a separate palette under its own name
 PICO = palette("assets/pico8.gpl")
-rectangle(v2(0,0), v2(100, 100), color: PICO.dark_blue, filled: true)
+rect(v2(0), v2(100)).draw(color: PICO.dark_blue, filled: true)
 ```
 
 Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from a hex-named palette becomes `pal.effae6`).
@@ -342,7 +370,7 @@ Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from 
 
 | Constant | Value |
 |---|---|
-| `Vector2::ZERO` | `v2(0, 0)` |
+| `Vector2::ZERO` | `v2(0)` |
 | `Vector2::ONE` | `v2(1, 1)` |
 | `Vector2::UP` / `N` | `v2(0, -1)` |
 | `Vector2::DOWN` / `S` | `v2(0, 1)` |
@@ -357,7 +385,11 @@ Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from 
 
 ---
 
-## Rectangles
+## Shapes
+
+Every shape constructor returns a native object with instance methods listed below. All shapes also have `.draw(**opts)` — see [Drawing](#drawing) for the shared option set.
+
+### Rect
 
 | Signature | Returns | Notes |
 |---|---|---|
@@ -376,6 +408,51 @@ Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from 
 | `r.deflate(t, r, b, l)` | Rect | Per-side deflate |
 | `r.contains?(v2)` | bool | Point inside rect (edge-inclusive) |
 | `r.sample_point` | Vector2 | Uniform random point inside rect |
+
+### Circ
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `circ(radius)` | Circ | Centered at `v2(0)` |
+| `circ(center, radius)` | Circ | `center` is Vector2 |
+| `circ(x, y, radius)` | Circ | |
+| `c.center` | Vector2 | |
+| `c.x` / `c.y` / `c.r` / `c.radius` | Float | All assignable |
+| `c.contains?(v2)` | bool | |
+| `c.distance(v2)` | Float | |
+| `c.overlaps?(other)` | bool | `other` is Circ or Rect |
+| `c.sample_point` | Vector2 | Uniform random point inside disk |
+
+### Line
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `line(to)` | Line | From `v2(0)` to `to` |
+| `line(a, b)` | Line | Explicit endpoints |
+| `l.a` / `l.b` | Vector2 | |
+| `l.length` | Float | |
+| `l.midpoint` | Vector2 | |
+| `l.dup` | Line | Fresh copy |
+
+### Oval
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `oval(size)` | Oval | Centered at `v2(0)`. `size` is v2(w_radius, h_radius) — half-axes |
+| `oval(pos, size)` | Oval | Explicit center |
+| `o.pos` / `o.size` | Vector2 | |
+| `o.x` / `o.y` / `o.w` / `o.h` | Float | |
+| `o.dup` | Oval | Fresh copy |
+
+### Poly
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `poly(verts)` | Poly | `verts` is Array[Vector2], minimum 3 |
+| `p.verts` | Array[Vector2] | |
+| `p.count` | Integer | |
+| `p.contains?(v2)` | bool | Ray-cast point-in-polygon |
+| `p.dup` | Poly | Fresh copy |
 
 ---
 
@@ -396,10 +473,10 @@ A `Sprite` is an animated region inside a `Texture` atlas.
 
 ```ruby
 tex = texture("assets/player.png")
-spr = sprite(tex, size: v2(16, 16))   # 16x16 frames, auto-calculated frame count
+spr = sprite(tex, size: v2(16))   # 16x16 frames, auto-calculated frame count
 spr.frame = 3
 spr.fliph = true
-spr.draw(v2(100, 100))
+spr.draw(v2(100))
 ```
 
 | Signature | Returns | Notes |
@@ -544,19 +621,19 @@ Time-based interpolation from one value to another, with easing. Works on Numeri
 `LINEAR`, plus `IN` / `OUT` / `IN_OUT` variants of: `QUADRATIC`, `CUBIC`, `QUARTIC`, `QUINTIC`, `SINE`, `CIRCULAR`, `EXPONENTIAL`, `ELASTIC`, `BACK`, `BOUNCE`. Total: 31 easings.
 
 ```ruby
-tween(v2(0, 0), v2(100, 50), 1.0, easing: Easing::CUBIC_OUT) do |pos|
+tween(v2(0), v2(100, 50), 1.0, easing: Easing::CUBIC_OUT) do |pos|
   PLAYER.pos = pos
 end
 ```
 
-`Easing.at(t, easing = Easing::LINEAR)` returns the eased value of `t` (0.0–1.0). Useful standalone.
+`ease(t, Easing::LINEAR)` returns the eased value of `t` (0.0–1.0). Useful standalone.
 
 `range(from, to, count, easing: Easing::LINEAR)` returns an Array of `count` values from `from` to `to`, with easing applied. First and last entries are exactly `from` / `to`. `count` must be ≥ 2. Supports Numeric, Vector2, and Color — type is detected from `from`/`to` (both must match). Feed into `anim`'s `values:` for eased sequences, or pass directly to `particles` for curve-over-life:
 
 ```ruby
-range(1.0, 0.0, 20)                    # Array of 20 Floats
-range(v2(0, 0), v2(100, 50), 10)       # Array of 10 Vector2s
-range(P.yellow, P.red, 8)              # Array of 8 Colors (channel-lerped)
+range(1.0, 0.0, 20)                 # Array of 20 Floats
+range(v2(0), v2(100, 50), 10)       # Array of 10 Vector2s
+range(P.yellow, P.red, 8)           # Array of 8 Colors (channel-lerped)
 ```
 
 Concat ranges for piecewise curves — each segment's count controls its time weight:
@@ -584,15 +661,15 @@ particles(
   rate:,               # required Numeric — particles/sec (0 = burst-only)
   lifetime:,           # required Numeric | sampler()
   pos:,                # required v2 | rect | circ | sampler(v2, v2)
-  velocity: v2(0,0),   # v2 | sampler(v2, v2)
-  accel: v2(0,0),      # v2 | sampler(v2, v2) | range(v2)
+  velocity: v2(0),     # v2 | sampler(v2, v2)
+  accel: v2(0),        # v2 | sampler(v2, v2) | range(v2)
   drag: nil,           # Float (0..1) | range(Float) — drag amount per tick
   rotation: 0,         # Float radians | sampler(f, f)
   ang_vel: 0,          # Float radians/sec | sampler(f, f)
   ang_accel: 0,        # Float radians/sec² | sampler(f, f) | range(Float)
   ang_drag: nil,       # Float (0..1) | range(Float) — angular drag per tick
   shape: :pixel,       # :pixel | :rect | :circle | :line
-  size: v2(1,1),       # v2 | range(Float) | range(v2)
+  size: v2(1),         # v2 | range(Float) | range(v2)
   color: P.white,      # Color | range(Color)
   start: true,         # false to create paused
 )
@@ -693,8 +770,8 @@ BOOM = particles(
   max: 200, rate: 0,
   lifetime: sampler(0.5, 1.0),
   pos: v2(160, 120),
-  velocity: sampler(v2(-80, -80), v2(80, 80)),
-  accel: range(v2(0, 0), v2(0, 150), 10),      # gravity ramps up
+  velocity: sampler(v2(-80), v2(80)),
+  accel: range(v2(0), v2(0, 150), 10),      # gravity ramps up
   drag: 0.04,                                  # 4% velocity loss per tick
   shape: :circle,
   size: range(0, 6, 3) + [6, 6, 6] + range(6, 0, 5),
@@ -734,7 +811,7 @@ Follows the `init(parent)` convention: when used as a field on `obj(...)`, `this
 
 ```ruby
 BOSS = obj(
-  pos: v2(0, 0),
+  pos: v2(0),
   hp: 100,
   gun: spawner(rate: 1.0) { |this| fire_bullet_ring(this.pos) }
 )
@@ -792,7 +869,7 @@ The block's `this` parameter is whatever object the timer was attached to via `i
 ```ruby
 PLAYER = obj(
   hp: 10,
-  pos: v2(0, 0),
+  pos: v2(0),
   burn: every(1.0) { |this| this.hp -= 1 }
 )
 
@@ -892,9 +969,9 @@ Any extra kwargs become attrs with auto-generated getters and setters. Values th
 
 ```ruby
 PLAYER = obj(
-  pos: v2(100, 100),
+  pos: v2(100),
   health: 100,
-  velocity: v2(0, 0),
+  velocity: v2(0),
 
   update: ->(this, dt) {
     this.pos += this.velocity * dt
@@ -938,8 +1015,8 @@ State callback arities are detected automatically:
 
 ```ruby
 PLAYER = obj(
-  pos: v2(100, 100),
-  sprite: sprite(PLAYER_TEX, size: v2(16, 16)),
+  pos: v2(100),
+  sprite: sprite(PLAYER_TEX, size: v2(16)),
 
   fsm: fsm(default: :idle, states: [
     state(:idle,
@@ -992,8 +1069,8 @@ AABB collision with layer/mask bitmasks and swept-AABB resolution.
 
 ```ruby
 PLAYER = obj(
-  pos: v2(100, 100),
-  body: body(size: v2(16, 16), layer: Body::LAYER_1, mask: Body::LAYER_2)
+  pos: v2(100),
+  body: body(size: v2(16), layer: Body::LAYER_1, mask: Body::LAYER_2)
 )
 # body.init(PLAYER) was called automatically by obj()
 
@@ -1004,6 +1081,66 @@ def update(dt)
   hits.each { |hit| puts "hit #{hit.body} at #{hit.point}" }
 end
 ```
+
+---
+
+## Navigation
+
+Navmesh-driven pathfinding. Works with physics obstacles in its mask layers.
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `navigator(bounds:, mask: nil, holes: nil, margin: 0)` | Navigator | See kwargs below |
+| `n.target = v2` | Vector2 | Goal position. Out-of-mesh points snap to the nearest walkable spot |
+| `n.target` | Vector2 or nil | |
+| `n.next_position` | Vector2 | Where the agent should move toward this frame. Call once per `update` |
+| `n.path` | Array[Vector2] | Current corner waypoints (from agent to target) |
+| `n.path_count` | Integer | Cheap `len(path)` |
+| `n.arrived?` | bool | True when within ~0.5px of the goal |
+| `n.recalculate` | self | Rebuild navmesh (call when static `holes:` change, or after adding/removing Box2D bodies) |
+| `n.snap` / `n.snap = f` | Float | Quantize `next_position` to this grid. `0` = off |
+
+**Constructor kwargs:**
+
+- `bounds:` — the walkable region. Accepts `Array[Vector2]`, `Rect`, `Circ`, or `Poly`. Required
+- `mask:` — Box2D layer number (1..64) or Array of layer numbers. Bodies on these layers are extracted as navmesh holes every `recalculate`
+- `holes:` — static obstacles. Array of shapes (same types as `bounds:`). Use for level geometry that doesn't have a physics body
+- `margin:` — agent radius in px. Shrinks `bounds:` inward and inflates every hole outward so the agent's center path keeps that clearance from walls
+
+`debug(true)` renders the navmesh, path, and current target.
+
+```ruby
+LEVEL = rect(v2(0), resolution)
+WALL = rect(v2(60), v2(20))
+
+PLAYER = obj(
+  pos: v2(20),
+  speed: 60,
+  navigator: navigator(
+    bounds: LEVEL,
+    holes:  [WALL],
+    margin: 8 # keep 6px clear of walls
+  ),
+  update: ->(this, dt) {
+    this.navigator.target = mouse if down?(:left_mouse)
+    this.pos = this.pos.move_toward(this.navigator.next_position, this.speed * dt)
+  },
+  draw: ->(this) {
+    circ(this.pos, 8).draw(color: P.red, filled: true)
+  }
+)
+
+def update(dt)
+  quit if pressed?(:escape)
+  PLAYER.update(dt)
+end
+def draw
+  WALL.draw(filled: true)
+  PLAYER.draw
+end
+```
+
+`next_position` returns the agent's current position (so it stands still) when the target sits in a region disconnected from the agent — rather than marching in a straight line through a wall.
 
 ---
 
@@ -1195,7 +1332,7 @@ WALK = anim(interval: 0.08, values: [0, 1, 2, 3])
 
 PLAYER = obj(
   pos: v2(160, 120),
-  sprite: sprite(PLAYER_TEX, size: v2(16, 16)),
+  sprite: sprite(PLAYER_TEX, size: v2(16)),
   speed: 80
 )
 
@@ -1233,6 +1370,6 @@ def update(dt)
 end
 
 def ui
-  text("SCORE #{g.score}", v2(4, 4), Font::SMALL, color: P.white)
+  text("SCORE #{g.score}", Font::SMALL).draw(offset: v2(4), color: P.white)
 end
 ```

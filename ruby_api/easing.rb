@@ -40,10 +40,6 @@ module Easing
   BOUNCE_IN = 28
   BOUNCE_OUT = 29
   BOUNCE_IN_OUT = 30
-
-  # implemented in native code
-  # returns eased value of t (0.0..1.0) under the given easing
-  def self.at(t, easing = LINEAR); end
 end
 
 # count >= 2; returns `count` values from `from` to `to` with easing applied.
@@ -65,7 +61,7 @@ def range(from, to, count, easing: Easing::LINEAR)
       elsif i == last
         result[i] = to
       else
-        t = Easing.at(i.to_f / last, easing)
+        t = ease(i.to_f / last, easing)
         result[i] = from.lerp(to, t)
       end
       i += 1
@@ -81,7 +77,7 @@ def range(from, to, count, easing: Easing::LINEAR)
       elsif i == last
         result[i] = to
       else
-        t = Easing.at(i.to_f / last, easing)
+        t = ease(i.to_f / last, easing)
         result[i] = color(
           (fr + dr * t).round,
           (fg + dg * t).round,
@@ -103,7 +99,7 @@ def range(from, to, count, easing: Easing::LINEAR)
         result[i] = to
       else
         t = i.to_f / last
-        result[i] = from + span * Easing.at(t, easing)
+        result[i] = from + span * ease(t, easing)
       end
       i += 1
     end

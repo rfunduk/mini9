@@ -25,7 +25,7 @@ create_circ :: proc(c: Circ) -> mrb.Value {
 	return ruby_obj
 }
 
-// RUBY FUNCTION: circ(center, radius) or circ(x, y, radius)
+// RUBY FUNCTION: circ(radius) / circ(center, radius) / circ(x, y, radius)
 // @engine_method: name="circ", arity=-1
 ruby_circ :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
@@ -36,6 +36,8 @@ ruby_circ :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	args := (cast([^]mrb.Value)argv)[:argc]
 
 	switch argc {
+	case 1:
+		return create_circ({0, 0, f32(mrb.to_f64(args[0]))})
 	case 2:
 		center := extract_native(rl.Vector2, args[0])
 		if center == nil {
@@ -48,7 +50,7 @@ ruby_circ :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		return mrb.raise_error(
 			state,
 			"ArgumentError",
-			"circ(): wrong number of arguments (given %d, expected 2 or 3)",
+			"circ(): wrong number of arguments (given %d, expected 1, 2, or 3)",
 			argc,
 		)
 	}
