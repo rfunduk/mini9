@@ -37,6 +37,7 @@ echo "  Building for web..."
 if ! odin build source/main_web \
       -define:RAYLIB_WASM_LIB=env.o \
       -define:BOX2D_LIB=env.o \
+      -define:LIBTESS2_LIB=env.o \
       -define:MRUBY_LIB=env.o \
       -define:MRUBY_MACROS_LIB=env.o \
       -collection:lib=lib \
@@ -56,6 +57,7 @@ files="
   ${ODIN_PATH}/vendor/raylib/wasm/libraylib.a
   vendor/mruby/build/emscripten/lib/libmruby.a
   vendor/box2d/build-wasm/src/libbox2d.a
+  vendor/libtess2/build-wasm/libtess2.a
   $WEB_OUT_DIR/macros.o
 "
 flags="
@@ -101,9 +103,10 @@ FLAGS="
   -define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a \
   -define:MRUBY_MACROS_LIB=../../build/$TARGET/macros.o \
   -define:BOX2D_LIB=../../vendor/box2d/build/src/libbox2d.a \
+  -define:LIBTESS2_LIB=../../../vendor/libtess2/build/libtess2.a \
   -define:BYTECODE_PACKAGING=true \
   -collection:lib=lib \
-  -vet-packages:engine,mrb \
+  -vet-packages:engine,mrb,rove,libtess,box2d \
   -vet-style -vet-semicolon -vet-cast -vet \
 "
 

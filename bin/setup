@@ -3,6 +3,7 @@
 MRUBY_VERSION="fafb52d72a2c09b6979c32ea5b97ce6f1af6a53d" # ideally 3.4.0 but it prevents loading any bytecode
 EMSDK_VERSION="4.0.13"
 BOX2D_VERSION="v3.1.1"
+LIBTESS2_VERSION="8dbd6483e920311a58c9af10a10beb278efebc36"
 
 ENGINE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
 
@@ -63,3 +64,31 @@ mkdir -p $ENGINE_DIR/vendor/box2d/build-wasm
 cd $ENGINE_DIR/vendor/box2d/build-wasm
 emcmake cmake -S .. -B . -DBOX2D_SAMPLES=OFF -DBOX2D_BENCHMARKS=OFF -DBOX2D_DOCS=OFF -DBOX2D_UNIT_TESTS=OFF -DCMAKE_BUILD_TYPE=Release > /dev/null
 emmake make > /dev/null
+
+# libtess2 — polygon tesselator (holes, self-intersections, shared edges)
+echo -e "\n\nlibtess2"
+echo "========"
+if [ -d "$ENGINE_DIR/vendor/libtess2" ]; then
+    echo "libtess2 already exists, updating..."
+    (cd $ENGINE_DIR/vendor/libtess2 && git fetch && git checkout $LIBTESS2_VERSION && git pull)
+else
+    echo "Cloning libtess2..."
+    git clone https://github.com/memononen/libtess2.git $ENGINE_DIR/vendor/libtess2
+    (cd $ENGINE_DIR/vendor/libtess2 && git checkout $LIBTESS2_VERSION)
+fi
+
+echo "Building libtess2 (native)..."
+cd $ENGINE_DIR/vendor/libtess2
+rm -rf build && mkdir -p build
+for f in Source/*.c; do
+    cc -c -O2 -IInclude -o build/$(basename $f .c).o $f
+done
+ar rcs build/libtess2.a build/*.o
+
+echo "Building libtess2 (emscripten/wasm)..."
+source $ENGINE_DIR/vendor/emsdk/emsdk_env.sh
+rm -rf build-wasm && mkdir -p build-wasm
+for f in Source/*.c; do
+    emcc -c -O2 -IInclude -o build-wasm/$(basename $f .c).o $f
+done
+emar rcs build-wasm/libtess2.a build-wasm/*.o

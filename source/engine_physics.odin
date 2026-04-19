@@ -12,6 +12,10 @@ MAX_COLLISION_PLANES :: 16
 @(private = "file")
 physics_world: b2.WorldId
 
+// Exposed to sibling engine_* files that need to query the world (e.g. navmesh
+// obstacle extraction). Keeps the underlying id file-private otherwise.
+physics_world_id :: proc() -> b2.WorldId { return physics_world }
+
 // shared with engine_game_object (body create/destroy bumps this)
 dynamic_body_count: int
 

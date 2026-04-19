@@ -165,6 +165,7 @@ _engine_update :: proc() {
 
 	rl.BeginMode2D(g.camera)
 	call_user_draw()
+	if g.debug { draw_nav_debug() }
 	g.draw_calls += i32(g.batch.drawCounter)
 	rl.EndMode2D()
 

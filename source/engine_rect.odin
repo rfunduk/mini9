@@ -203,14 +203,23 @@ ruby_inflate_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 		return mrb.raise_error(state, "ArgumentError", "inflate: arg must be Numeric or Vector2")
 	case 4:
-		return create_rect(inflate_rect(rect^, [4]f32{
-			f32(mrb.to_f64(args[0])),
-			f32(mrb.to_f64(args[1])),
-			f32(mrb.to_f64(args[2])),
-			f32(mrb.to_f64(args[3])),
-		}))
+		return create_rect(
+			inflate_rect(
+				rect^,
+				[4]f32 {
+					f32(mrb.to_f64(args[0])),
+					f32(mrb.to_f64(args[1])),
+					f32(mrb.to_f64(args[2])),
+					f32(mrb.to_f64(args[3])),
+				},
+			),
+		)
 	case:
-		return mrb.raise_error(state, "ArgumentError", "inflate: expected 1 (Numeric or Vector2) or 4 (t,r,b,l) args")
+		return mrb.raise_error(
+			state,
+			"ArgumentError",
+			"inflate: expected 1 (Numeric or Vector2) or 4 (t,r,b,l) args",
+		)
 	}
 }
 
