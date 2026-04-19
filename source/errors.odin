@@ -56,22 +56,21 @@ handle_ruby_exception :: proc(state: mrb.State, exception: mrb.Value, ctx: Ruby_
 		}
 	}
 
-	// SAFE_DISPATCH is off - print to console only
 	log.errorf("Ruby exception in %v -\n\n%s\n\n", ctx, error_str)
 	mrb.print_backtrace(state)
 
 	// restore exception state
 	_ = mrb.swap_exception(state, old_exc)
 
-	when #config(SAFE_DISPATCH, false) {
-		// show overlay when SAFE_DISPATCH is enabled
+	// tween callbacks are protected + auto-continue (flux iteration must not
+	// stall on one bad callback). all other contexts halt the game behind
+	// the overlay — game debugging works in both debug and release builds.
+	if ctx == .TWEEN_CALLBACK {
+		log.infof("(tween continues...)")
+	} else {
 		full_error := backtrace != "" ? fmt.tprintf("%s%s", error_str, backtrace) : error_str
 		ctx_str := fmt.tprintf("%v", ctx)
 		show_error_overlay(full_error, ctx_str)
-	} else {
-		if ctx == .TWEEN_CALLBACK {
-			log.infof("(tween continues...)")
-		}
 	}
 }
 

@@ -69,8 +69,11 @@ _read_entire_file :: proc(
 	// first check ROM data if available
 	if g.rom_data != nil {
 		if rom_file_data, found := g.rom_data[name]; found {
-			// return direct reference to ROM data (no allocation needed)
-			return rom_file_data, true
+			// clone: see utils_native.odin for rationale. Callers assume
+			// owned slices and `defer delete(...)`.
+			out := make([]byte, len(rom_file_data), allocator, loc)
+			copy(out, rom_file_data)
+			return out, true
 		}
 	}
 

@@ -76,8 +76,13 @@ _read_entire_file :: proc(
 	// first check ROM data if available
 	if g.rom_data != nil {
 		if rom_file_data, found := g.rom_data[name]; found {
-			// return direct reference to ROM data (no allocation needed)
-			return rom_file_data, true
+			// clone: callers (sound/texture/data_file/import/palette/music)
+			// assume owned and `defer delete(...)`. Returning the map-owned
+			// slice caused a double-free on shutdown (map entry freed, then
+			// `rom_data_free` frees it again).
+			out := make([]byte, len(rom_file_data), allocator, loc)
+			copy(out, rom_file_data)
+			return out, true
 		}
 	}
 
