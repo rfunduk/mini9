@@ -92,8 +92,8 @@ ruby_every :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return obj
 }
 
-// Timer.init(parent) — auto-called by obj() for fields responding to :init
-ruby_timer_init :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// Timer._attach(parent) — auto-called by obj() for fields responding to :_attach
+ruby_timer_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	this_obj: mrb.Value
 	mrb.get_args(state, "o", &this_obj)
@@ -218,7 +218,7 @@ fire_timer :: proc(t: ^Timer_Instance) {
 
 setup_timer :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Timer")
-	mrb.define_method(g.mrb_state, c, "init", cast(rawptr)ruby_timer_init, 1)
+	mrb.define_method(g.mrb_state, c, "_attach", cast(rawptr)ruby_timer_attach, 1)
 	mrb.define_method(g.mrb_state, c, "cancel", cast(rawptr)ruby_timer_cancel, 0)
 	mrb.define_method(g.mrb_state, c, "cancelled?", cast(rawptr)ruby_timer_cancelled, 0)
 	mrb.define_method(g.mrb_state, c, "finished?", cast(rawptr)ruby_timer_finished, 0)

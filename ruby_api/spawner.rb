@@ -1,7 +1,7 @@
 # Spawner — named, lifecycle-managed wrapper around `every` for
 # repeatedly invoking a block at a configurable rate and burst count.
 # Pure Ruby; no native backing. Follows Timer conventions: block's
-# `this` arg is the parent GameObject (via `init(parent)`) or nil
+# `this` arg is the parent GameObject (via `_attach(parent)`) or nil
 # when standalone.
 
 def spawner(rate:, count: 1, start: true, &block)
@@ -26,7 +26,7 @@ class Spawner
     self.start if start
   end
 
-  def init(parent)
+  def _attach(parent)
     @parent = parent
     self
   end

@@ -7,6 +7,14 @@ import mrb "lib:mruby"
 import rl "vendor:raylib"
 import rlgl "vendor:raylib/rlgl"
 
+@(private = "file")
+FIXED_DT: f32 = 1.0 / 60.0 // 16.67ms fixed timestep
+
+@(private = "file")
+MAX_FRAME_TIME: f32 = 0.25 // cap at 250ms (prevents spiral of death)
+
+@(private = "file")
+accumulator: f32
 
 _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	global_context = context
@@ -93,15 +101,6 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	set_cursor_visible(g.cursor)
 }
 
-@(private = "file")
-fixed_dt: f32 = 1.0 / 60.0 // 16.67ms fixed timestep
-
-@(private = "file")
-accumulator: f32
-
-@(private = "file")
-max_frame_time: f32 = 0.25 // cap at 250ms (prevents spiral of death)
-
 _engine_update :: proc() {
 	ensure_audio_initialized()
 
@@ -109,8 +108,8 @@ _engine_update :: proc() {
 	frame_time := rl.GetFrameTime()
 
 	// clamp frame time to prevent spiral of death
-	if frame_time > max_frame_time {
-		frame_time = max_frame_time
+	if frame_time > MAX_FRAME_TIME {
+		frame_time = MAX_FRAME_TIME
 	}
 
 	accumulator += frame_time
@@ -118,93 +117,116 @@ _engine_update :: proc() {
 	clear(&pressed_this_frame)
 	clear(&released_this_frame)
 
+	g.phase = .UPDATE
+
 	// run fixed timestep updates until we've consumed all accumulated time
-	for accumulator >= fixed_dt {
+	for accumulator >= FIXED_DT {
 		g.frame_count += 1
 
-		g.phase = .UPDATE
 		reset_camera_system()
 
+		// Bound the mruby GC arena for the whole tick. Engine-internal
+		// allocations (e.g. Vector2s from sync_dynamic_bodies) would
+		// otherwise pile up in the arena and pin live objects forever.
+		// Anything that must survive past this tick keeps its own explicit
+		// gc_register (e.g. obj.pos).
+		arena_idx := mrb.gc_arena_save(g.mrb_state)
+		defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
+
 		// update systems with fixed timestep
-		ease.flux_update(&g.flux, f64(fixed_dt))
+		ease.flux_update(&g.flux, f64(FIXED_DT))
 		start_pending_tweens()
 
 		// process events first, before update
 		call_user_events()
 
 		// fire any timers whose interval has elapsed
-		update_timers(f64(fixed_dt))
+		update_timers(f64(FIXED_DT))
 
 		// integrate particle systems
-		update_particles(f64(fixed_dt))
+		update_particles(f64(FIXED_DT))
 
 		// user update gets consistent fixed timestep
-		call_user_update(fixed_dt)
+		call_user_update(FIXED_DT)
 
 		// only update audio systems if audio is initialized
 		if g.audio_initialized {
-			update_audio_system(fixed_dt)
-			update_music_system(fixed_dt)
+			update_audio_system(FIXED_DT)
+			update_music_system(FIXED_DT)
 		}
 
 		update_shake_system()
-		step_physics(fixed_dt)
+		step_physics(FIXED_DT)
 
-		accumulator -= fixed_dt
+		accumulator -= FIXED_DT
 	}
 
 	g.phase = .DRAW
 	rl.BeginDrawing()
 
-	rl.BeginTextureMode(g.render_texture)
+	{
+		// Bound the arena across the draw phase too. User draw callbacks that
+		// allocate ruby-side values (Vector2, Rect, strings, etc.) via native
+		// methods already self-manage at each ruby→native boundary, but
+		// engine-internal drawing is pure odin and would otherwise leak.
+		draw_arena_idx := mrb.gc_arena_save(g.mrb_state)
+		defer mrb.gc_arena_restore(g.mrb_state, draw_arena_idx)
 
-	// draw_calls accumulates across flush points (EndMode2D + EndTextureMode each flush).
-	// peek drawCounter just before each flush, sum. Baseline of 1/flush means count is
-	// slightly inflated but stable — useful as relative metric.
-	g.draw_calls = 0
+		rl.BeginTextureMode(g.render_texture)
 
-	rl.BeginMode2D(g.camera)
-	call_user_draw()
-	if g.debug { draw_nav_debug() }
-	g.draw_calls += i32(g.batch.drawCounter)
-	rl.EndMode2D()
+		// draw_calls accumulates across flush points (EndMode2D + EndTextureMode each flush).
+		// peek drawCounter just before each flush, sum. Baseline of 1/flush means count is
+		// slightly inflated but stable — useful as relative metric.
+		g.draw_calls = 0
 
-	// draw ui elements
-	// TODO -- we should maybe have a g.ui_camera which should consider cameras just like
-	//         the reguar mode does except like camera(..., layer: :ui) or something
-	rl.BeginMode2D({zoom = 1})
-	call_user_ui()
-	g.draw_calls += i32(g.batch.drawCounter)
-	rl.EndMode2D()
+		rl.BeginMode2D(g.camera)
+		call_user_draw()
+		if g.debug { draw_nav_debug() }
+		g.draw_calls += i32(g.batch.drawCounter)
+		rl.EndMode2D()
 
-	rl.EndTextureMode()
+		// draw ui elements
+		// TODO -- we should maybe have a g.ui_camera which should consider cameras just like
+		//         the reguar mode does except like camera(..., layer: :ui) or something
+		rl.BeginMode2D({zoom = 1})
+		call_user_ui()
+		g.draw_calls += i32(g.batch.drawCounter)
+		rl.EndMode2D()
 
-	// now we take the completed frame and handle
-	// drawing it to the actual surface
-	rl.BeginMode2D({zoom = 1})
-
-	// draw game texture using pre-calculated layout
-	rl.DrawTexturePro(
-		texture = g.render_texture.texture,
-		source = {0, 0, g.resolution.x, -g.resolution.y},
-		dest = g.dest_rect,
-		origin = {0, 0},
-		rotation = 0,
-		tint = rl.WHITE,
-	)
-
-	if g.metrics {
-		draw_memory_graph()
-		draw_fps_graph()
-		draw_tweens_graph()
-		draw_draws_graph()
+		rl.EndTextureMode()
 	}
 
-	rl.EndMode2D()
+	{
+		// now we take the completed frame and handle
+		// drawing it to the actual surface
+		rl.BeginMode2D({zoom = 1})
+
+		// draw game texture using pre-calculated layout
+		rl.DrawTexturePro(
+			texture = g.render_texture.texture,
+			source = {0, 0, g.resolution.x, -g.resolution.y},
+			dest = g.dest_rect,
+			origin = {0, 0},
+			rotation = 0,
+			tint = rl.WHITE,
+		)
+
+		if g.metrics {
+			draw_memory_graph()
+			draw_fps_graph()
+			draw_tweens_graph()
+			draw_draws_graph()
+			draw_bodies_graph()
+		}
+
+		rl.EndMode2D()
+	}
+
 	rl.EndDrawing()
 
 	if g.metrics { collect_metrics() }
 
+	mrb.incremental_gc(g.mrb_state)
 	free_all(context.temp_allocator)
 }
 

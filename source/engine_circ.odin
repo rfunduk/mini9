@@ -180,6 +180,7 @@ ruby_circ_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		pos = {c.cx + offset.x, c.cy + offset.y},
 		radius = c.r,
 		color = _parse_color_kwarg(state, kwargs),
+		thickness = _parse_f32_kwarg(state, kwargs, sym.thickness, 1),
 		filled = _parse_bool_kwarg(state, kwargs, sym.filled),
 		clip = _parse_clip_kwarg(state, kwargs),
 	)
@@ -208,6 +209,7 @@ draw_circle :: proc(
 	pos: rl.Vector2,
 	radius: f32,
 	color: rl.Color = {255, 255, 255, 255},
+	thickness: f32 = 1,
 	filled: bool = false,
 	clip: Maybe(rl.Rectangle) = nil,
 ) {
@@ -220,7 +222,11 @@ draw_circle :: proc(
 		// DrawCircleV bypasses it. 36 segments matches DrawCircleV quality.
 		rl.DrawCircleSector(p, radius, 0, 360, 36, color)
 	} else {
-		rl.DrawCircleLinesV(p, radius, color)
+		// DrawRing (filled annulus) instead of DrawCircleLinesV so the
+		// outline batches with other shape draws — line primitives force a
+		// batch flush → extra draw call. thickness controls ring width.
+		inner := max(radius - thickness, 0)
+		rl.DrawRing(p, inner, radius, 0, 360, 36, color)
 	}
 
 	if did_clip { rl.EndScissorMode() }

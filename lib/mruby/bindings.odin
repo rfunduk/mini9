@@ -150,6 +150,10 @@ foreign lib {
 
 	// bytecode dumping
 	dump_irep :: proc(state: State, irep: rawptr, flags: u8, bin: ^rawptr, bin_size: ^c.size_t) -> c.int ---
+
+	// garbage collection — run manually to make finalizers fire promptly
+	full_gc :: proc(state: State) ---
+	incremental_gc :: proc(state: State) ---
 }
 
 // mruby macro library - thin C wrappers for mruby macros

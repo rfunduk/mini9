@@ -49,7 +49,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Screen Shake](#screen-shake)
 - [Game Objects](#game-objects)
 - [State Machines](#state-machines)
-- [Collision](#collision)
+- [Collision/Physics](#collisionphysics)
 - [Events](#events)
 - [Numeric Helpers](#numeric-helpers)
 - [Global Store](#global-store)
@@ -186,7 +186,7 @@ Every shape is an object you construct once, then render with `.draw(**opts)`. C
 | `v2(x[, y])` | Vector2 (a single pixel) | `color:`, `offset:` |
 | `line(to)` or `line(a, b)` | Line | `color:`, `thickness:`, `offset:`, `clip:` |
 | `rect(...)` | Rect — see [Shapes](#shapes) for the 3 forms | `color:`, `filled:`, `thickness:`, `rounded:`, `offset:`, `clip:` |
-| `circ(r)` / `circ(center, r)` / `circ(x, y, r)` | Circ | `color:`, `filled:`, `offset:`, `clip:` |
+| `circ(r)` / `circ(center, r)` / `circ(x, y, r)` | Circ | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
 | `oval(size)` or `oval(pos, size)` | Oval — `size` is v2(w_radius, h_radius) | `color:`, `filled:`, `offset:`, `clip:` |
 | `poly(verts)` | Poly — `verts` is Array[Vector2], min 3 | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
 | `text(str, font)` | Text — see [Text & Fonts](#text--fonts) | `color:`, `outline:`, `align:`, `rotation:`, `scale:`, `spacing:`, `offset:` |
@@ -961,11 +961,12 @@ end
 | `o.rotation` / `o.rotation = r` | Float | Radians (use `n.to_rad` / `n.to_deg` to convert) |
 | `o.scale` / `o.scale = v2` | Vector2 | |
 | `o.visible` / `o.visible = yn` | bool | |
-| `o.init` | nil | Override to run logic when the object is constructed |
 
 Any extra kwargs become attrs with auto-generated getters and setters. Values that are `Proc`/`lambda` become methods on the object, with the object passed as the first argument.
 
-**Automatic init of subfields:** when you pass a value that responds to `init` (e.g. a `Body` or an `FSM`) as a kwarg, `obj()` calls its `init(self)` for you during construction. You don't need to wire up parent references manually. Assigning those fields *after* construction skips this — call `init` yourself in that case.
+**Lifecycle hook:** pass `init: ->(this) { ... }` to run logic after all kwargs are processed and the physics body (if any) is attached. Fires once per `obj()` call. `this` is fully constructed at this point.
+
+**Automatic attach of subfields:** engine-internal subcomponents (`Spawner`, `Timer`, `FSM`) auto-receive a back-reference to the owning object during `obj()` construction via a private `_attach(parent)` hook. No manual wiring. If you reassign those fields *after* construction, they're not re-attached — call `_attach` yourself.
 
 ```ruby
 PLAYER = obj(
@@ -996,7 +997,6 @@ Used for per-entity state (player idle/run/jump) or game states (menu/play/pause
 |---|---|---|
 | `state(name, enter: nil, update: nil, exit: nil)` | State | Callbacks receive `(this, state, ...)` depending on arity |
 | `fsm(default:, states:)` | FSM | |
-| `f.init(context)` | self | Sets `this` passed to state callbacks |
 | `f.update(dt)` | nil | Drives the current state |
 | `f.transition(name)` | nil | Force a transition |
 | `f.state` | State | Current state |
@@ -1033,54 +1033,121 @@ PLAYER = obj(
     )
   ])
 )
-# FSM.init(PLAYER) was called automatically by obj()
 
 def update(dt); PLAYER.fsm.update(dt); end
 ```
 
 ---
 
-## Collision
+## Collision/Physics
 
-AABB collision with layer/mask bitmasks and swept-AABB resolution.
+Box2D-backed physics. Enable on a game object by passing `body:` to `obj(...)`. The collision shape is derived from the object's `shape:` kwarg — `Circ` → box2d circle, `Rect` → box2d polygon.
+
+**Body kwargs on `obj(...)`:**
+
+| Kwarg | Type | Notes |
+|---|---|---|
+| `body:` | `:static` / `:kinematic` / `:dynamic` | Omit for no physics (unless `sensor: true`, which defaults to `:static`) |
+| `shape:` | `Circ` or `Rect` | **Required** when `body:` is set. Drives collision geometry |
+| `sensor:` | bool | Pass-through "trigger" — generates events without blocking movement |
+| `layer:` | Integer `1..64` or Array | Layer(s) this body is ON |
+| `mask:` | Integer `1..64` or Array | Layer(s) this body interacts WITH (sensor filtering) |
+| `density:` | Float | Default `1.0` (dynamic mass calculation) |
+| `friction:` | Float | Default `0.3` (tangential contact resistance) |
+| `restitution:` | Float | Default `0.0` (bounciness, 0 = dead stop, 1 = elastic) |
+| `drag:` | Float | Default `0.0` (linear damping — velocity bleed per step) |
+
+**Body types:**
+- `:static` — never moves (walls, level geometry)
+- `:kinematic` — moved manually via `pos=` or `move()` (players, platforms, bullets)
+- `:dynamic` — simulated, responds to forces, gravity, contacts
+
+**Body center positioning:** the body's collision center is derived from the shape's natural origin. For `circ(r)` (no offset), `pos` is the center. For `rect(v2(w,h))` (no offset), `pos` is the top-left — matches how each shape draws.
+
+**Lifecycle:**
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `body(offset: v2(0), size: v2(1), layer: 0, mask: 0)` | Body | |
-| `b.init(parent)` | self | Call once with the owning GameObject |
-| `b.offset` / `b.offset = v2` | Vector2 | Relative to parent.pos |
-| `b.size` / `b.size = v2` | Vector2 | |
-| `b.layer` / `b.layer = n` | Integer | Which layer(s) this body is ON |
-| `b.mask` / `b.mask = n` | Integer | Which layers this body COLLIDES WITH |
-| `b.parent` | GameObject | |
-| `b.resolve_collisions(velocity, dt, slide: false)` | `[new_velocity, hits]` | Swept AABB with optional sliding |
-| `raycast(origin, direction, target_rect)` | `[hit, point, normal, t]` | Single-shot ray vs rect |
+| `o.destroy_body` | nil | Tear down the box2d body immediately. Idempotent. Mruby object lives until GC |
 
-**Layer constants:** `Body::LAYER_1` through `Body::LAYER_15`. Combine with `|` to be on multiple layers.
-
-**CollisionInfo** (returned inside `hits`):
-
-| Signature | Returns |
-|---|---|
-| `ci.point` | Vector2 |
-| `ci.normal` | Vector2 |
-| `ci.t` | Float (0–1) |
-| `ci.body` | GameObject that owns the body |
+User code typically wraps this in its own `destroy`:
 
 ```ruby
+destroy: ->(this) {
+  this.destroy_body
+  g.bullets.delete(this)
+}
+```
+
+**GameObject physics methods:**
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `o.move(velocity, dt)` | Vector2 | Mover API for kinematic bodies. Cast + slide. Returns velocity clipped by collision planes |
+| `o.velocity` / `o.velocity = v2` | Vector2 | Dynamic body linear velocity |
+| `o.impulse(v2)` | self | Instant velocity change (dynamic only) |
+| `o.force(v2)` | self | Continuous force (dynamic only) |
+| `o.overlaps?(other)` | bool | AABB overlap test between two bodies |
+| `o.overlapping` | Array[GameObject] | Sensor-only. Objects currently inside this sensor, filtered by `mask` |
+
+**Sensor events:** sensors fire callbacks on begin/end of overlap.
+
+| Kwarg | Signature | Notes |
+|---|---|---|
+| `on_enter:` | `->(this, other) { }` | Fires when `other` enters this sensor's area |
+| `on_exit:` | `->(this, other) { }` | Fires when `other` leaves |
+
+Dispatch rules: every object involved in a sensor interaction gets exactly one `on_enter`/`on_exit` per event — whether it's the sensor or the visitor, whether the other side is sensor or non-sensor.
+
+**World methods:**
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `gravity(v2)` or `gravity(n)` | nil | Set world gravity. Number form is y-only |
+| `raycast(origin, direction, mask)` | `[hit, point, normal, fraction]` | Ray against all bodies on layers in `mask` |
+
+**Layers:** plain integers `1..64`. Pass a single int or an array for multi-layer: `layer: [1, 3]`.
+
+```ruby
+WALL = obj(
+  pos: v2(0, 200),
+  shape: rect(v2(320, 16)),
+  body: :static,
+  layer: 1
+)
+
 PLAYER = obj(
   pos: v2(100),
-  body: body(size: v2(16), layer: Body::LAYER_1, mask: Body::LAYER_2)
+  shape: circ(8),
+  body: :kinematic,
+  layer: 2,
+  mask: 1  # collides with walls
 )
-# body.init(PLAYER) was called automatically by obj()
+
+COIN = obj(
+  pos: v2(50),
+  shape: circ(4),
+  sensor: true,              # body defaults to :static
+  layer: 3,
+  mask: 2,                   # only player triggers it
+  on_enter: ->(this, other) {
+    g.score += 10
+    this.destroy_body
+  }
+)
 
 def update(dt)
   vel = get_axis(%i{a d}, %i{w s}) * 100
-  new_vel, hits = PLAYER.body.resolve_collisions(vel, dt, slide: true)
-  PLAYER.pos += new_vel * dt
-  hits.each { |hit| puts "hit #{hit.body} at #{hit.point}" }
+  PLAYER.move(vel, dt)
 end
 ```
+
+**Notes:**
+- `move` uses a capsule approximating the body shape. Sliding is automatic.
+- Dynamic bodies sync position back to `obj.pos` each physics step — don't fight it with manual `pos=`; apply forces/velocity instead.
+- Pre-step sync pushes `obj.pos` to box2d for static/kinematic bodies, so in-place mutations like `this.pos.y -= n` work.
+- `move` rounds to the nearest pixel to avoid sub-pixel drift.
+- Physics runs at fixed 60Hz regardless of render `fps()` — simulation is deterministic.
 
 ---
 

@@ -6,17 +6,24 @@ import mrb "lib:mruby"
 import rl "vendor:raylib"
 
 Game_Object :: struct {
-	pos:       mrb.Value,
-	scale:     mrb.Value,
-	rotation:  f32,
-	visible:   bool,
+	self_val:           mrb.Value, // weak back-ref to the mruby object wrapping this struct
+	pos:                mrb.Value,
+	scale:              mrb.Value,
+	rotation:           f32,
+	visible:            bool,
 	// optional physics body (zero-value = no physics)
-	body_id:   b2.BodyId,
-	shape_id:  b2.ShapeId,
-	body_type: Body_Type,
-	half_size: rl.Vector2,
-	layer:     u64,
-	mask:      u64,
+	body_id:            b2.BodyId,
+	shape_id:           b2.ShapeId,
+	body_type:          Body_Type,
+	sensor:             bool,
+	// mover/AABB half extents — for circles this is {r, r}
+	half_size:          rl.Vector2,
+	// body center relative to obj.pos (derived from shape kwarg)
+	body_center_offset: rl.Vector2,
+	// last body-center pushed to box2d — change-detect cache for pre-step sync
+	last_sync_center:   rl.Vector2,
+	layer:              u64,
+	mask:               u64,
 }
 
 ruby_gameobject_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -29,6 +36,9 @@ ruby_gameobject_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 		if obj.scale != mrb.NIL { mrb.gc_unregister(state, obj.scale) }
 
 		if b2.Body_IsValid(obj.body_id) {
+			if obj.body_type == .STATIC || obj.body_type == .KINEMATIC {
+				untrack_user_driven_body(obj)
+			}
 			b2.DestroyBody(obj.body_id)
 			if obj.body_type == .DYNAMIC { dynamic_body_count -= 1 }
 		}
@@ -83,14 +93,18 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 	}
 
-	// extract physics kwargs (read but don't delete — size/layer/mask stay as dynamic attrs)
+	// extract physics kwargs (read but don't delete — layer/mask/sensor stay as dynamic attrs too)
 	body_type := Body_Type.NONE
+	shape_kind := Physics_Shape_Kind.NONE
 	half_size := rl.Vector2{0, 0}
+	radius: f32 = 0
+	body_center_offset := rl.Vector2{0, 0}
 	layer: u64 = 0
 	mask: u64 = 0
 	density: f32 = 1.0
 	friction: f32 = 0.3
 	restitution: f32 = 0.0
+	drag: f32 = 0.0
 	sensor := false
 
 	body_val := mrb.kwarg(state, kwargs, sym.body)
@@ -114,25 +128,47 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 				)
 			}
 		}
+	}
 
-		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, sym.size)
-		if val != mrb.NIL {
-			sz := extract_native(rl.Vector2, val)
-			if sz != nil { half_size = sz^ / 2 }
+	val: mrb.Value
+	val = mrb.kwarg(state, kwargs, sym.layer)
+	if val != mrb.NIL { layer = layer_to_bitmask(state, val) }
+	val = mrb.kwarg(state, kwargs, sym.mask)
+	if val != mrb.NIL { mask = layer_to_bitmask(state, val) }
+	val = mrb.kwarg(state, kwargs, sym.density)
+	if val != mrb.NIL { density = f32(mrb.to_f64(val)) }
+	val = mrb.kwarg(state, kwargs, sym.friction)
+	if val != mrb.NIL { friction = f32(mrb.to_f64(val)) }
+	val = mrb.kwarg(state, kwargs, sym.restitution)
+	if val != mrb.NIL { restitution = f32(mrb.to_f64(val)) }
+	val = mrb.kwarg(state, kwargs, sym.drag)
+	if val != mrb.NIL { drag = f32(mrb.to_f64(val)) }
+	val = mrb.kwarg(state, kwargs, sym.sensor)
+	if val != mrb.NIL { sensor = mrb.boolean(val) }
+
+	// sensor: true with no body type → default to static (trigger zone)
+	if sensor && body_type == .NONE { body_type = .STATIC }
+
+	// derive physics shape from `shape:` kwarg (Circ or Rect). Required if body_type != NONE.
+	if body_type != .NONE {
+		shape_val := mrb.kwarg(state, kwargs, sym.shape)
+		if shape_val == mrb.NIL {
+			return mrb.raise_error(state, "ArgumentError", "physics body requires a `shape:` (Circ or Rect)")
 		}
-		val = mrb.kwarg(state, kwargs, sym.layer)
-		if val != mrb.NIL { layer = layer_to_bitmask(state, val) }
-		val = mrb.kwarg(state, kwargs, sym.mask)
-		if val != mrb.NIL { mask = layer_to_bitmask(state, val) }
-		val = mrb.kwarg(state, kwargs, sym.density)
-		if val != mrb.NIL { density = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, sym.friction)
-		if val != mrb.NIL { friction = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, sym.restitution)
-		if val != mrb.NIL { restitution = f32(mrb.to_f64(val)) }
-		val = mrb.kwarg(state, kwargs, sym.sensor)
-		if val != mrb.NIL { sensor = mrb.boolean(val) }
+		if is_native(Circ, shape_val) {
+			c := extract_native(Circ, shape_val)
+			shape_kind = .CIRCLE
+			radius = c.r
+			half_size = {c.r, c.r}
+			body_center_offset = {c.cx, c.cy}
+		} else if is_native(rl.Rectangle, shape_val) {
+			r := extract_native(rl.Rectangle, shape_val)
+			shape_kind = .BOX
+			half_size = {r.width / 2, r.height / 2}
+			body_center_offset = {r.x + r.width / 2, r.y + r.height / 2}
+		} else {
+			return mrb.raise_error(state, "TypeError", "shape: must be a Circ or Rect")
+		}
 	}
 
 	pos := create_vector2(pos_vec)
@@ -146,14 +182,17 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	argv[0] = kwargs
 
 	obj := Game_Object {
-		pos       = pos,
-		rotation  = rotation,
-		scale     = scale,
-		visible   = visible,
-		body_type = body_type,
-		half_size = half_size,
-		layer     = layer,
-		mask      = mask,
+		pos                = pos,
+		rotation           = rotation,
+		scale              = scale,
+		visible            = visible,
+		body_type          = body_type,
+		sensor             = sensor,
+		half_size          = half_size,
+		body_center_offset = body_center_offset,
+		last_sync_center   = pos_vec + body_center_offset,
+		layer              = layer,
+		mask               = mask,
 	}
 
 	// create box2d body if physics requested
@@ -161,12 +200,16 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		obj.body_id, obj.shape_id = create_physics_body(
 			body_type,
 			pos_vec,
+			shape_kind,
 			half_size,
+			radius,
+			body_center_offset,
 			layer,
 			mask,
 			density,
 			friction,
 			restitution,
+			drag,
 			sensor,
 		)
 		if body_type == .DYNAMIC { dynamic_body_count += 1 }
@@ -174,10 +217,20 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	obj_val := create_game_object(obj, argc, raw_data(argv))
 
-	// store back-reference for dynamic body position sync
-	if body_type == .DYNAMIC {
+	// store self_val + back-ref on body for sensor/sync lookups
+	{
 		ptr := extract_native(Game_Object, obj_val)
-		if ptr != nil { b2.Body_SetUserData(ptr.body_id, ptr) }
+		if ptr != nil {
+			ptr.self_val = obj_val
+			if body_type != .NONE {
+				b2.Body_SetUserData(ptr.body_id, ptr)
+				// Static/kinematic bodies are user-driven — track for pre-step sync
+				// so in-place pos mutations propagate to box2d.
+				if body_type == .STATIC || body_type == .KINEMATIC {
+					track_user_driven_body(ptr)
+				}
+			}
+		}
 	}
 
 	if mrb.respond_to(g.mrb_state, obj_val, mrb.intern_cstr(g.mrb_state, "init")) {
@@ -254,8 +307,9 @@ ruby_game_object_set_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	if b2.Body_IsValid(obj.body_id) {
 		v := extract_native(rl.Vector2, pos_val)
 		if v != nil {
-			center := b2.Vec2{v.x + obj.half_size.x, v.y + obj.half_size.y}
+			center := v^ + obj.body_center_offset
 			b2.Body_SetTransform(obj.body_id, center, b2.Rot_identity)
+			obj.last_sync_center = center
 		}
 	}
 
@@ -384,6 +438,71 @@ ruby_game_object_set_velocity :: proc "c" (state: mrb.State, self: mrb.Value) ->
 	return vel_val
 }
 
+// RUBY METHOD: obj.destroy_body -> tears down the physics body now. Safe to
+// call multiple times. The mruby object itself stays alive until GC. User
+// code typically wraps this in its own `destroy` that also removes the obj
+// from game-side containers.
+ruby_game_object_destroy_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	obj := extract_native(Game_Object, self)
+	if obj == nil { return mrb.NIL }
+	if b2.Body_IsValid(obj.body_id) {
+		if obj.body_type == .STATIC || obj.body_type == .KINEMATIC {
+			untrack_user_driven_body(obj)
+		}
+		b2.DestroyBody(obj.body_id)
+		if obj.body_type == .DYNAMIC { dynamic_body_count -= 1 }
+		obj.body_id = {}
+	}
+	return mrb.NIL
+}
+
+// RUBY METHOD: obj.overlaps?(other) -> bool (AABB intersection)
+ruby_game_object_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other_val: mrb.Value
+	mrb.get_args(state, "o", &other_val)
+
+	me := extract_native(Game_Object, self)
+	other := extract_native(Game_Object, other_val)
+	if me == nil || other == nil { return mrb.FALSE }
+	if !b2.Shape_IsValid(me.shape_id) || !b2.Shape_IsValid(other.shape_id) { return mrb.FALSE }
+
+	a := b2.Shape_GetAABB(me.shape_id)
+	b := b2.Shape_GetAABB(other.shape_id)
+	if a.lowerBound.x > b.upperBound.x || b.lowerBound.x > a.upperBound.x { return mrb.FALSE }
+	if a.lowerBound.y > b.upperBound.y || b.lowerBound.y > a.upperBound.y { return mrb.FALSE }
+	return mrb.TRUE
+}
+
+// RUBY METHOD: obj.overlapping -> [GameObject, ...] currently inside this sensor
+// Only meaningful for sensor objects; returns [] otherwise.
+ruby_game_object_overlapping :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	result := mrb.ary_new(g.mrb_state)
+
+	me := extract_native(Game_Object, self)
+	if me == nil || !me.sensor || !b2.Shape_IsValid(me.shape_id) { return result }
+
+	cap := b2.Shape_GetSensorCapacity(me.shape_id)
+	if cap <= 0 { return result }
+
+	overlaps := make([]b2.ShapeId, int(cap), context.temp_allocator)
+	n := b2.Shape_GetSensorOverlaps(me.shape_id, raw_data(overlaps), cap)
+
+	for i in 0 ..< int(n) {
+		body := b2.Shape_GetBody(overlaps[i])
+		if !b2.Body_IsValid(body) { continue }
+		ud := b2.Body_GetUserData(body)
+		if ud == nil { continue }
+		obj := cast(^Game_Object)ud
+		if obj.self_val != mrb.NIL {
+			mrb.ary_push(g.mrb_state, result, obj.self_val)
+		}
+	}
+	return result
+}
+
 setup_game_object :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "GameObject")
 
@@ -402,4 +521,7 @@ setup_game_object :: proc() {
 	mrb.define_method(g.mrb_state, c, "force", cast(rawptr)ruby_game_object_force, 1)
 	mrb.define_method(g.mrb_state, c, "velocity", cast(rawptr)ruby_game_object_get_velocity, 0)
 	mrb.define_method(g.mrb_state, c, "velocity=", cast(rawptr)ruby_game_object_set_velocity, 1)
+	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_game_object_overlaps, 1)
+	mrb.define_method(g.mrb_state, c, "overlapping", cast(rawptr)ruby_game_object_overlapping, 0)
+	mrb.define_method(g.mrb_state, c, "destroy_body", cast(rawptr)ruby_game_object_destroy_body, 0)
 }

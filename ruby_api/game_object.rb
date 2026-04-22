@@ -4,7 +4,7 @@ class GameObject
   undef_method :dup, :clone
 
   def initialize(args={})
-    @_init_keys = []
+    @_attach_keys = []
     @_keys = []
     @_proc_keys = []
 
@@ -18,15 +18,17 @@ class GameObject
         end
       else
         @_keys << key.to_sym
-        @_init_keys << key if val.respond_to?(:init)
+        # auto-wire engine-internal subcomponents (Spawner, etc.) via a
+        # private `_attach(parent)` hook. User-facing `init:` proc is a
+        # separate lifecycle concern; see native obj() for when it fires.
+        @_attach_keys << key if val.respond_to?(:_attach)
         instance_variable_set("@#{key}", val)
         define_singleton_method(key) { instance_variable_get("@#{key}") }
         define_singleton_method("#{key}=") { |v| instance_variable_set("@#{key}", v) }
       end
     end
 
-    # run init on relevant subfields
-    @_init_keys.each { |k| self.send(k).init(self) }
+    @_attach_keys.each { |k| self.send(k)._attach(self) }
   end
 
   def []=(key, value)
@@ -65,7 +67,7 @@ class GameObject
     end
   end
 
-  def init; end
+  def init(*); end
 
   # clean up global helpers like v2/etc that aren't needed on GameObject
   # and could cause confusion

@@ -151,7 +151,7 @@ start_or_queue_tween :: proc(tween: ^Tween_Instance) {
 		case rl.Vector2:
 			from_vec := extract_native(rl.Vector2, tween.from)
 			to_vec := extract_native(rl.Vector2, tween.to)
-			v = rl.Vector2{from_vec.x, from_vec.y}
+			v = from_vec^
 			start_tween(tween, &v.x, to_vec.x, true)
 			start_tween(tween, &v.y, to_vec.y)
 		case f32:

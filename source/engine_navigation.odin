@@ -366,8 +366,7 @@ nav_overlap_callback :: proc "c" (shape_id: b2.ShapeId, ctx_ptr: rawptr) -> bool
 		count := int(poly.count)
 		verts := make([]rv.Vec2, count, c.allocator)
 		for i in 0 ..< count {
-			wp := b2.TransformPoint(tx, poly.vertices[i])
-			verts[i] = rv.Vec2{wp.x, wp.y}
+			verts[i] = b2.TransformPoint(tx, poly.vertices[i])
 		}
 		append(c.holes, verts)
 	case .circleShape:
@@ -379,8 +378,7 @@ nav_overlap_callback :: proc "c" (shape_id: b2.ShapeId, ctx_ptr: rawptr) -> bool
 				circ.center.x + circ.radius * math.cos(theta),
 				circ.center.y + circ.radius * math.sin(theta),
 			}
-			wp := b2.TransformPoint(tx, lp)
-			verts[i] = rv.Vec2{wp.x, wp.y}
+			verts[i] = b2.TransformPoint(tx, lp)
 		}
 		append(c.holes, verts)
 	case .capsuleShape, .segmentShape, .chainSegmentShape:

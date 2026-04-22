@@ -12,6 +12,46 @@ MAX_COLLISION_PLANES :: 16
 @(private = "file")
 physics_world: b2.WorldId
 
+// Static + kinematic bodies whose position is driven by user code. Pre-step
+// sync pushes each obj.pos back to box2d so that mutations like
+// `this.pos.y -= n` (which bypass the pos= setter) still take effect. Dynamic
+// bodies are excluded — their positions come FROM box2d via sync_dynamic_bodies.
+@(private = "file")
+user_driven_bodies: [dynamic]^Game_Object
+
+track_user_driven_body :: proc(obj: ^Game_Object) {
+	append(&user_driven_bodies, obj)
+}
+
+untrack_user_driven_body :: proc(obj: ^Game_Object) {
+	for b, i in user_driven_bodies {
+		if b == obj {
+			unordered_remove(&user_driven_bodies, i)
+			return
+		}
+	}
+}
+
+physics_body_count :: proc() -> int {
+	return dynamic_body_count + len(user_driven_bodies)
+}
+
+physics_body_counts :: proc() -> (total, dynamic_n, user_driven_n: int) {
+	return dynamic_body_count + len(user_driven_bodies), dynamic_body_count, len(user_driven_bodies)
+}
+
+sync_user_driven_positions :: proc() {
+	for obj in user_driven_bodies {
+		if !b2.Body_IsValid(obj.body_id) { continue }
+		v := extract_native(rl.Vector2, obj.pos)
+		if v == nil { continue }
+		new_center := v^ + obj.body_center_offset
+		if new_center == obj.last_sync_center { continue }
+		b2.Body_SetTransform(obj.body_id, new_center, b2.Rot_identity)
+		obj.last_sync_center = new_center
+	}
+}
+
 // Exposed to sibling engine_* files that need to query the world (e.g. navmesh
 // obstacle extraction). Keeps the underlying id file-private otherwise.
 physics_world_id :: proc() -> b2.WorldId { return physics_world }
@@ -24,6 +64,12 @@ Body_Type :: enum {
 	STATIC,
 	KINEMATIC,
 	DYNAMIC,
+}
+
+Physics_Shape_Kind :: enum {
+	NONE,
+	BOX,
+	CIRCLE,
 }
 
 // ─── layer helpers ───
@@ -72,11 +118,76 @@ setup_physics :: proc() {
 
 step_physics :: proc(dt: f32) {
 	if !b2.World_IsValid(physics_world) { return }
-	// only step if dynamic bodies exist — static/kinematic don't need simulation
-	if dynamic_body_count == 0 { return }
+
+	// Push any user-driven body positions to box2d before stepping — catches
+	// in-place pos mutations (e.g. `this.pos.y -= n`) that bypass pos=.
+	sync_user_driven_positions()
+
+	// Always step if any sensor could have overlaps to track; otherwise skip
+	// when no dynamic bodies (static/kinematic don't need simulation).
+	if dynamic_body_count == 0 {
+		// Still need a step so sensor overlap begin/end events fire when
+		// kinematic-driven (position-set) bodies move into sensors.
+		b2.World_Step(physics_world, dt, PHYSICS_SUB_STEPS)
+		drain_sensor_events()
+		return
+	}
 
 	b2.World_Step(physics_world, dt, PHYSICS_SUB_STEPS)
+	drain_sensor_events()
 	sync_dynamic_bodies()
+}
+
+// Drain box2d sensor events. Each event reports one sensor + one visitor.
+// Dispatch rules:
+//   - Always notify the sensor side.
+//   - If the visitor is a non-sensor, notify it too — this is the only event
+//     box2d generates for that pair.
+//   - If the visitor is also a sensor, skip it here; box2d emits a mirror
+//     event with roles swapped, and that event will cover the visitor side.
+//
+// Net result: every obj involved in a sensor interaction receives exactly
+// one on_enter/on_exit, regardless of sensor/non-sensor mix.
+drain_sensor_events :: proc() {
+	events := b2.World_GetSensorEvents(physics_world)
+
+	for i in 0 ..< events.beginCount {
+		e := events.beginEvents[i]
+		sensor_val := obj_value_from_shape(e.sensorShapeId)
+		visitor_val := obj_value_from_shape(e.visitorShapeId)
+		if sensor_val != mrb.NIL { maybe_dispatch(sensor_val, "on_enter", visitor_val) }
+		if visitor_val != mrb.NIL && !b2.Shape_IsSensor(e.visitorShapeId) {
+			maybe_dispatch(visitor_val, "on_enter", sensor_val)
+		}
+	}
+
+	for i in 0 ..< events.endCount {
+		e := events.endEvents[i]
+		sensor_val := obj_value_from_shape(e.sensorShapeId)
+		visitor_val := obj_value_from_shape(e.visitorShapeId)
+		if sensor_val != mrb.NIL { maybe_dispatch(sensor_val, "on_exit", visitor_val) }
+		if visitor_val != mrb.NIL && b2.Shape_IsValid(e.visitorShapeId) && !b2.Shape_IsSensor(e.visitorShapeId) {
+			maybe_dispatch(visitor_val, "on_exit", sensor_val)
+		}
+	}
+}
+
+@(private = "file")
+obj_value_from_shape :: proc(shape_id: b2.ShapeId) -> mrb.Value {
+	if !b2.Shape_IsValid(shape_id) { return mrb.NIL }
+	body := b2.Shape_GetBody(shape_id)
+	if !b2.Body_IsValid(body) { return mrb.NIL }
+	ud := b2.Body_GetUserData(body)
+	if ud == nil { return mrb.NIL }
+	obj := cast(^Game_Object)ud
+	return obj.self_val
+}
+
+@(private = "file")
+maybe_dispatch :: proc(receiver: mrb.Value, method: cstring, arg: mrb.Value) {
+	if !mrb.respond_to(g.mrb_state, receiver, mrb.intern_cstr(g.mrb_state, method)) { return }
+	argv: [1]mrb.Value = {arg}
+	dispatch_funcall(receiver, method, 1, raw_data(argv[:]), .SENSOR_EVENT)
 }
 
 // push box2d positions back to game objects for dynamic bodies
@@ -92,12 +203,18 @@ sync_dynamic_bodies :: proc() {
 		obj := cast(^Game_Object)user_data
 
 		pos := b2.Body_GetPosition(event.bodyId)
-		top_left := rl.Vector2{pos.x - obj.half_size.x, pos.y - obj.half_size.y}
-		new_pos := create_vector2(top_left)
+		top_left := pos - obj.body_center_offset
 
-		if obj.pos != mrb.NIL { mrb.gc_unregister(g.mrb_state, obj.pos) }
-		mrb.gc_register(g.mrb_state, new_pos)
-		obj.pos = new_pos
+		// Mutate obj.pos in place to avoid per-step allocation (each dynamic
+		// body would otherwise churn ~1 Vector2 per physics step, saturating
+		// the old-gen and triggering frequent major GC cycles).
+		if obj.pos != mrb.NIL {
+			v := extract_native(rl.Vector2, obj.pos)
+			if v != nil { v^ = top_left }
+		} else {
+			obj.pos = create_vector2(top_left)
+			mrb.gc_register(g.mrb_state, obj.pos)
+		}
 	}
 }
 
@@ -106,9 +223,12 @@ sync_dynamic_bodies :: proc() {
 create_physics_body :: proc(
 	body_type: Body_Type,
 	pos: rl.Vector2,
+	shape_kind: Physics_Shape_Kind,
 	half_size: rl.Vector2,
+	radius: f32,
+	center_offset: rl.Vector2,
 	layer, mask: u64,
-	density, friction, restitution: f32,
+	density, friction, restitution, drag: f32,
 	sensor: bool,
 ) -> (
 	b2.BodyId,
@@ -126,8 +246,9 @@ create_physics_body :: proc(
 	}
 	body_def.fixedRotation = true
 	body_def.enableSleep = false
-	// set position at creation — center of the box
-	body_def.position = {pos.x + half_size.x, pos.y + half_size.y}
+	body_def.linearDamping = drag
+	// body center = pos + shape's center-offset
+	body_def.position = {pos.x + center_offset.x, pos.y + center_offset.y}
 
 	body_id := b2.CreateBody(physics_world, body_def)
 
@@ -137,15 +258,32 @@ create_physics_body :: proc(
 	shape_def.material.restitution = restitution
 	shape_def.isSensor = sensor
 	shape_def.enableContactEvents = true
-	shape_def.enableSensorEvents = sensor
+	// Needed on BOTH sides of a sensor interaction — non-sensors must have
+	// it enabled to be detectable as visitors. Default-on everywhere.
+	shape_def.enableSensorEvents = true
 
-	// Godot-style filtering: shape always accepts queries.
-	// Actual filtering done by the mover's QueryFilter.
+	// Shape filter: non-sensors always accept queries (mover does its own
+	// filtering via QueryFilter). Sensors use the real mask so box2d's
+	// contact-filter rule drives sensor events correctly.
 	shape_def.filter.categoryBits = layer
-	shape_def.filter.maskBits = 0xFFFFFFFFFFFFFFFF
+	if sensor {
+		// if user didn't set a mask, default to "see everything" so a bare
+		// sensor: true is useful. They still need a non-zero layer to be seen.
+		shape_def.filter.maskBits = mask != 0 ? mask : 0xFFFFFFFFFFFFFFFF
+	} else {
+		shape_def.filter.maskBits = 0xFFFFFFFFFFFFFFFF
+	}
 
-	box := b2.MakeBox(half_size.x, half_size.y)
-	shape_id := b2.CreatePolygonShape(body_id, shape_def, box)
+	shape_id: b2.ShapeId
+	switch shape_kind {
+	case .BOX:
+		box := b2.MakeBox(half_size.x, half_size.y)
+		shape_id = b2.CreatePolygonShape(body_id, shape_def, box)
+	case .CIRCLE:
+		circle := b2.Circle{center = {0, 0}, radius = radius}
+		shape_id = b2.CreateCircleShape(body_id, shape_def, circle)
+	case .NONE: // unreachable — validated upstream
+	}
 
 	return body_id, shape_id
 }
@@ -153,7 +291,7 @@ create_physics_body :: proc(
 // ─── mover API ───
 
 physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 {
-	translation := rl.Vector2{vel.x * dt, vel.y * dt}
+	translation := vel * dt
 
 	pos := b2.Body_GetPosition(obj.body_id)
 
@@ -183,11 +321,11 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 	query_filter.maskBits = obj.mask
 
 	// cast mover to find safe travel fraction
-	fraction := b2.World_CastMover(physics_world, mover, {translation.x, translation.y}, query_filter)
+	fraction := b2.World_CastMover(physics_world, mover, translation, query_filter)
 
 	// move to safe position
-	safe_t := b2.Vec2{translation.x * fraction, translation.y * fraction}
-	new_center := b2.Vec2{pos.x + safe_t.x, pos.y + safe_t.y}
+	safe_t := translation * fraction
+	new_center := pos + safe_t
 
 	// update capsule for collision query
 	if vertical {
@@ -231,25 +369,29 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 
 	// solve planes for position correction
 	if plane_count > 0 {
-		remaining := b2.Vec2{translation.x - safe_t.x, translation.y - safe_t.y}
+		remaining := translation - safe_t
 		solve_result := b2.SolvePlanes(remaining, active_planes)
-		new_center.x += solve_result.translation.x
-		new_center.y += solve_result.translation.y
+		new_center += solve_result.translation
 	}
 
 	// update box2d body position
 	b2.Body_SetTransform(obj.body_id, new_center, b2.Rot_identity)
+	obj.last_sync_center = new_center
 
 	// sync back to game object pos — round to nearest pixel to avoid
 	// sub-pixel drift from box2d float math (285.999 → 286 not 285)
-	top_left := rl.Vector2 {
-		f32(int(new_center.x - obj.half_size.x + 0.5)),
-		f32(int(new_center.y - obj.half_size.y + 0.5)),
+	biased := new_center - obj.body_center_offset + 0.5
+	top_left := rl.Vector2{f32(int(biased.x)), f32(int(biased.y))}
+
+	// Mutate in place to avoid per-call allocation — same rationale as
+	// sync_dynamic_bodies above.
+	if obj.pos != mrb.NIL {
+		v := extract_native(rl.Vector2, obj.pos)
+		if v != nil { v^ = top_left }
+	} else {
+		obj.pos = create_vector2(top_left)
+		mrb.gc_register(g.mrb_state, obj.pos)
 	}
-	new_pos := create_vector2(top_left)
-	if obj.pos != mrb.NIL { mrb.gc_unregister(g.mrb_state, obj.pos) }
-	mrb.gc_register(g.mrb_state, new_pos)
-	obj.pos = new_pos
 
 	// clip velocity for next frame
 	if plane_count > 0 {
@@ -321,4 +463,6 @@ cleanup_physics :: proc() {
 	if b2.World_IsValid(physics_world) {
 		b2.DestroyWorld(physics_world)
 	}
+	delete(user_driven_bodies)
+	user_driven_bodies = nil
 }

@@ -161,8 +161,8 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return ruby_obj
 }
 
-// FSM.init(this_obj) - set the object that callbacks receive as first arg
-ruby_fsm_init :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// FSM._attach(this_obj) - set the object that callbacks receive as first arg
+ruby_fsm_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	this_obj: mrb.Value
@@ -336,7 +336,7 @@ setup_state_machine :: proc() {
 
 	// Setup FSM class
 	fc := mrb.get_data_class(g.mrb_state, "FSM")
-	mrb.define_method(g.mrb_state, fc, "init", cast(rawptr)ruby_fsm_init, 1)
+	mrb.define_method(g.mrb_state, fc, "_attach", cast(rawptr)ruby_fsm_attach, 1)
 	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, 1)
 	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, 1)
 	mrb.define_method(g.mrb_state, fc, "state", cast(rawptr)ruby_fsm_state, 0)
