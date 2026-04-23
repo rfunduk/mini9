@@ -22,6 +22,8 @@ Game_Object :: struct {
 	body_center_offset: rl.Vector2,
 	// last body-center pushed to box2d — change-detect cache for pre-step sync
 	last_sync_center:   rl.Vector2,
+	// true once destroy_body has been called — body flushed at end of step
+	destroy_queued:     bool,
 	layer:              u64,
 	mask:               u64,
 }
@@ -36,6 +38,10 @@ ruby_gameobject_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 		if obj.scale != mrb.NIL { mrb.gc_unregister(state, obj.scale) }
 
 		if b2.Body_IsValid(obj.body_id) {
+			// If the body was queued for deferred destroy but GC reaped the
+			// obj before flush, drop it from the queue to avoid a dangling
+			// pointer next flush.
+			if obj.destroy_queued { unqueue_destroy_body(obj) }
 			if obj.body_type == .STATIC || obj.body_type == .KINEMATIC {
 				untrack_user_driven_body(obj)
 			}
@@ -438,22 +444,18 @@ ruby_game_object_set_velocity :: proc "c" (state: mrb.State, self: mrb.Value) ->
 	return vel_val
 }
 
-// RUBY METHOD: obj.destroy_body -> tears down the physics body now. Safe to
-// call multiple times. The mruby object itself stays alive until GC. User
-// code typically wraps this in its own `destroy` that also removes the obj
-// from game-side containers.
+// RUBY METHOD: obj.destroy_body -> disables the physics body now + queues
+// it for full destruction at end of the current physics step. Disabling
+// immediately removes the body from simulation (no new contacts/events) but
+// keeps shape/body ids valid so other in-flight sensor events in the same
+// step can still resolve `other` to this object. Safe to call multiple times.
+// User code typically wraps this in its own `destroy` that also removes the
+// obj from game-side containers.
 ruby_game_object_destroy_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
-	if b2.Body_IsValid(obj.body_id) {
-		if obj.body_type == .STATIC || obj.body_type == .KINEMATIC {
-			untrack_user_driven_body(obj)
-		}
-		b2.DestroyBody(obj.body_id)
-		if obj.body_type == .DYNAMIC { dynamic_body_count -= 1 }
-		obj.body_id = {}
-	}
+	queue_destroy_body(obj)
 	return mrb.NIL
 }
 

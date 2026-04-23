@@ -1034,7 +1034,7 @@ PLAYER = obj(
   ])
 )
 
-def update(dt); PLAYER.fsm.update(dt); end
+def update(dt) = PLAYER.fsm.update(dt)
 ```
 
 ---
@@ -1051,7 +1051,7 @@ Box2D-backed physics. Enable on a game object by passing `body:` to `obj(...)`. 
 | `shape:` | `Circ` or `Rect` | **Required** when `body:` is set. Drives collision geometry |
 | `sensor:` | bool | Pass-through "trigger" — generates events without blocking movement |
 | `layer:` | Integer `1..64` or Array | Layer(s) this body is ON |
-| `mask:` | Integer `1..64` or Array | Layer(s) this body interacts WITH (sensor filtering) |
+| `mask:` | Integer `1..64` or Array | Layer(s) this body interacts WITH (contacts + sensor events). Default: none — body interacts with nothing until set |
 | `density:` | Float | Default `1.0` (dynamic mass calculation) |
 | `friction:` | Float | Default `0.3` (tangential contact resistance) |
 | `restitution:` | Float | Default `0.0` (bounciness, 0 = dead stop, 1 = elastic) |
@@ -1108,12 +1108,15 @@ Dispatch rules: every object involved in a sensor interaction gets exactly one `
 
 **Layers:** plain integers `1..64`. Pass a single int or an array for multi-layer: `layer: [1, 3]`.
 
+**Filter semantics:** a contact (solid-vs-solid or sensor-vs-anything) happens only when each side's `layer` is in the other side's `mask`. Applies uniformly to all body types. **Both sides must opt in** — a body with no `mask:` interacts with nothing.
+
 ```ruby
 WALL = obj(
   pos: v2(0, 200),
   shape: rect(v2(320, 16)),
   body: :static,
-  layer: 1
+  layer: 1,
+  mask: 2          # lets player through the filter
 )
 
 PLAYER = obj(
@@ -1121,15 +1124,15 @@ PLAYER = obj(
   shape: circ(8),
   body: :kinematic,
   layer: 2,
-  mask: 1  # collides with walls
+  mask: [1, 3]     # walls + coins
 )
 
 COIN = obj(
   pos: v2(50),
   shape: circ(4),
-  sensor: true,              # body defaults to :static
+  sensor: true,    # body defaults to :static
   layer: 3,
-  mask: 2,                   # only player triggers it
+  mask: 2,         # only player triggers it
   on_enter: ->(this, other) {
     g.score += 10
     this.destroy_body

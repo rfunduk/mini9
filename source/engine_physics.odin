@@ -40,6 +40,47 @@ physics_body_counts :: proc() -> (total, dynamic_n, user_driven_n: int) {
 	return dynamic_body_count + len(user_driven_bodies), dynamic_body_count, len(user_driven_bodies)
 }
 
+// Deferred body destruction — user calls destroy_body mid-step, body is
+// disabled immediately (no new physics interactions), then fully destroyed
+// at end of the current step. Keeps shape/body ids valid for lookup through
+// the rest of drain_sensor_events so handlers still receive valid `other`.
+@(private = "file")
+pending_destroy_bodies: [dynamic]^Game_Object
+
+queue_destroy_body :: proc(obj: ^Game_Object) {
+	if obj == nil || obj.destroy_queued { return }
+	if !b2.Body_IsValid(obj.body_id) { return }
+	obj.destroy_queued = true
+	b2.Body_Disable(obj.body_id)
+	append(&pending_destroy_bodies, obj)
+}
+
+// Remove obj from the pending-destroy list — called by the mruby finalizer
+// if the obj is GC'd before the end-of-step flush runs, so the list doesn't
+// carry a dangling pointer into the next flush.
+unqueue_destroy_body :: proc(obj: ^Game_Object) {
+	for p, i in pending_destroy_bodies {
+		if p == obj {
+			unordered_remove(&pending_destroy_bodies, i)
+			return
+		}
+	}
+}
+
+flush_destroyed_bodies :: proc() {
+	for obj in pending_destroy_bodies {
+		if !b2.Body_IsValid(obj.body_id) { continue }
+		if obj.body_type == .STATIC || obj.body_type == .KINEMATIC {
+			untrack_user_driven_body(obj)
+		}
+		b2.DestroyBody(obj.body_id)
+		if obj.body_type == .DYNAMIC { dynamic_body_count -= 1 }
+		obj.body_id = {}
+		obj.destroy_queued = false
+	}
+	clear(&pending_destroy_bodies)
+}
+
 sync_user_driven_positions :: proc() {
 	for obj in user_driven_bodies {
 		if !b2.Body_IsValid(obj.body_id) { continue }
@@ -130,12 +171,14 @@ step_physics :: proc(dt: f32) {
 		// kinematic-driven (position-set) bodies move into sensors.
 		b2.World_Step(physics_world, dt, PHYSICS_SUB_STEPS)
 		drain_sensor_events()
+		flush_destroyed_bodies()
 		return
 	}
 
 	b2.World_Step(physics_world, dt, PHYSICS_SUB_STEPS)
 	drain_sensor_events()
 	sync_dynamic_bodies()
+	flush_destroyed_bodies()
 }
 
 // Drain box2d sensor events. Each event reports one sensor + one visitor.
@@ -262,17 +305,13 @@ create_physics_body :: proc(
 	// it enabled to be detectable as visitors. Default-on everywhere.
 	shape_def.enableSensorEvents = true
 
-	// Shape filter: non-sensors always accept queries (mover does its own
-	// filtering via QueryFilter). Sensors use the real mask so box2d's
-	// contact-filter rule drives sensor events correctly.
+	// Shape filter: explicit-only. No mask → interacts with nothing. Forces
+	// users to opt-in to collisions/overlaps via layer+mask pair.
+	//
+	// Box2d contact rule: (a.cat & b.mask) && (b.cat & a.mask). Mover API's
+	// own QueryFilter is evaluated on top of this, unaffected.
 	shape_def.filter.categoryBits = layer
-	if sensor {
-		// if user didn't set a mask, default to "see everything" so a bare
-		// sensor: true is useful. They still need a non-zero layer to be seen.
-		shape_def.filter.maskBits = mask != 0 ? mask : 0xFFFFFFFFFFFFFFFF
-	} else {
-		shape_def.filter.maskBits = 0xFFFFFFFFFFFFFFFF
-	}
+	shape_def.filter.maskBits = mask
 
 	shape_id: b2.ShapeId
 	switch shape_kind {
@@ -465,4 +504,6 @@ cleanup_physics :: proc() {
 	}
 	delete(user_driven_bodies)
 	user_driven_bodies = nil
+	delete(pending_destroy_bodies)
+	pending_destroy_bodies = nil
 }
