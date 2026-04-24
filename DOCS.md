@@ -1051,7 +1051,7 @@ Box2D-backed physics. Enable on a game object by passing `body:` to `obj(...)`. 
 | `shape:` | `Circ` or `Rect` | **Required** when `body:` is set. Drives collision geometry |
 | `sensor:` | bool | Pass-through "trigger" — generates events without blocking movement |
 | `layer:` | Integer `1..64` or Array | Layer(s) this body is ON |
-| `mask:` | Integer `1..64` or Array | Layer(s) this body interacts WITH (contacts + sensor events). Default: none — body interacts with nothing until set |
+| `mask:` | Integer `1..64` or Array | Layer(s) this body interacts WITH. Default for non-sensors: all layers. Default for sensors: none — must opt in |
 | `density:` | Float | Default `1.0` (dynamic mass calculation) |
 | `friction:` | Float | Default `0.3` (tangential contact resistance) |
 | `restitution:` | Float | Default `0.0` (bounciness, 0 = dead stop, 1 = elastic) |
@@ -1108,15 +1108,17 @@ Dispatch rules: every object involved in a sensor interaction gets exactly one `
 
 **Layers:** plain integers `1..64`. Pass a single int or an array for multi-layer: `layer: [1, 3]`.
 
-**Filter semantics:** a contact (solid-vs-solid or sensor-vs-anything) happens only when each side's `layer` is in the other side's `mask`. Applies uniformly to all body types. **Both sides must opt in** — a body with no `mask:` interacts with nothing.
+**Filter semantics:** a contact (solid-vs-solid or sensor-vs-anything) happens only when each side's `layer` is in the other side's `mask`.
+
+- **Non-sensors** default `mask` to all layers → walls/scenery work as passive targets without declaring a mask. Override to restrict (e.g. bullets that pass through the player).
+- **Sensors** default `mask` to none → explicit opt-in for what they listen to. Bare sensor with only `layer:` fires zero events.
 
 ```ruby
 WALL = obj(
   pos: v2(0, 200),
   shape: rect(v2(320, 16)),
   body: :static,
-  layer: 1,
-  mask: 2          # lets player through the filter
+  layer: 1         # no mask needed — passive target
 )
 
 PLAYER = obj(
@@ -1124,7 +1126,7 @@ PLAYER = obj(
   shape: circ(8),
   body: :kinematic,
   layer: 2,
-  mask: [1, 3]     # walls + coins
+  mask: [1, 3]     # blocks on walls, triggers coins
 )
 
 COIN = obj(

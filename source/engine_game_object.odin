@@ -139,8 +139,12 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	val: mrb.Value
 	val = mrb.kwarg(state, kwargs, sym.layer)
 	if val != mrb.NIL { layer = layer_to_bitmask(state, val) }
+	mask_provided := false
 	val = mrb.kwarg(state, kwargs, sym.mask)
-	if val != mrb.NIL { mask = layer_to_bitmask(state, val) }
+	if val != mrb.NIL {
+		mask = layer_to_bitmask(state, val)
+		mask_provided = true
+	}
 	val = mrb.kwarg(state, kwargs, sym.density)
 	if val != mrb.NIL { density = f32(mrb.to_f64(val)) }
 	val = mrb.kwarg(state, kwargs, sym.friction)
@@ -154,6 +158,11 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	// sensor: true with no body type → default to static (trigger zone)
 	if sensor && body_type == .NONE { body_type = .STATIC }
+
+	// mask default: non-sensor with no explicit mask → "see everything"
+	// (passive target semantics: walls/scenery visible to everyone). sensor
+	// default stays 0 → must opt in to what it listens for.
+	if !sensor && !mask_provided { mask = 0xFFFFFFFFFFFFFFFF }
 
 	// derive physics shape from `shape:` kwarg (Circ or Rect). Required if body_type != NONE.
 	if body_type != .NONE {
