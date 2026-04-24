@@ -4,7 +4,7 @@ import "core:fmt"
 import "core:log"
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 ERROR_RED :: rl.Color{200, 50, 50, 255}
 
@@ -182,8 +182,8 @@ show_error_overlay :: proc(error_message: string, ctx: string) {
 		}
 		rl.BeginDrawing()
 
-		// draw current game frame (frozen)
-		rl.BeginMode2D({zoom = 1})
+		// draw current game frame (frozen) — no BeginMode2D; preserve
+		// screenScale modelview installed by BeginDrawing for HighDPI.
 		rl.ClearBackground(rl.BLACK)
 		rl.DrawTexturePro(
 			texture = g.render_texture.texture,
@@ -193,7 +193,6 @@ show_error_overlay :: proc(error_message: string, ctx: string) {
 			rotation = 0,
 			tint = rl.WHITE,
 		)
-		rl.EndMode2D()
 
 		// draw error overlay scaled to 80% of smaller screen dimension
 		screen_w := f32(rl.GetScreenWidth())

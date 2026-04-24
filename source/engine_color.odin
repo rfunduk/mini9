@@ -3,7 +3,7 @@ package engine
 import "core:strconv"
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 ruby_color_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context

@@ -3,8 +3,8 @@ package engine
 import "base:runtime"
 import "core:math/ease"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
-import rlgl "vendor:raylib/rlgl"
+import rl "lib:raylib"
+import rlgl "lib:raylib/rlgl"
 
 Game_Phase :: enum {
 	INIT,

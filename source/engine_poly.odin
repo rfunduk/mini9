@@ -2,7 +2,7 @@ package engine
 
 import lin "core:math/linalg"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Poly :: struct {
 	verts: [dynamic]rl.Vector2,

@@ -3,7 +3,7 @@ package engine
 import "core:math"
 import "core:math/rand"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 @(private = "file")
 RAD_TO_DEG :: 180.0 / math.PI

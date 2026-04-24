@@ -5,7 +5,7 @@ import "core:log"
 import "core:path/slashpath"
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Music_Load_Status :: enum {
 	PENDING,

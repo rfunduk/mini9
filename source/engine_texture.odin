@@ -4,7 +4,7 @@ import lin "core:math/linalg"
 import "core:path/slashpath"
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Texture_Load_Status :: enum {
 	PENDING,

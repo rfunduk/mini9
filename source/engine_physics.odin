@@ -2,7 +2,7 @@ package engine
 
 import b2 "lib:box2d"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 // ─── types ───
 

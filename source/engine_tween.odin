@@ -4,7 +4,7 @@ import "core:log"
 import "core:math/ease"
 import "core:time"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 @(private = "file")
 pending_tweens: [dynamic]^Tween_Instance

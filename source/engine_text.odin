@@ -4,7 +4,7 @@ import "core:math"
 import lin "core:math/linalg"
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 // 8-directional offsets for text outline
 OUTLINE_OFFSETS :: [?]rl.Vector2{{-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}}

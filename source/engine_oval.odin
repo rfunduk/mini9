@@ -2,7 +2,7 @@ package engine
 
 import lin "core:math/linalg"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Oval :: struct {
 	pos:  rl.Vector2, // center

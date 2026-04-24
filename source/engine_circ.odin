@@ -4,7 +4,7 @@ import "core:math"
 import lin "core:math/linalg"
 import "core:math/rand"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Circ :: struct {
 	cx: f32,

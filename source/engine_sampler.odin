@@ -2,7 +2,7 @@ package engine
 
 import "core:math/rand"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Sampler_Kind :: enum {
 	Numeric,

@@ -3,7 +3,7 @@ package engine
 import "core:log"
 import "core:slice"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 // Init-phase textures + all fonts + a white texel get packed into one atlas,
 // so sprite / shape / line / text draws can all share a single bound texture

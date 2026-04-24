@@ -4,8 +4,8 @@ import "core:log"
 import "core:math/ease"
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
-import rlgl "vendor:raylib/rlgl"
+import rl "lib:raylib"
+import rlgl "lib:raylib/rlgl"
 
 @(private = "file")
 FIXED_DT: f32 = 1.0 / 60.0 // 16.67ms fixed timestep
@@ -74,7 +74,11 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	load_main_rb()
 	determine_game_callbacks()
 
-	rl.SetConfigFlags({.VSYNC_HINT})
+	// WINDOW_HIGHDPI needed on native w/ raylib 6.0
+	// However, browser already owns DPI handling
+	flags: rl.ConfigFlags = {.VSYNC_HINT}
+	when ODIN_OS != .JS { flags += {.WINDOW_HIGHDPI} }
+	rl.SetConfigFlags(flags)
 
 	init_game_window()
 
@@ -198,8 +202,12 @@ _engine_update :: proc() {
 
 	{
 		// now we take the completed frame and handle
-		// drawing it to the actual surface
-		rl.BeginMode2D({zoom = 1})
+		// drawing it to the actual surface.
+		//
+		// NOTE: NO BeginMode2D here — BeginDrawing() installs a screenScale
+		// modelview (identity on non-HighDPI, scaleDPI on retina). A
+		// BeginMode2D call would rlLoadIdentity and wipe that matrix, which
+		// would make logical-coord draws render at the wrong scale on HighDPI.
 
 		// draw game texture using pre-calculated layout
 		rl.DrawTexturePro(
@@ -218,8 +226,6 @@ _engine_update :: proc() {
 			draw_draws_graph()
 			draw_bodies_graph()
 		}
-
-		rl.EndMode2D()
 	}
 
 	rl.EndDrawing()

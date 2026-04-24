@@ -3,7 +3,7 @@ package engine
 import "core:math"
 import "core:math/rand"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 @(private = "file")
 next_shake_id: u32 = 1

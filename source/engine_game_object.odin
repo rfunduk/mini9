@@ -3,7 +3,7 @@ package engine
 import "core:c"
 import b2 "lib:box2d"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Game_Object :: struct {
 	self_val:           mrb.Value, // weak back-ref to the mruby object wrapping this struct

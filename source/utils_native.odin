@@ -7,7 +7,7 @@ import "core:log"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 import zlib "vendor:zlib"
 
 init_game_window :: proc() {

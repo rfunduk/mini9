@@ -40,6 +40,7 @@ if ! odin build source/main_web \
       -define:LIBTESS2_LIB=env.o \
       -define:MRUBY_LIB=env.o \
       -define:MRUBY_MACROS_LIB=env.o \
+      -define:RAYLIB_LIB=env.o \
       -collection:lib=lib \
       -target:js_wasm32 \
       -build-mode:obj \
@@ -54,7 +55,7 @@ ODIN_PATH=$(odin root)
 cp $ODIN_PATH/core/sys/wasm/js/odin.js $WEB_OUT_DIR
 files="
   $WEB_OUT_DIR/engine.wasm
-  ${ODIN_PATH}/vendor/raylib/wasm/libraylib.a
+  vendor/raylib/build-wasm/libraylib.web.a
   vendor/mruby/build/emscripten/lib/libmruby.a
   vendor/box2d/build-wasm/src/libbox2d.a
   vendor/libtess2/build-wasm/libtess2.a
@@ -104,6 +105,7 @@ FLAGS="
   -define:MRUBY_MACROS_LIB=../../build/$TARGET/macros.o \
   -define:BOX2D_LIB=../../vendor/box2d/build/src/libbox2d.a \
   -define:LIBTESS2_LIB=../../../vendor/libtess2/build/libtess2.a \
+  -define:RAYLIB_LIB=../../vendor/raylib/build-native/libraylib.a \
   -define:BYTECODE_PACKAGING=true \
   -collection:lib=lib \
   -vet-packages:engine,mrb,rove,libtess,box2d \

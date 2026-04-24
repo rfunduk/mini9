@@ -3,7 +3,7 @@ package engine
 import lin "core:math/linalg"
 import "core:math/rand"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 ruby_rect_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context

@@ -3,7 +3,7 @@ package engine
 import "core:math"
 import lin "core:math/linalg"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 @(private = "file")
 V2_SLAB_SIZE :: 1024

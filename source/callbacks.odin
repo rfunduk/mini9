@@ -3,7 +3,7 @@ package engine
 import "core:log"
 import "core:slice"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 // callback info for checking method existence and arity
 Callback_Info :: struct {

@@ -4,7 +4,7 @@ import "core:path/slashpath"
 import "core:strconv"
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 PaletteColor :: struct {
 	name:  string,

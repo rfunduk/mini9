@@ -1,7 +1,7 @@
 package engine
 
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 // Shared drawing utility: apply a Rect as a scissor region, offset by the
 // caller's draw position. Returns true when scissor was activated — caller

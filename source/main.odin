@@ -1,7 +1,7 @@
 package engine
 
 import "core:math"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 
 @(export)

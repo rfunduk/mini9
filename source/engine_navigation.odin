@@ -5,7 +5,7 @@ import "core:math"
 import b2 "lib:box2d"
 import mrb "lib:mruby"
 import rv "lib:rove"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 NAV_CIRC_SEGMENTS :: 16
 // Distance (px) at which the agent is considered to have reached a

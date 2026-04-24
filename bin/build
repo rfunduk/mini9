@@ -125,7 +125,7 @@ def generate
 
   init_content = []
   init_content << "package engine"
-  init_content << "import rl \"vendor:raylib\""
+  init_content << "import rl \"lib:raylib\""
   init_content << "import mrb \"lib:mruby\""
   init_content << ""
 

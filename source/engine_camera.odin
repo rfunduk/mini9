@@ -1,7 +1,7 @@
 package engine
 
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 Camera_Instance :: struct {
 	active:          bool,

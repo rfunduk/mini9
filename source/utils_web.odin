@@ -5,7 +5,7 @@ package engine
 import "core:c"
 import "core:log"
 import "core:strings"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 @(private = "file")
 FILE :: struct {}

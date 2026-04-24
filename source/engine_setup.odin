@@ -2,7 +2,7 @@ package engine
 
 import "core:strings"
 import mrb "lib:mruby"
-import rl "vendor:raylib"
+import rl "lib:raylib"
 
 
 // RUBY FUNCTION: clear(color) -> configures the clear color
