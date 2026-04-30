@@ -1,4 +1,4 @@
-# MINI9
+<img src="./assets/mini9.png" alt="mini9" width=674 />
 
 Here we have a game... ... I want to say 'framework'...? Yes, a **game framework**. I'd describe it as bigger than [pico](https://www.lexaloffle.com/pico-8.php)-size, but not much. And limitations-wise, there certainly are some, but it's more flexible than an [8](https://www.lexaloffle.com/pico-8.php)... see what I'm getting at?
 

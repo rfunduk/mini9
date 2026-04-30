@@ -42,7 +42,3 @@ Geometric types (`Rect`, `Circ`, `Line`, `Oval`, `Poly`, `Text`, `Vector2`) carr
 ## Setters return the assigned value
 
 Ruby's `obj.foo = x` expression evaluates to `x` regardless of what the setter method body returns. Setter bodies should `return value` to match this semantics — don't return `self`.
-
-## When to update this doc
-
-Update whenever a design decision sets a precedent worth preserving. Don't include decisions that derive trivially from Ruby idioms.
