@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  # Odin nightly tag + asset naming. Bump when needed.
+  # Verify tag/asset names at https://github.com/odin-lang/Odin/releases
+  ODIN_TAG: dev-2026-03
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: darwin-arm64
+            odin_platform: macos-arm64
+          - os: ubuntu-latest
+            target: linux-x86_64
+            odin_platform: linux-amd64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev libx11-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxi-dev \
+            libwayland-dev libxkbcommon-dev
+
+      - name: Install Odin
+        run: |
+          ASSET="odin-${{ matrix.odin_platform }}-${ODIN_TAG}.tar.gz"
+          curl -fsSL -o odin.tar.gz \
+            "https://github.com/odin-lang/Odin/releases/download/${ODIN_TAG}/${ASSET}"
+          mkdir -p "$HOME/odin"
+          tar -xzf odin.tar.gz -C "$HOME/odin" --strip-components=1
+          echo "$HOME/odin" >> "$GITHUB_PATH"
+
+      - name: Cache vendor
+        id: cache-vendor
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor
+            !vendor/emsdk/downloads
+          key: vendor-${{ matrix.target }}-${{ hashFiles('bin/setup', 'mruby.rb') }}
+
+      - name: Run setup
+        if: steps.cache-vendor.outputs.cache-hit != 'true'
+        run: bin/setup
+
+      - name: Build release
+        run: |
+          # emsdk_env.sh exports PATH for emcc — bin/build invokes web packaging.
+          source vendor/emsdk/emsdk_env.sh
+          bin/build release
+
+      - name: Package
+        id: package
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          ZIP="mini9-${TAG}-${{ matrix.target }}.zip"
+          (cd build/release && zip "../../${ZIP}" mini9)
+          echo "zip=${ZIP}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ steps.package.outputs.zip }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --generate-notes \
+            artifacts/*.zip
