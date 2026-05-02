@@ -74,10 +74,10 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	load_main_rb()
 	determine_game_callbacks()
 
-	// WINDOW_HIGHDPI needed on native w/ raylib 6.0
-	// However, browser already owns DPI handling
+	// WINDOW_HIGHDPI only on macOS (retina). Browser owns DPI;
+	// Linux/Windows double-scale dest_rect under HIGHDPI w/ raylib 6.0.
 	flags: rl.ConfigFlags = {.VSYNC_HINT}
-	when ODIN_OS != .JS { flags += {.WINDOW_HIGHDPI} }
+	when ODIN_OS == .Darwin { flags += {.WINDOW_HIGHDPI} }
 	rl.SetConfigFlags(flags)
 
 	init_game_window()
