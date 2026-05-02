@@ -46,19 +46,27 @@ jobs:
           tar -xzf odin.tar.gz -C "$HOME/odin" --strip-components=1
           echo "$HOME/odin" >> "$GITHUB_PATH"
 
-      - name: Cache vendor
+      - name: Restore vendor cache
         id: cache-vendor
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             vendor
             !vendor/emsdk/downloads
           key: vendor-${{ matrix.target }}-${{ hashFiles('bin/setup', 'mruby.rb') }}
-          save-always: true
 
       - name: Run setup
         if: steps.cache-vendor.outputs.cache-hit != 'true'
         run: bin/setup
+
+      - name: Save vendor cache
+        if: always() && steps.cache-vendor.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            vendor
+            !vendor/emsdk/downloads
+          key: ${{ steps.cache-vendor.outputs.cache-primary-key }}
 
       - name: Build release
         run: |
