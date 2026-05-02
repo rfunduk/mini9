@@ -130,6 +130,11 @@ def maybe_build_tools
 end
 
 def generate
+  File.write(
+    File.join(SRC_DIR, "../ruby_api/auto__generated.rb"),
+    "ENGINE_METHODS = [\n#{engine_methods.map { "\t\"#{_1[0]}\"" }.join(",\n")}\n]\n"
+  )
+
   ruby_api_files.each do |api_name, _, _|
     puts "  Generating bytecode for #{api_name}..."
 
@@ -143,11 +148,6 @@ def generate
     result = system(*convert_cmd, out: File::NULL, err: File::NULL)
     raise "Unable to generate bytecode" unless result
   end
-
-  File.write(
-    File.join(SRC_DIR, "../ruby_api/auto__generated.rb"),
-    "ENGINE_METHODS = [\n#{engine_methods.map { "\t\"#{_1[0]}\"" }.join(",\n")}\n]\n"
-  )
 
   init_content = []
   init_content << "package engine"
