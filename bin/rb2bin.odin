@@ -29,11 +29,11 @@ main :: proc() {
 
 	mrb_state := mrb.open()
 	mrb_ctx := mrb.ccontext_new(mrb_state)
-	mrb_ctx.bitfields |= mrb.CCONTEXT_NO_EXEC
+	mrb.ccontext_set_no_exec(rawptr(mrb_ctx), true)
 	defer mrb.close(mrb_state)
 	defer mrb.ccontext_free(mrb_state, mrb_ctx)
 
-	source_bytes, _ := os.read_entire_file(args.input_file)
+	source_bytes, _ := os.read_entire_file_from_path(args.input_file, context.allocator)
 	defer delete(source_bytes)
 
 	input_file_cstr := strings.clone_to_cstring(args.input_file)
@@ -43,14 +43,17 @@ main :: proc() {
 	source_cstr := strings.clone_to_cstring(string(source_bytes))
 	defer delete(source_cstr)
 	result := mrb.load_string_cxt(mrb_state, source_cstr, rawptr(mrb_ctx))
-	rproc := cast(^mrb.RProc)(uintptr(result.w))
+	rproc := mrb.RProc(uintptr(result.w))
 
 	bin: rawptr
 	bin_size: c.size_t
-	mrb.dump_irep(mrb_state, rproc.body_irep, 0, &bin, &bin_size)
+	mrb.dump_irep(mrb_state, mrb.proc_irep(rawptr(rproc)), 0, &bin, &bin_size)
 
 	bytecode := ([^]u8)(bin)[:bin_size]
-	os.write_entire_file(args.output_file, bytecode)
+	if werr := os.write_entire_file(args.output_file, bytecode); werr != nil {
+		fmt.eprintfln("Error writing %s: %v", args.output_file, werr)
+		os.exit(1)
+	}
 
 	fmt.printfln("✓ Compiled %s (%d bytes bytecode)", args.input_file, bin_size)
 }

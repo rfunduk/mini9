@@ -78,6 +78,26 @@ def engine_methods
 end
 
 def maybe_build_tools
+  # we need to build macros here as rb2bin uses them
+  # _build.sh still compiles it also :shrug:
+  macros_c = "lib/mruby/macros.c"
+  macros_o = "build/tools/macros.o"
+  prev_digest_path = "bin/__macros_c__generated.digest"
+  prev_digest = File.exist?(prev_digest_path) ? File.read(prev_digest_path) : nil
+  current_digest = Digest::SHA256.file(macros_c).hexdigest
+
+  if current_digest != prev_digest
+    FileUtils.mkdir_p(File.dirname(macros_o))
+    ok = system(
+      "cc", "-c",
+      "-I", "vendor/mruby/include",
+      macros_c,
+      "-o", macros_o
+    )
+    raise "Unable to compile lib/mruby/macros.c" unless ok
+    File.write(prev_digest_path, current_digest)
+  end
+
   Dir.glob("bin/*.odin").map { Pathname.new(_1) }.each do |tool|
     name = tool.basename(".odin").to_s
     prev_digest_path = "bin/__#{name}__generated.digest"
@@ -94,6 +114,7 @@ def maybe_build_tools
       "-out:bin/__#{name}__generated",
       "-collection:lib=lib",
       "-define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a",
+      "-define:MRUBY_MACROS_LIB=../../#{macros_o}",
       "-strict-style", "-vet"
     ]
     stdout, stderr, status = Open3.capture3(*cmd)
