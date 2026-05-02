@@ -44,7 +44,7 @@ RAYLIB_LIB :: #config(RAYLIB_LIB, "")
 when ODIN_OS == .Darwin {
 	foreign import lib {RAYLIB_LIB, "system:Cocoa.framework", "system:OpenGL.framework", "system:IOKit.framework"}
 } else when ODIN_OS == .Linux {
-	foreign import lib {RAYLIB_LIB, "system:dl", "system:pthread"}
+	foreign import lib {RAYLIB_LIB, "system:dl", "system:pthread", "system:X11"}
 } else when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
 	foreign import lib {RAYLIB_LIB}
 } else {

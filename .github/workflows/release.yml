@@ -54,6 +54,7 @@ jobs:
             vendor
             !vendor/emsdk/downloads
           key: vendor-${{ matrix.target }}-${{ hashFiles('bin/setup', 'mruby.rb') }}
+          save-always: true
 
       - name: Run setup
         if: steps.cache-vendor.outputs.cache-hit != 'true'
