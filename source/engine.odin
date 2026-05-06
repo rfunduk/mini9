@@ -167,6 +167,7 @@ _engine_update :: proc() {
 
 	g.phase = .DRAW
 	rl.BeginDrawing()
+	rl.ClearBackground(rl.BLACK)
 
 	{
 		// Bound the arena across the draw phase too. User draw callbacks that
