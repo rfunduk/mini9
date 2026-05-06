@@ -87,9 +87,10 @@ sync_user_driven_positions :: proc() {
 		v := extract_native(rl.Vector2, obj.pos)
 		if v == nil { continue }
 		new_center := v^ + obj.body_center_offset
-		if new_center == obj.last_sync_center { continue }
-		b2.Body_SetTransform(obj.body_id, new_center, b2.Rot_identity)
+		if new_center == obj.last_sync_center && obj.rotation == obj.last_sync_rotation { continue }
+		b2.Body_SetTransform(obj.body_id, new_center, b2.MakeRot(obj.rotation))
 		obj.last_sync_center = new_center
+		obj.last_sync_rotation = obj.rotation
 	}
 }
 
@@ -266,6 +267,7 @@ sync_dynamic_bodies :: proc() {
 create_physics_body :: proc(
 	body_type: Body_Type,
 	pos: rl.Vector2,
+	rotation: f32,
 	shape_kind: Physics_Shape_Kind,
 	half_size: rl.Vector2,
 	radius: f32,
@@ -292,6 +294,7 @@ create_physics_body :: proc(
 	body_def.linearDamping = drag
 	// body center = pos + shape's center-offset
 	body_def.position = {pos.x + center_offset.x, pos.y + center_offset.y}
+	body_def.rotation = b2.MakeRot(rotation)
 
 	body_id := b2.CreateBody(physics_world, body_def)
 
@@ -414,8 +417,9 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 	}
 
 	// update box2d body position
-	b2.Body_SetTransform(obj.body_id, new_center, b2.Rot_identity)
+	b2.Body_SetTransform(obj.body_id, new_center, b2.MakeRot(obj.rotation))
 	obj.last_sync_center = new_center
+	obj.last_sync_rotation = obj.rotation
 
 	// sync back to game object pos — round to nearest pixel to avoid
 	// sub-pixel drift from box2d float math (285.999 → 286 not 285)

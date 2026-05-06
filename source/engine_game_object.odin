@@ -22,6 +22,7 @@ Game_Object :: struct {
 	body_center_offset: rl.Vector2,
 	// last body-center pushed to box2d — change-detect cache for pre-step sync
 	last_sync_center:   rl.Vector2,
+	last_sync_rotation: f32,
 	// true once destroy_body has been called — body flushed at end of step
 	destroy_queued:     bool,
 	layer:              u64,
@@ -206,6 +207,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		half_size          = half_size,
 		body_center_offset = body_center_offset,
 		last_sync_center   = pos_vec + body_center_offset,
+		last_sync_rotation = rotation,
 		layer              = layer,
 		mask               = mask,
 	}
@@ -215,6 +217,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		obj.body_id, obj.shape_id = create_physics_body(
 			body_type,
 			pos_vec,
+			rotation,
 			shape_kind,
 			half_size,
 			radius,
@@ -323,8 +326,9 @@ ruby_game_object_set_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 		v := extract_native(rl.Vector2, pos_val)
 		if v != nil {
 			center := v^ + obj.body_center_offset
-			b2.Body_SetTransform(obj.body_id, center, b2.Rot_identity)
+			b2.Body_SetTransform(obj.body_id, center, b2.MakeRot(obj.rotation))
 			obj.last_sync_center = center
+			obj.last_sync_rotation = obj.rotation
 		}
 	}
 
@@ -360,6 +364,12 @@ ruby_game_object_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) ->
 	if obj == nil { return mrb.NIL }
 
 	obj.rotation = f32(mrb.to_f64(rotation_val))
+
+	if b2.Body_IsValid(obj.body_id) {
+		pos := b2.Body_GetPosition(obj.body_id)
+		b2.Body_SetTransform(obj.body_id, pos, b2.MakeRot(obj.rotation))
+		obj.last_sync_rotation = obj.rotation
+	}
 
 	return rotation_val
 }
