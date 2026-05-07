@@ -23,7 +23,7 @@ ruby_sprite_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 // RUBY FUNCTION: sprite(texture, size: nil, frame: 0, frames: 1, fliph: false, flipv: false) -> returns Sprite object
-// @engine_method: name="sprite", arity=1
+// @engine_method: name="sprite", aspec=ARGS_ARG(1,1)
 ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	atlas_val, kwargs: mrb.Value
@@ -342,19 +342,20 @@ ruby_sprite_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 setup_sprite :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Sprite")
 
-	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_sprite_get_size, 0)
-	mrb.define_method(g.mrb_state, c, "size=", cast(rawptr)ruby_sprite_set_size, 1)
-	mrb.define_method(g.mrb_state, c, "frame", cast(rawptr)ruby_sprite_get_frame, 0)
-	mrb.define_method(g.mrb_state, c, "frame=", cast(rawptr)ruby_sprite_set_frame, 1)
-	mrb.define_method(g.mrb_state, c, "frames", cast(rawptr)ruby_sprite_get_frames, 0)
-	mrb.define_method(g.mrb_state, c, "fliph", cast(rawptr)ruby_sprite_get_fliph, 0)
-	mrb.define_method(g.mrb_state, c, "flipv", cast(rawptr)ruby_sprite_get_flipv, 0)
-	mrb.define_method(g.mrb_state, c, "_set_flip", cast(rawptr)ruby_sprite_set_flip, 2)
-	mrb.define_method(g.mrb_state, c, "rotation", cast(rawptr)ruby_sprite_get_rotation, 0)
-	mrb.define_method(g.mrb_state, c, "rotation=", cast(rawptr)ruby_sprite_set_rotation, 1)
-	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_sprite_get_offset, 0)
-	mrb.define_method(g.mrb_state, c, "offset=", cast(rawptr)ruby_sprite_set_offset, 1)
-	mrb.define_method(g.mrb_state, c, "scale", cast(rawptr)ruby_sprite_get_scale, 0)
-	mrb.define_method(g.mrb_state, c, "scale=", cast(rawptr)ruby_sprite_set_scale, 1)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_sprite_draw, 1)
+	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_sprite_get_size, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "size=", cast(rawptr)ruby_sprite_set_size, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "frame", cast(rawptr)ruby_sprite_get_frame, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "frame=", cast(rawptr)ruby_sprite_set_frame, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "frames", cast(rawptr)ruby_sprite_get_frames, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "fliph", cast(rawptr)ruby_sprite_get_fliph, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "flipv", cast(rawptr)ruby_sprite_get_flipv, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "_set_flip", cast(rawptr)ruby_sprite_set_flip, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "rotation", cast(rawptr)ruby_sprite_get_rotation, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "rotation=", cast(rawptr)ruby_sprite_set_rotation, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_sprite_get_offset, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "offset=", cast(rawptr)ruby_sprite_set_offset, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "scale", cast(rawptr)ruby_sprite_get_scale, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "scale=", cast(rawptr)ruby_sprite_set_scale, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_sprite_draw, mrb.ARGS_ARG(1, 1))
+
 }

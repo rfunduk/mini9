@@ -127,7 +127,7 @@ load_deferred_music :: proc() {
 }
 
 // RUBY FUNCTION: music(path) -> returns Music object
-// @engine_method: name="music", arity=1
+// @engine_method: name="music", aspec=ARGS_REQ(1)
 ruby_music :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
@@ -360,15 +360,18 @@ update_music_system :: proc(dt: f32) {
 
 setup_music :: proc() {
 	mus := mrb.get_data_class(g.mrb_state, "Music")
-	mrb.define_method(g.mrb_state, mus, "play", cast(rawptr)ruby_music_play, -1)
-	mrb.define_method(g.mrb_state, mus, "stop", cast(rawptr)ruby_music_stop, -1)
-	mrb.define_method(g.mrb_state, mus, "pause", cast(rawptr)ruby_music_pause, -1)
-	mrb.define_method(g.mrb_state, mus, "autoplay", cast(rawptr)ruby_music_autoplay, 0)
-	mrb.define_method(g.mrb_state, mus, "playing?", cast(rawptr)ruby_music_active, 0)
-	mrb.define_method(g.mrb_state, mus, "looping?", cast(rawptr)ruby_music_looping, 0)
-	mrb.define_method(g.mrb_state, mus, "volume", cast(rawptr)ruby_music_volume, 0)
-	mrb.define_method(g.mrb_state, mus, "volume=", cast(rawptr)ruby_music_set_volume, 1)
-	mrb.define_method(g.mrb_state, mus, "fade_time", cast(rawptr)ruby_music_fade_time, 0)
+	mrb.define_method(g.mrb_state, mus, "play", cast(rawptr)ruby_music_play, mrb.ARGS_OPT(1))
+
+	mrb.define_method(g.mrb_state, mus, "stop", cast(rawptr)ruby_music_stop, mrb.ARGS_OPT(1))
+
+	mrb.define_method(g.mrb_state, mus, "pause", cast(rawptr)ruby_music_pause, mrb.ARGS_OPT(1))
+
+	mrb.define_method(g.mrb_state, mus, "autoplay", cast(rawptr)ruby_music_autoplay, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, mus, "playing?", cast(rawptr)ruby_music_active, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, mus, "looping?", cast(rawptr)ruby_music_looping, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, mus, "volume", cast(rawptr)ruby_music_volume, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, mus, "volume=", cast(rawptr)ruby_music_set_volume, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, mus, "fade_time", cast(rawptr)ruby_music_fade_time, mrb.ARGS_NONE)
 }
 
 cleanup_music :: proc() {

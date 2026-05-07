@@ -24,7 +24,7 @@ create_oval :: proc(o: Oval) -> mrb.Value {
 
 // RUBY FUNCTION: oval(size) — centered at v2(0). Or oval(pos, size) — explicit center.
 // size = v2(w_radius, h_radius).
-// @engine_method: name="oval", arity=-1
+// @engine_method: name="oval", aspec=ARGS_ANY
 ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -137,11 +137,12 @@ draw_oval :: proc(
 
 setup_oval :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Oval")
-	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_oval_get_pos, 0)
-	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_oval_get_size, 0)
-	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_oval_get_x, 0)
-	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_oval_get_y, 0)
-	mrb.define_method(g.mrb_state, c, "w", cast(rawptr)ruby_oval_get_w, 0)
-	mrb.define_method(g.mrb_state, c, "h", cast(rawptr)ruby_oval_get_h, 0)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_oval_draw, -1)
+	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_oval_get_pos, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_oval_get_size, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_oval_get_x, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_oval_get_y, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "w", cast(rawptr)ruby_oval_get_w, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "h", cast(rawptr)ruby_oval_get_h, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_oval_draw, mrb.ARGS_OPT(1))
+
 }

@@ -20,7 +20,7 @@ pressed_this_frame: map[i32]bool
 released_this_frame: map[i32]bool
 
 // RUBY FUNCTION: _key_down_impl(keycode, gamepad=nil) -> bool
-// @engine_method: name="_key_down_impl", arity=-1
+// @engine_method: name="_key_down_impl", aspec=ARGS_ARG(1,1)
 ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
@@ -55,7 +55,7 @@ ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 }
 
 // RUBY FUNCTION: _key_pressed_impl(keycode, gamepad=nil) -> bool
-// @engine_method: name="_key_pressed_impl", arity=-1
+// @engine_method: name="_key_pressed_impl", aspec=ARGS_ARG(1,1)
 ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
@@ -96,7 +96,7 @@ ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY FUNCTION: _key_released_impl(keycode, gamepad=nil) -> bool
-// @engine_method: name="_key_released_impl", arity=-1
+// @engine_method: name="_key_released_impl", aspec=ARGS_ARG(1,1)
 ruby_key_released_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
@@ -137,7 +137,7 @@ ruby_key_released_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 }
 
 // RUBY FUNCTION: _keys_impl() -> [keys...]
-// @engine_method: name="_keys_impl", arity=0
+// @engine_method: name="_keys_impl", aspec=ARGS_NONE
 ruby_keys_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -165,7 +165,7 @@ ruby_keys_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 
 // RUBY FUNCTION: mouse(layer = :world) -> Vector2
-// @engine_method: name="mouse", arity=-1
+// @engine_method: name="mouse", aspec=ARGS_OPT(1)
 ruby_mouse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -241,7 +241,7 @@ ruby_mouse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY FUNCTION: _gamepad_available_impl(id) -> bool
-// @engine_method: name="gamepad?", arity=1
+// @engine_method: name="gamepad?", aspec=ARGS_REQ(1)
 ruby_gamepad_available_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	gamepad_id_val: mrb.Value
@@ -254,7 +254,7 @@ ruby_gamepad_available_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 }
 
 // RUBY FUNCTION: _get_gamepad_axis_value(xcode, ycode, gamepad_id) -> float
-// @engine_method: name="_get_gamepad_axis_value", arity=3
+// @engine_method: name="_get_gamepad_axis_value", aspec=ARGS_REQ(3)
 ruby_get_gamepad_axis_value :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	xcode_val, ycode_val, gamepad_val: mrb.Value

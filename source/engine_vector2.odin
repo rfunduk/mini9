@@ -75,7 +75,7 @@ v2_pool_return :: #force_inline proc(ptr: ^rl.Vector2) {
 }
 
 // RUBY FUNCTION: v2(x, y) -> returns Vector2 object
-// @engine_method: name="v2", arity=-1
+// @engine_method: name="v2", aspec=ARGS_OPT(2)
 ruby_v2 :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	x, y: f64
@@ -91,19 +91,19 @@ ruby_v2 :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_vector2({f32(x), f32(y)})
 }
 
-ruby_vector2_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	vec := extract_native(rl.Vector2, self)
 	return mrb.word_boxing_float_value(state, vec == nil ? 0 : f64(vec.x))
 }
 
-ruby_vector2_get_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_get_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	vec := extract_native(rl.Vector2, self)
 	return mrb.word_boxing_float_value(state, vec == nil ? 0 : f64(vec.y))
 }
 
-ruby_vector2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	mrb.check_frozen(state, self)
 
@@ -119,7 +119,7 @@ ruby_vector2_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return mrb.word_boxing_float_value(state, new_x)
 }
 
-ruby_vector2_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	mrb.check_frozen(state, self)
 
@@ -135,7 +135,7 @@ ruby_vector2_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return mrb.word_boxing_float_value(state, new_y)
 }
 
-ruby_vector2_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	other: mrb.Value
@@ -148,7 +148,7 @@ ruby_vector2_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_vector2(self_vec^ + other_vec^)
 }
 
-ruby_vector2_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	other: mrb.Value
@@ -161,14 +161,14 @@ ruby_vector2_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	return create_vector2(self_vec^ - other_vec^)
 }
 
-ruby_vector2_unary_minus :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_unary_minus :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(self_vec^ * -1)
 }
 
-ruby_vector2_multiply :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_multiply :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	other: mrb.Value
@@ -181,7 +181,7 @@ ruby_vector2_multiply :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	return create_vector2(self_vec^ * other_vec^)
 }
 
-ruby_vector2_multiply_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_mult_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	scalar: f64
@@ -193,7 +193,7 @@ ruby_vector2_multiply_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 	return create_vector2(self_vec^ * f32(scalar))
 }
 
-ruby_vector2_divide :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_divide :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -205,7 +205,7 @@ ruby_vector2_divide :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	return create_vector2(self_vec^ / other_vec^)
 }
 
-ruby_vector2_divide_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_divide_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	scalar: f64
@@ -217,7 +217,7 @@ ruby_vector2_divide_scalar :: proc "c" (state: mrb.State, self: mrb.Value) -> mr
 	return create_vector2(self_vec^ / f32(scalar))
 }
 
-ruby_vector2_clamp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_clamp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	min: mrb.Value
 	max: mrb.Value
@@ -239,28 +239,28 @@ ruby_vector2_clamp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return create_vector2(clamped)
 }
 
-ruby_vector2_floor :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_floor :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.floor(self_vec^))
 }
 
-ruby_vector2_ceil :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_ceil :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.ceil(self_vec^))
 }
 
-ruby_vector2_round :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_round :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.round(self_vec^))
 }
 
-ruby_vector2_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -275,7 +275,7 @@ ruby_vector2_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb
 	return equal ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_vector2_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	self_vec := extract_native(rl.Vector2, self)
@@ -286,21 +286,21 @@ ruby_vector2_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	return zero ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_vector2_length :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_length :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.word_boxing_float_value(state, 0) }
 	return mrb.word_boxing_float_value(state, f64(lin.length(self_vec^)))
 }
 
-ruby_vector2_length_squared :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_length_squared :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.word_boxing_float_value(state, 0) }
 	return mrb.word_boxing_float_value(state, f64(lin.length2(self_vec^)))
 }
 
-ruby_vector2_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
@@ -313,7 +313,7 @@ vector2_normalized :: proc(v: rl.Vector2) -> rl.Vector2 {
 	return v / math.sqrt(len2)
 }
 
-ruby_vector2_rotated :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_rotated :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	angle: f64
 	mrb.get_args(state, "f", &angle)
@@ -329,7 +329,7 @@ ruby_vector2_rotated :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 	return create_vector2(rotated)
 }
 
-ruby_vector2_distance_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_distance_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -341,7 +341,7 @@ ruby_vector2_distance_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	return mrb.word_boxing_float_value(state, f64(lin.distance(self_vec^, other_vec^)))
 }
 
-ruby_vector2_direction_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_direction_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -353,7 +353,7 @@ ruby_vector2_direction_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb
 	return create_vector2(lin.normalize0(other_vec^ - self_vec^))
 }
 
-ruby_vector2_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	to_val: mrb.Value
 	delta64: f64
@@ -378,14 +378,14 @@ ruby_vector2_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	}
 }
 
-ruby_vector2_sign :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_sign :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.sign(self_vec^))
 }
 
-ruby_vector2_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	to_val: mrb.Value
 	weight: f64
@@ -399,14 +399,14 @@ ruby_vector2_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_vector2(lin.lerp(self_vec^, to_vec^, rl.Vector2{w, w}))
 }
 
-ruby_vector2_abs :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_abs :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
 	return create_vector2(lin.abs(self_vec^))
 }
 
-ruby_vector2_angle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_angle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	self_vec := extract_native(rl.Vector2, self)
@@ -416,7 +416,7 @@ ruby_vector2_angle :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return mrb.word_boxing_float_value(state, f64(angle))
 }
 
-ruby_vector2_angle_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_angle_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -437,7 +437,7 @@ ruby_vector2_angle_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	return mrb.word_boxing_float_value(state, f64(angle_diff))
 }
 
-ruby_vector2_dot :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_dot :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
@@ -452,7 +452,7 @@ ruby_vector2_dot :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: vector2.grid_index(width, height=width, wrap: false) -> converts x,y coordinates to grid index
-ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	width, height: i32
@@ -488,7 +488,7 @@ ruby_vector2_grid_index :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	return mrb.boxing_int_value(state, index)
 }
 
-ruby_vector2_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	kwargs: mrb.Value
 	mrb.get_args(state, "|H", &kwargs)
@@ -508,39 +508,40 @@ draw_pixel :: proc(pos: rl.Vector2, color: rl.Color = {255, 255, 255, 255}) {
 setup_vector2 :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Vector2")
 
-	mrb.define_method(g.mrb_state, c, "new", cast(rawptr)ruby_v2, -1)
-	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_vector2_get_x, 0)
-	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_vector2_get_y, 0)
-	mrb.define_method(g.mrb_state, c, "x=", cast(rawptr)ruby_vector2_set_x, 1)
-	mrb.define_method(g.mrb_state, c, "y=", cast(rawptr)ruby_vector2_set_y, 1)
-	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_vector2_add, 1)
-	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_vector2_subtract, 1)
-	mrb.define_method(g.mrb_state, c, "-@", cast(rawptr)ruby_vector2_unary_minus, 0)
-	mrb.define_method(g.mrb_state, c, "_multiply", cast(rawptr)ruby_vector2_multiply, 1)
-	mrb.define_method(g.mrb_state, c, "_multiply_scalar", cast(rawptr)ruby_vector2_multiply_scalar, 1)
-	mrb.define_method(g.mrb_state, c, "_divide", cast(rawptr)ruby_vector2_divide, 1)
-	mrb.define_method(g.mrb_state, c, "_divide_scalar", cast(rawptr)ruby_vector2_divide_scalar, 1)
-	mrb.define_method(g.mrb_state, c, "clamp", cast(rawptr)ruby_vector2_clamp, 1)
-	mrb.define_method(g.mrb_state, c, "floor", cast(rawptr)ruby_vector2_floor, 0)
-	mrb.define_method(g.mrb_state, c, "ceil", cast(rawptr)ruby_vector2_ceil, 0)
-	mrb.define_method(g.mrb_state, c, "round", cast(rawptr)ruby_vector2_round, 0)
-	mrb.define_method(g.mrb_state, c, "zero_approx?", cast(rawptr)ruby_vector2_zero_approx, 0)
-	mrb.define_method(g.mrb_state, c, "equal_approx?", cast(rawptr)ruby_vector2_equal_approx, 1)
-	mrb.define_method(g.mrb_state, c, "length", cast(rawptr)ruby_vector2_length, 0)
-	mrb.define_method(g.mrb_state, c, "length_squared", cast(rawptr)ruby_vector2_length_squared, 0)
-	mrb.define_method(g.mrb_state, c, "normalized", cast(rawptr)ruby_vector2_normalized, 0)
-	mrb.define_method(g.mrb_state, c, "rotated", cast(rawptr)ruby_vector2_rotated, 1)
-	mrb.define_method(g.mrb_state, c, "distance_to", cast(rawptr)ruby_vector2_distance_to, 1)
-	mrb.define_method(g.mrb_state, c, "direction_to", cast(rawptr)ruby_vector2_direction_to, 1)
-	mrb.define_method(g.mrb_state, c, "move_toward", cast(rawptr)ruby_vector2_move_toward, 2)
-	mrb.define_method(g.mrb_state, c, "sign", cast(rawptr)ruby_vector2_sign, 0)
-	mrb.define_method(g.mrb_state, c, "lerp", cast(rawptr)ruby_vector2_lerp, 2)
-	mrb.define_method(g.mrb_state, c, "abs", cast(rawptr)ruby_vector2_abs, 0)
-	mrb.define_method(g.mrb_state, c, "angle", cast(rawptr)ruby_vector2_angle, 0)
-	mrb.define_method(g.mrb_state, c, "angle_to", cast(rawptr)ruby_vector2_angle_to, 1)
-	mrb.define_method(g.mrb_state, c, "dot", cast(rawptr)ruby_vector2_dot, 1)
-	mrb.define_method(g.mrb_state, c, "grid_index", cast(rawptr)ruby_vector2_grid_index, -1)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_vector2_draw, -1)
+	mrb.define_method(g.mrb_state, c, "new", cast(rawptr)ruby_v2, mrb.ARGS_OPT(2))
+
+	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_v2_get_x, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_v2_get_y, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "x=", cast(rawptr)ruby_v2_set_x, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "y=", cast(rawptr)ruby_v2_set_y, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_v2_add, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_v2_subtract, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-@", cast(rawptr)ruby_v2_unary_minus, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "_multiply", cast(rawptr)ruby_v2_multiply, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "_multiply_scalar", cast(rawptr)ruby_v2_mult_scalar, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "_divide", cast(rawptr)ruby_v2_divide, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "_divide_scalar", cast(rawptr)ruby_v2_divide_scalar, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "clamp", cast(rawptr)ruby_v2_clamp, mrb.ARGS_ARG(1, 1))
+	mrb.define_method(g.mrb_state, c, "floor", cast(rawptr)ruby_v2_floor, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "ceil", cast(rawptr)ruby_v2_ceil, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "round", cast(rawptr)ruby_v2_round, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "zero_approx?", cast(rawptr)ruby_v2_zero_approx, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "equal_approx?", cast(rawptr)ruby_v2_equal_approx, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "length", cast(rawptr)ruby_v2_length, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "length_squared", cast(rawptr)ruby_v2_length_squared, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "normalized", cast(rawptr)ruby_v2_normalized, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "rotated", cast(rawptr)ruby_v2_rotated, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "distance_to", cast(rawptr)ruby_v2_distance_to, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "direction_to", cast(rawptr)ruby_v2_direction_to, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "move_toward", cast(rawptr)ruby_v2_move_toward, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "sign", cast(rawptr)ruby_v2_sign, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "lerp", cast(rawptr)ruby_v2_lerp, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "abs", cast(rawptr)ruby_v2_abs, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "angle", cast(rawptr)ruby_v2_angle, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "angle_to", cast(rawptr)ruby_v2_angle_to, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "dot", cast(rawptr)ruby_v2_dot, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "grid_index", cast(rawptr)ruby_v2_grid_index, mrb.ARGS_ARG(1, 2))
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_v2_draw, mrb.ARGS_OPT(1))
 
 	x_sym := mrb.intern_cstr(g.mrb_state, "x")
 	y_sym := mrb.intern_cstr(g.mrb_state, "y")

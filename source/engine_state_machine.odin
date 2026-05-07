@@ -64,7 +64,7 @@ ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 // RUBY FUNCTION: state(:name, enter: nil, exit: nil, update: nil) -> returns State object
-// @engine_method: name="state", arity=-1
+// @engine_method: name="state", aspec=ARGS_ARG(1,1)
 ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -119,7 +119,7 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY FUNCTION: fsm(default:, states:) -> returns FSM object
-// @engine_method: name="fsm", arity=1
+// @engine_method: name="fsm", aspec=ARGS_REQ(1)
 ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -329,15 +329,15 @@ ruby_state_transition :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 setup_state_machine :: proc() {
 	// Setup State class
 	sc := mrb.get_data_class(g.mrb_state, "State")
-	mrb.define_method(g.mrb_state, sc, "name", cast(rawptr)ruby_state_name, 0)
-	mrb.define_method(g.mrb_state, sc, "data", cast(rawptr)ruby_state_data, 0)
-	mrb.define_method(g.mrb_state, sc, "fsm", cast(rawptr)ruby_state_fsm, 0)
-	mrb.define_method(g.mrb_state, sc, "transition", cast(rawptr)ruby_state_transition, 1)
+	mrb.define_method(g.mrb_state, sc, "name", cast(rawptr)ruby_state_name, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, sc, "data", cast(rawptr)ruby_state_data, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, sc, "fsm", cast(rawptr)ruby_state_fsm, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, sc, "transition", cast(rawptr)ruby_state_transition, mrb.ARGS_REQ(1))
 
 	// Setup FSM class
 	fc := mrb.get_data_class(g.mrb_state, "FSM")
-	mrb.define_method(g.mrb_state, fc, "_attach", cast(rawptr)ruby_fsm_attach, 1)
-	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, 1)
-	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, 1)
-	mrb.define_method(g.mrb_state, fc, "state", cast(rawptr)ruby_fsm_state, 0)
+	mrb.define_method(g.mrb_state, fc, "_attach", cast(rawptr)ruby_fsm_attach, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, fc, "state", cast(rawptr)ruby_fsm_state, mrb.ARGS_NONE)
 }

@@ -43,7 +43,7 @@ create_camera :: proc(target: rl.Vector2, zoom: f32, offset: rl.Vector2) -> mrb.
 }
 
 // RUBY FUNCTION: camera(target = nil, zoom = 1, offset = nil) -> creates new Camera
-// @engine_method: name="camera", arity=-1
+// @engine_method: name="camera", aspec=ARGS_OPT(1)
 ruby_camera :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -250,15 +250,16 @@ reset_camera_system :: proc() {
 setup_camera :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Camera")
 
-	mrb.define_method(g.mrb_state, c, "active=", cast(rawptr)ruby_camera_set_active, 1)
-	mrb.define_method(g.mrb_state, c, "active", cast(rawptr)ruby_camera_get_active, 0)
-	mrb.define_method(g.mrb_state, c, "target=", cast(rawptr)ruby_camera_set_target, 1)
-	mrb.define_method(g.mrb_state, c, "target", cast(rawptr)ruby_camera_get_target, 0)
-	mrb.define_method(g.mrb_state, c, "zoom=", cast(rawptr)ruby_camera_set_zoom, 1)
-	mrb.define_method(g.mrb_state, c, "zoom", cast(rawptr)ruby_camera_get_zoom, 0)
-	mrb.define_method(g.mrb_state, c, "offset=", cast(rawptr)ruby_camera_set_offset, 1)
-	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_camera_get_offset, 0)
-	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_camera_reset, -1)
+	mrb.define_method(g.mrb_state, c, "active=", cast(rawptr)ruby_camera_set_active, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "active", cast(rawptr)ruby_camera_get_active, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "target=", cast(rawptr)ruby_camera_set_target, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "target", cast(rawptr)ruby_camera_get_target, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "zoom=", cast(rawptr)ruby_camera_set_zoom, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "zoom", cast(rawptr)ruby_camera_get_zoom, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "offset=", cast(rawptr)ruby_camera_set_offset, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_camera_get_offset, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_camera_reset, mrb.ARGS_OPT(1))
+
 }
 
 cleanup_camera :: proc() {

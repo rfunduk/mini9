@@ -333,7 +333,7 @@ eval_size :: #force_inline proc(p: Prop, t: f32, default: rl.Vector2) -> rl.Vect
 }
 
 // RUBY FUNCTION: particles(max:, rate:, lifetime:, pos:, ...) -> Particles
-// @engine_method: name="particles", arity=-1
+// @engine_method: name="particles", aspec=ARGS_REQ(1)
 ruby_particles :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -611,16 +611,16 @@ ruby_particles_destroy :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 
 setup_particles :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Particles")
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_particles_draw, 0)
-	mrb.define_method(g.mrb_state, c, "burst", cast(rawptr)ruby_particles_burst, 1)
-	mrb.define_method(g.mrb_state, c, "start", cast(rawptr)ruby_particles_start, 0)
-	mrb.define_method(g.mrb_state, c, "stop", cast(rawptr)ruby_particles_stop, 0)
-	mrb.define_method(g.mrb_state, c, "running?", cast(rawptr)ruby_particles_running, 0)
-	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_particles_count, 0)
-	mrb.define_method(g.mrb_state, c, "max", cast(rawptr)ruby_particles_max, 0)
-	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_particles_get_pos, 0)
-	mrb.define_method(g.mrb_state, c, "pos=", cast(rawptr)ruby_particles_set_pos, 1)
-	mrb.define_method(g.mrb_state, c, "destroy", cast(rawptr)ruby_particles_destroy, 0)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_particles_draw, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "burst", cast(rawptr)ruby_particles_burst, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "start", cast(rawptr)ruby_particles_start, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "stop", cast(rawptr)ruby_particles_stop, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "running?", cast(rawptr)ruby_particles_running, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_particles_count, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "max", cast(rawptr)ruby_particles_max, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_particles_get_pos, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "pos=", cast(rawptr)ruby_particles_set_pos, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "destroy", cast(rawptr)ruby_particles_destroy, mrb.ARGS_NONE)
 }
 
 cleanup_particles :: proc() {

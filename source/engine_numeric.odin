@@ -5,7 +5,7 @@ import "core:math/rand"
 import mrb "lib:mruby"
 
 // RUBY METHOD: number.move_toward(target, delta) -> moves number toward target by delta amount
-ruby_numeric_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	target, delta: f64
 	mrb.get_args(state, "ff", &target, &delta)
@@ -24,7 +24,7 @@ ruby_numeric_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 }
 
 // RUBY METHOD: number.lerp(target, weight) -> linear interpolation between numbers
-ruby_numeric_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	target, weight: f64
 	mrb.get_args(state, "ff", &target, &weight)
@@ -36,7 +36,7 @@ ruby_numeric_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: number.zero_approx?(epsilon = 1e-5) -> checks if number is approximately zero
-ruby_numeric_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	epsilon: f64
 	argc := mrb.get_args(state, "|f", &epsilon)
@@ -48,7 +48,7 @@ ruby_numeric_zero_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 }
 
 // RUBY METHOD: number.equal_approx?(other, epsilon = 1e-5) -> checks if numbers are approximately equal
-ruby_numeric_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other, epsilon: f64
 	argc := mrb.get_args(state, "f|f", &other, &epsilon)
@@ -60,7 +60,7 @@ ruby_numeric_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb
 }
 
 // RUBY METHOD: number.sign -> returns -1, 0, or 1 based on sign
-ruby_numeric_sign :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_sign :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	current := mrb.to_f64(self)
 
@@ -74,7 +74,7 @@ ruby_numeric_sign :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY METHOD: number.clamp(min, max) -> clamps number between min and max
-ruby_numeric_clamp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_clamp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	min, max: f64
 	mrb.get_args(state, "ff", &min, &max)
@@ -84,7 +84,7 @@ ruby_numeric_clamp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 }
 
 // RUBY METHOD: number.wrapf(min, max) -> wraps number between min and max
-ruby_numeric_wrapf :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_wrapf :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	min, max: f64
 	mrb.get_args(state, "ff", &min, &max)
@@ -100,7 +100,7 @@ ruby_numeric_wrapf :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 }
 
 // RUBY METHOD: number.grid_pos(width, height=width) -> converts index to grid x,y coordinates
-ruby_numeric_grid_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_num_grid_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	width, height: i32
 	height_given: bool
@@ -122,7 +122,7 @@ ruby_numeric_grid_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY FUNCTION: randf_range(from, to) -> returns random float between from and to
-// @engine_method: name="randf_range", arity=2
+// @engine_method: name="randf_range", aspec=ARGS_REQ(2)
 ruby_randf_range :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	from, to: f64
@@ -135,12 +135,15 @@ ruby_randf_range :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 setup_numeric :: proc() {
 	c := mrb.class_get(g.mrb_state, "Numeric")
 
-	mrb.define_method(g.mrb_state, c, "move_toward", cast(rawptr)ruby_numeric_move_toward, 2)
-	mrb.define_method(g.mrb_state, c, "lerp", cast(rawptr)ruby_numeric_lerp, 2)
-	mrb.define_method(g.mrb_state, c, "zero_approx?", cast(rawptr)ruby_numeric_zero_approx, -1)
-	mrb.define_method(g.mrb_state, c, "equal_approx?", cast(rawptr)ruby_numeric_equal_approx, -1)
-	mrb.define_method(g.mrb_state, c, "sign", cast(rawptr)ruby_numeric_sign, 0)
-	mrb.define_method(g.mrb_state, c, "clamp", cast(rawptr)ruby_numeric_clamp, 2)
-	mrb.define_method(g.mrb_state, c, "wrapf", cast(rawptr)ruby_numeric_wrapf, 2)
-	mrb.define_method(g.mrb_state, c, "grid_pos", cast(rawptr)ruby_numeric_grid_pos, -1)
+	mrb.define_method(g.mrb_state, c, "move_toward", cast(rawptr)ruby_num_move_toward, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "lerp", cast(rawptr)ruby_num_lerp, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "zero_approx?", cast(rawptr)ruby_num_zero_approx, mrb.ARGS_OPT(1))
+
+	mrb.define_method(g.mrb_state, c, "equal_approx?", cast(rawptr)ruby_num_equal_approx, mrb.ARGS_ARG(1, 1))
+
+	mrb.define_method(g.mrb_state, c, "sign", cast(rawptr)ruby_num_sign, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "clamp", cast(rawptr)ruby_num_clamp, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "wrapf", cast(rawptr)ruby_num_wrapf, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "grid_pos", cast(rawptr)ruby_num_grid_pos, mrb.ARGS_ARG(1, 1))
+
 }

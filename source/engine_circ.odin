@@ -26,7 +26,7 @@ create_circ :: proc(c: Circ) -> mrb.Value {
 }
 
 // RUBY FUNCTION: circ(radius) / circ(center, radius) / circ(x, y, radius)
-// @engine_method: name="circ", arity=-1
+// @engine_method: name="circ", aspec=ARGS_ANY
 ruby_circ :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -189,20 +189,21 @@ ruby_circ_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 setup_circ :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Circ")
-	mrb.define_method(g.mrb_state, c, "center", cast(rawptr)ruby_circ_get_center, 0)
-	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_circ_get_x, 0)
-	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_circ_get_y, 0)
-	mrb.define_method(g.mrb_state, c, "r", cast(rawptr)ruby_circ_get_r, 0)
-	mrb.define_method(g.mrb_state, c, "radius", cast(rawptr)ruby_circ_get_r, 0)
-	mrb.define_method(g.mrb_state, c, "x=", cast(rawptr)ruby_circ_set_x, 1)
-	mrb.define_method(g.mrb_state, c, "y=", cast(rawptr)ruby_circ_set_y, 1)
-	mrb.define_method(g.mrb_state, c, "r=", cast(rawptr)ruby_circ_set_r, 1)
-	mrb.define_method(g.mrb_state, c, "radius=", cast(rawptr)ruby_circ_set_r, 1)
-	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_circ_contains, 1)
-	mrb.define_method(g.mrb_state, c, "distance", cast(rawptr)ruby_circ_distance, 1)
-	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_circ_overlaps, 1)
-	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_circ_sample_point, 0)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_circ_draw, -1)
+	mrb.define_method(g.mrb_state, c, "center", cast(rawptr)ruby_circ_get_center, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_circ_get_x, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_circ_get_y, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "r", cast(rawptr)ruby_circ_get_r, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "radius", cast(rawptr)ruby_circ_get_r, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "x=", cast(rawptr)ruby_circ_set_x, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "y=", cast(rawptr)ruby_circ_set_y, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "r=", cast(rawptr)ruby_circ_set_r, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "radius=", cast(rawptr)ruby_circ_set_r, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_circ_contains, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "distance", cast(rawptr)ruby_circ_distance, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_circ_overlaps, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_circ_sample_point, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_circ_draw, mrb.ARGS_OPT(1))
+
 }
 
 draw_circle :: proc(

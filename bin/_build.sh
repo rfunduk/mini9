@@ -62,12 +62,12 @@ files="
   $WEB_OUT_DIR/macros.o
 "
 flags="
+  -fwasm-exceptions
+  -sSUPPORT_LONGJMP=wasm
   -sUSE_GLFW=3
   -sWASM_BIGINT
   -sWARN_ON_UNDEFINED_SYMBOLS=0
   -sASSERTIONS
-  -sASYNCIFY
-  -sASYNCIFY_ONLY=[\"mrbm_load_irep_top\",\"mrb_load_string_cxt\"]
   -sALLOW_TABLE_GROWTH=1
   -sALLOW_MEMORY_GROWTH=1
   -sINITIAL_MEMORY=67108864
@@ -81,7 +81,7 @@ flags="
 export EMSDK_QUIET=1
 [[ -f "vendor/emsdk/emsdk_env.sh" ]] && . "vendor/emsdk/emsdk_env.sh"
 
-emcc -c -I"$MRUBY_INCLUDE" "$MACROS_SRC" -o "$WEB_OUT_DIR/macros.o"
+emcc -c -fwasm-exceptions -I"$MRUBY_INCLUDE" -I"$SCRIPT_DIR/vendor/mruby/build/emscripten/include" "$MACROS_SRC" -o "$WEB_OUT_DIR/macros.o"
 emcc $DEBUG_FLAG -o $WEB_OUT_DIR/index.html $files $flags
 rm $WEB_OUT_DIR/engine.wasm
 rm "$WEB_OUT_DIR/macros.o"
@@ -97,7 +97,7 @@ OUT_DIR="$SCRIPT_DIR/build/$TARGET"
 mkdir -p "$OUT_DIR"
 
 echo "  Building mruby macros..."
-cc -c -I"$MRUBY_INCLUDE" "$MACROS_SRC" -o "$OUT_DIR/macros.o"
+cc -c -I"$MRUBY_INCLUDE" -I"$SCRIPT_DIR/vendor/mruby/build/host/include" "$MACROS_SRC" -o "$OUT_DIR/macros.o"
 
 FLAGS="
   -out:$OUT_DIR/mini9 \

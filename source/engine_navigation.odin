@@ -4,8 +4,8 @@ import "base:runtime"
 import "core:math"
 import b2 "lib:box2d"
 import mrb "lib:mruby"
-import rv "lib:rove"
 import rl "lib:raylib"
+import rv "lib:rove"
 
 NAV_CIRC_SEGMENTS :: 16
 // Distance (px) at which the agent is considered to have reached a
@@ -61,8 +61,8 @@ ruby_navigator_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 // RUBY FUNCTION: navigator(bounds:, mask:, holes: nil, margin: 0)
-// @engine_method: name="navigator", arity=1
-ruby_navigator :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// @engine_method: name="navigator", aspec=ARGS_REQ(1)
+ruby_nav :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	kwargs: mrb.Value

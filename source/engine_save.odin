@@ -127,7 +127,7 @@ json_to_mrb :: proc(state: mrb.State, v: json.Value) -> mrb.Value {
 // JSON-safe: Hash (string-keyed) / Array / Integer / Float / String / Bool /
 // nil. symbol or anything else raises ArgumentError — user converts before
 // saving so load-side has no ambiguity. hash string keys only, same reason.
-// @engine_method: name="_save_set", arity=2
+// @engine_method: name="_save_set", aspec=ARGS_REQ(2)
 ruby_save_set :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	key_v, val_v: mrb.Value
@@ -207,7 +207,7 @@ cleanup_save :: proc() {
 	save_loaded = false
 }
 
-// @engine_method: name="_save_get", arity=1
+// @engine_method: name="_save_get", aspec=ARGS_REQ(1)
 ruby_save_get :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	key_v: mrb.Value

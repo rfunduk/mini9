@@ -4,7 +4,7 @@ import "core:math/ease"
 import mrb "lib:mruby"
 
 // RUBY FUNCTION: ease(t, fn=Easing::LINEAR) -> returns float
-// @engine_method: name="ease", arity=-1
+// @engine_method: name="ease", aspec=ARGS_ARG(1,1)
 ruby_ease :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 

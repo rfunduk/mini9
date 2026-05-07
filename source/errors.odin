@@ -67,6 +67,10 @@ handle_ruby_exception :: proc(state: mrb.State, exception: mrb.Value, ctx: Ruby_
 	// the overlay — game debugging works in both debug and release builds.
 	if ctx == .TWEEN_CALLBACK {
 		log.infof("(tween continues...)")
+	} else if !rl.IsWindowReady() {
+		// raise during INIT: window/fonts/render-texture not yet created.
+		// rendering an overlay would deref uninitialized GL state. log + bail.
+		log.errorf("(no window — cannot show overlay; aborting)")
 	} else {
 		full_error := backtrace != "" ? fmt.tprintf("%s%s", error_str, backtrace) : error_str
 		ctx_str := fmt.tprintf("%v", ctx)

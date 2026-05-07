@@ -217,7 +217,7 @@ find_free_instance :: proc(sound: ^Sound) -> ^Sound_Instance {
 }
 
 // RUBY FUNCTION: sound(path, polyphony: 8) -> returns Sound object
-// @engine_method: name="sound", arity=1
+// @engine_method: name="sound", aspec=ARGS_ARG(1,1)
 ruby_sound :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val, kwargs: mrb.Value
@@ -393,9 +393,12 @@ update_audio_system :: proc(dt: f32) {
 
 setup_sound :: proc() {
 	snd := mrb.get_data_class(g.mrb_state, "Sound")
-	mrb.define_method(g.mrb_state, snd, "play", cast(rawptr)ruby_sound_play, -1)
-	mrb.define_method(g.mrb_state, snd, "stop", cast(rawptr)ruby_sound_stop, -1)
-	mrb.define_method(g.mrb_state, snd, "pause", cast(rawptr)ruby_sound_pause, -1)
+	mrb.define_method(g.mrb_state, snd, "play", cast(rawptr)ruby_sound_play, mrb.ARGS_OPT(1))
+
+	mrb.define_method(g.mrb_state, snd, "stop", cast(rawptr)ruby_sound_stop, mrb.ARGS_OPT(1))
+
+	mrb.define_method(g.mrb_state, snd, "pause", cast(rawptr)ruby_sound_pause, mrb.ARGS_OPT(1))
+
 }
 
 cleanup_sound :: proc() {

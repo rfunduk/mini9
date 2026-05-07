@@ -51,7 +51,7 @@ create_shake :: proc() -> mrb.Value {
 }
 
 // RUBY FUNCTION: shake() -> returns new Shake object
-// @engine_method: name="shake", arity=0
+// @engine_method: name="shake", aspec=ARGS_NONE
 ruby_shake :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return create_shake()
@@ -146,8 +146,8 @@ update_shake_system :: proc() {
 
 setup_shake :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Shake")
-	mrb.define_method(g.mrb_state, c, "shake", cast(rawptr)ruby_shake_shake, 3)
-	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_shake_offset, 0)
+	mrb.define_method(g.mrb_state, c, "shake", cast(rawptr)ruby_shake_shake, mrb.ARGS_REQ(3))
+	mrb.define_method(g.mrb_state, c, "offset", cast(rawptr)ruby_shake_offset, mrb.ARGS_NONE)
 }
 
 cleanup_shake :: proc() {

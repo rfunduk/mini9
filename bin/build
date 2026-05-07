@@ -59,16 +59,20 @@ def engine_methods
       next unless line.include?("@engine_method:")
 
       name_match = line.match(/name="([^"]+)"/)
-      arity_match = line.match(/arity=(-?\d+)/)
+      # aspec is an mruby ARGS_* expression: ARGS_NONE, ARGS_ANY,
+      # ARGS_REQ(2), ARGS_OPT(1), ARGS_ARG(2,1), or combinations like
+      # ARGS_REQ(1)|ARGS_OPT(2). Match identifiers + optional (...) groups
+      # joined by | (no spaces).
+      aspec_match = line.match(/aspec=([A-Z_][A-Z_0-9]*(?:\([^)]*\))?(?:\|[A-Z_][A-Z_0-9]*(?:\([^)]*\))?)*)/)
 
-      if name_match && arity_match && i + 1 < lines.length
+      if name_match && aspec_match && i + 1 < lines.length
         method_name = name_match[1]
-        arity = arity_match[1].to_i
+        aspec = aspec_match[1]
         next_line = lines[i + 1]
 
         if next_line =~ /(\w+)\s*::\s*proc\s*"c"/
           func_name = $1
-          $engine_methods << [method_name, func_name, arity]
+          $engine_methods << [method_name, func_name, aspec]
         end
       end
     end
@@ -91,6 +95,7 @@ def maybe_build_tools
     ok = system(
       "cc", "-c",
       "-I", "vendor/mruby/include",
+      "-I", "vendor/mruby/build/host/include",
       macros_c,
       "-o", macros_o
     )
@@ -182,8 +187,11 @@ def generate
   init_content << ""
   init_content << "\tkernel_module := mrb.module_get(g.mrb_state, \"Kernel\")"
 
-  engine_methods.each do |name, f, arity|
-    init_content << "\tmrb.define_method(g.mrb_state, kernel_module, \"#{name}\", cast(rawptr)#{f}, #{arity})"
+  engine_methods.each do |name, f, aspec|
+    # aspec is the literal text from the @engine_method annotation,
+    # an mruby ARGS_* expression. Render with `mrb.` prefix.
+    rendered = aspec.split("|").map { |s| "mrb.#{s}" }.join("|")
+    init_content << "\tmrb.define_method(g.mrb_state, kernel_module, \"#{name}\", cast(rawptr)#{f}, #{rendered})"
   end
 
   # For init-type files: pre-register the data class (sets TT_DATA) BEFORE

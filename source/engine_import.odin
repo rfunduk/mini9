@@ -6,7 +6,7 @@ import mrb "lib:mruby"
 
 // RUBY FUNCTION: import(symbol) -> requires a module
 // supports: import(:module), import("path/to/module"), import(:path, :to, :module)
-// @engine_method: name="import", arity=-1
+// @engine_method: name="import", aspec=ARGS_ANY
 ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 

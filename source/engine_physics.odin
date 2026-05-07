@@ -210,7 +210,9 @@ drain_sensor_events :: proc() {
 		sensor_val := obj_value_from_shape(e.sensorShapeId)
 		visitor_val := obj_value_from_shape(e.visitorShapeId)
 		if sensor_val != mrb.NIL { maybe_dispatch(sensor_val, "on_exit", visitor_val) }
-		if visitor_val != mrb.NIL && b2.Shape_IsValid(e.visitorShapeId) && !b2.Shape_IsSensor(e.visitorShapeId) {
+		if visitor_val != mrb.NIL &&
+		   b2.Shape_IsValid(e.visitorShapeId) &&
+		   !b2.Shape_IsSensor(e.visitorShapeId) {
 			maybe_dispatch(visitor_val, "on_exit", sensor_val)
 		}
 	}
@@ -322,7 +324,10 @@ create_physics_body :: proc(
 		box := b2.MakeBox(half_size.x, half_size.y)
 		shape_id = b2.CreatePolygonShape(body_id, shape_def, box)
 	case .CIRCLE:
-		circle := b2.Circle{center = {0, 0}, radius = radius}
+		circle := b2.Circle {
+			center = {0, 0},
+			radius = radius,
+		}
 		shape_id = b2.CreateCircleShape(body_id, shape_def, circle)
 	case .NONE: // unreachable — validated upstream
 	}
@@ -447,7 +452,7 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 // ─── gravity ───
 
 // RUBY FUNCTION: gravity(v2) -> sets world gravity
-// @engine_method: name="gravity", arity=1
+// @engine_method: name="gravity", aspec=ARGS_REQ(1)
 ruby_gravity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	gravity_val: mrb.Value
@@ -468,7 +473,7 @@ ruby_gravity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 // ─── raycast ───
 
 // RUBY FUNCTION: raycast(origin, direction, mask) -> [hit, point, normal, fraction]
-// @engine_method: name="raycast", arity=3
+// @engine_method: name="raycast", aspec=ARGS_REQ(3)
 ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 

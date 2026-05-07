@@ -13,6 +13,18 @@ FALSE :: Value{4}
 TRUE :: Value{12}
 NIL :: Value{0}
 
+// mruby aspec encoding (mruby/include/mruby.h MRB_ARGS_*).
+// Pass these to define_method as the aspec arg, not raw arities.
+ARGS_NONE :: u32(0)
+ARGS_REST :: u32(1 << 12)
+ARGS_ANY :: ARGS_REST
+ARGS_BLOCK :: u32(1)
+ARGS_REQ :: #force_inline proc "contextless" (n: u32) -> u32 { return (n & 0x1f) << 18 }
+ARGS_OPT :: #force_inline proc "contextless" (n: u32) -> u32 { return (n & 0x1f) << 13 }
+ARGS_ARG :: #force_inline proc "contextless" (req: u32, opt: u32) -> u32 {
+	return ARGS_REQ(req) | ARGS_OPT(opt)
+}
+
 State :: distinct rawptr
 Sym :: u32
 
@@ -50,8 +62,8 @@ foreign lib {
 	load_irep :: proc(state: State, irep: rawptr) -> Value ---
 
 	// method definition
-	define_method :: proc(state: State, class: rawptr, name: cstring, func: rawptr, args: c.int) ---
-	define_module_function :: proc(state: State, mod: rawptr, name: cstring, func: rawptr, args: c.int) ---
+	define_method :: proc(state: State, class: rawptr, name: cstring, func: rawptr, aspec: u32) ---
+	define_module_function :: proc(state: State, mod: rawptr, name: cstring, func: rawptr, aspec: u32) ---
 	alias_method :: proc(state: State, class: rawptr, new_name: Sym, old_name: Sym) ---
 	define_const :: proc(state: State, cla: rawptr, name: cstring, val: Value) ---
 
@@ -132,6 +144,7 @@ foreign lib {
 	exec_irep :: proc(state: State, self: Value, rproc: RProc) -> Value ---
 	read_irep_buf :: proc(state: State, buf: rawptr, bufsize: c.size_t) -> rawptr ---
 	proc_new :: proc(state: State, irep: rawptr) -> RProc ---
+	load_irep_buf :: proc(state: State, buf: rawptr, bufsize: c.size_t) -> Value ---
 
 	// method introspection
 	respond_to :: proc(state: State, obj: Value, mid: Sym) -> bool ---

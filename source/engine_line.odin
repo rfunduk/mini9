@@ -24,7 +24,7 @@ create_line :: proc(l: Line) -> mrb.Value {
 }
 
 // RUBY FUNCTION: line(to) — from v2(0) to `to`. Or line(a, b) — explicit endpoints.
-// @engine_method: name="line", arity=-1
+// @engine_method: name="line", aspec=ARGS_ANY
 ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -106,11 +106,12 @@ ruby_line_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 setup_line :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Line")
-	mrb.define_method(g.mrb_state, c, "a", cast(rawptr)ruby_line_get_a, 0)
-	mrb.define_method(g.mrb_state, c, "b", cast(rawptr)ruby_line_get_b, 0)
-	mrb.define_method(g.mrb_state, c, "length", cast(rawptr)ruby_line_length, 0)
-	mrb.define_method(g.mrb_state, c, "midpoint", cast(rawptr)ruby_line_midpoint, 0)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_line_draw, -1)
+	mrb.define_method(g.mrb_state, c, "a", cast(rawptr)ruby_line_get_a, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "b", cast(rawptr)ruby_line_get_b, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "length", cast(rawptr)ruby_line_length, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "midpoint", cast(rawptr)ruby_line_midpoint, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_line_draw, mrb.ARGS_OPT(1))
+
 }
 
 draw_line :: proc(

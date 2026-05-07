@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-MRUBY_VERSION="fafb52d72a2c09b6979c32ea5b97ce6f1af6a53d" # ideally 3.4.0 but it prevents loading any bytecode
+MRUBY_VERSION="4.0.0"
 EMSDK_VERSION="4.0.13"
 BOX2D_VERSION="v3.1.1"
 LIBTESS2_VERSION="8dbd6483e920311a58c9af10a10beb278efebc36"
@@ -40,8 +40,7 @@ else
 fi
 echo "Building mruby..."
 cd $ENGINE_DIR/vendor/mruby
-export MRUBY_CONFIG="$ENGINE_DIR/mruby.rb"
-rake
+MRUBY_CONFIG="$ENGINE_DIR/mruby.rb" rake
 
 # box2d
 echo -e "\n\nbox2d"
@@ -90,7 +89,7 @@ echo "Building libtess2 (emscripten/wasm)..."
 source $ENGINE_DIR/vendor/emsdk/emsdk_env.sh
 rm -rf build-wasm && mkdir -p build-wasm
 for f in Source/*.c; do
-    emcc -c -O2 -IInclude -o build-wasm/$(basename $f .c).o $f
+    emcc -c -O2 -fwasm-exceptions -IInclude -o build-wasm/$(basename $f .c).o $f
 done
 emar rcs build-wasm/libtess2.a build-wasm/*.o
 

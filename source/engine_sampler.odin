@@ -48,7 +48,7 @@ sampler_sample_v2 :: #force_inline proc(s: ^Sampler) -> rl.Vector2 {
 }
 
 // RUBY FUNCTION: sampler(lo, hi) -> Sampler
-// @engine_method: name="sampler", arity=2
+// @engine_method: name="sampler", aspec=ARGS_REQ(2)
 ruby_sampler :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -90,6 +90,6 @@ ruby_sampler_hi :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 setup_sampler :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Sampler")
-	mrb.define_method(g.mrb_state, c, "lo", cast(rawptr)ruby_sampler_lo, 0)
-	mrb.define_method(g.mrb_state, c, "hi", cast(rawptr)ruby_sampler_hi, 0)
+	mrb.define_method(g.mrb_state, c, "lo", cast(rawptr)ruby_sampler_lo, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "hi", cast(rawptr)ruby_sampler_hi, mrb.ARGS_NONE)
 }

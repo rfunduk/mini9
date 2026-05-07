@@ -95,7 +95,7 @@ create_palette :: proc(path: string) -> mrb.Value {
 }
 
 // RUBY FUNCTION: palette(path) -> returns Palette object
-// @engine_method: name="palette", arity=1
+// @engine_method: name="palette", aspec=ARGS_REQ(1)
 ruby_palette :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
@@ -240,12 +240,12 @@ ruby_palette_do_replace :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 
 setup_palette :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Palette")
-	mrb.define_method(g.mrb_state, c, "[]", cast(rawptr)ruby_palette_get, 1)
-	mrb.define_method(g.mrb_state, c, "path", cast(rawptr)ruby_palette_path, 0)
-	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_palette_count, 0)
-	mrb.define_method(g.mrb_state, c, "colors", cast(rawptr)ruby_palette_colors, 0)
-	mrb.define_method(g.mrb_state, c, "__color_pairs", cast(rawptr)ruby_palette_color_pairs, 0)
-	mrb.define_method(g.mrb_state, c, "__do_replace", cast(rawptr)ruby_palette_do_replace, 1)
-	mrb.define_method(g.mrb_state, c, "dup", cast(rawptr)ruby_palette_dup, 0)
+	mrb.define_method(g.mrb_state, c, "[]", cast(rawptr)ruby_palette_get, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "path", cast(rawptr)ruby_palette_path, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_palette_count, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "colors", cast(rawptr)ruby_palette_colors, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "__color_pairs", cast(rawptr)ruby_palette_color_pairs, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "__do_replace", cast(rawptr)ruby_palette_do_replace, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "dup", cast(rawptr)ruby_palette_dup, mrb.ARGS_NONE)
 	mrb.define_const(g.mrb_state, c, "DEFAULT", palette_from_filedata("default_palette.gpl", palette_data))
 }

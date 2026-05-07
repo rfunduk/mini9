@@ -49,7 +49,7 @@ create_timer :: proc(interval: f64, block: mrb.Value, repeating: bool) -> mrb.Va
 }
 
 // RUBY FUNCTION: after(seconds) { |this| ... } -> Timer
-// @engine_method: name="after", arity=-1
+// @engine_method: name="after", aspec=ARGS_REQ(1)|ARGS_BLOCK
 ruby_after :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	seconds: f64
@@ -65,7 +65,7 @@ ruby_after :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY FUNCTION: every(seconds, leading: false) { |this| ... } -> Timer
-// @engine_method: name="every", arity=-1
+// @engine_method: name="every", aspec=ARGS_ARG(1,1)|ARGS_BLOCK
 ruby_every :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	seconds: f64
@@ -218,14 +218,14 @@ fire_timer :: proc(t: ^Timer_Instance) {
 
 setup_timer :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Timer")
-	mrb.define_method(g.mrb_state, c, "_attach", cast(rawptr)ruby_timer_attach, 1)
-	mrb.define_method(g.mrb_state, c, "cancel", cast(rawptr)ruby_timer_cancel, 0)
-	mrb.define_method(g.mrb_state, c, "cancelled?", cast(rawptr)ruby_timer_cancelled, 0)
-	mrb.define_method(g.mrb_state, c, "finished?", cast(rawptr)ruby_timer_finished, 0)
-	mrb.define_method(g.mrb_state, c, "repeating?", cast(rawptr)ruby_timer_repeating, 0)
-	mrb.define_method(g.mrb_state, c, "interval", cast(rawptr)ruby_timer_interval, 0)
-	mrb.define_method(g.mrb_state, c, "elapsed", cast(rawptr)ruby_timer_elapsed, 0)
-	mrb.define_method(g.mrb_state, c, "remaining", cast(rawptr)ruby_timer_remaining, 0)
+	mrb.define_method(g.mrb_state, c, "_attach", cast(rawptr)ruby_timer_attach, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "cancel", cast(rawptr)ruby_timer_cancel, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "cancelled?", cast(rawptr)ruby_timer_cancelled, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "finished?", cast(rawptr)ruby_timer_finished, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "repeating?", cast(rawptr)ruby_timer_repeating, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "interval", cast(rawptr)ruby_timer_interval, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "elapsed", cast(rawptr)ruby_timer_elapsed, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "remaining", cast(rawptr)ruby_timer_remaining, mrb.ARGS_NONE)
 }
 
 cleanup_timer :: proc() {

@@ -23,7 +23,7 @@ create_rect :: proc(r: rl.Rectangle) -> mrb.Value {
 
 // RUBY FUNCTION: rect(*args) -> rect function that handles both signatures
 // supports rect(size_v2) or rect(pos_v2, size_v2) or rect(x, y, w, h)
-// @engine_method: name="rect", arity=-1
+// @engine_method: name="rect", aspec=ARGS_ANY
 ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -291,21 +291,22 @@ inflate_rect_uniform :: proc(rect: rl.Rectangle, amount: f32) -> rl.Rectangle {
 setup_rect :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Rect")
 
-	mrb.define_method(g.mrb_state, c, "new", cast(rawptr)ruby_rect, -1)
-	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_rect_get_pos, 0)
-	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_rect_get_size, 0)
-	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_rect_get_x, 0)
-	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_rect_get_y, 0)
-	mrb.define_method(g.mrb_state, c, "w", cast(rawptr)ruby_rect_get_w, 0)
-	mrb.define_method(g.mrb_state, c, "h", cast(rawptr)ruby_rect_get_h, 0)
-	mrb.define_method(g.mrb_state, c, "x=", cast(rawptr)ruby_rect_set_x, 1)
-	mrb.define_method(g.mrb_state, c, "y=", cast(rawptr)ruby_rect_set_y, 1)
-	mrb.define_method(g.mrb_state, c, "w=", cast(rawptr)ruby_rect_set_w, 1)
-	mrb.define_method(g.mrb_state, c, "h=", cast(rawptr)ruby_rect_set_h, 1)
-	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_rect_sample_point, 0)
-	mrb.define_method(g.mrb_state, c, "inflate", cast(rawptr)ruby_inflate_rect, -1)
-	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_rect_contains, 1)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_rect_draw, -1)
+	mrb.define_method(g.mrb_state, c, "new", cast(rawptr)ruby_rect, mrb.ARGS_ANY)
+	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_rect_get_pos, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_rect_get_size, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_rect_get_x, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_rect_get_y, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "w", cast(rawptr)ruby_rect_get_w, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "h", cast(rawptr)ruby_rect_get_h, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "x=", cast(rawptr)ruby_rect_set_x, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "y=", cast(rawptr)ruby_rect_set_y, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "w=", cast(rawptr)ruby_rect_set_w, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "h=", cast(rawptr)ruby_rect_set_h, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_rect_sample_point, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "inflate", cast(rawptr)ruby_inflate_rect, mrb.ARGS_ANY)
+	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_rect_contains, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_rect_draw, mrb.ARGS_OPT(1))
+
 }
 
 draw_rectangle :: proc(

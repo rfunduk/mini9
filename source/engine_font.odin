@@ -165,7 +165,7 @@ load_font_from_memory :: proc(file_type: string, bytes: []u8, size: i32 = 0) -> 
 }
 
 // RUBY FUNCTION: font(path, size=nil) -> returns Font object
-// @engine_method: name="font", arity=-1
+// @engine_method: name="font", aspec=ARGS_ARG(1,1)
 ruby_font :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val, size_val: mrb.Value
@@ -209,8 +209,8 @@ ruby_font_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 setup_font :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Font")
 
-	mrb.define_method(g.mrb_state, c, "name", cast(rawptr)ruby_font_get_name, 0)
-	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_font_get_size, 0)
+	mrb.define_method(g.mrb_state, c, "name", cast(rawptr)ruby_font_get_name, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_font_get_size, mrb.ARGS_NONE)
 
 	mrb.define_const(g.mrb_state, c, "TINY", create_font(&g.fonts.tiny))
 	mrb.define_const(g.mrb_state, c, "SMALL", create_font(&g.fonts.small))

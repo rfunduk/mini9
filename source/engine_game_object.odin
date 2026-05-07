@@ -55,7 +55,7 @@ ruby_gameobject_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 // RUBY FUNCTION: obj(pos: v2(0), rotation: 0, scale: v2(1), visible: true, ...) -> returns GameObject
-// @engine_method: name="obj", arity=-1
+// @engine_method: name="obj", aspec=ARGS_OPT(1)
 ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -274,7 +274,7 @@ create_game_object :: proc(go: Game_Object, argc: c.int, argv: rawptr) -> mrb.Va
 }
 
 // RUBY METHOD: o.pos -> gets obj pos
-ruby_game_object_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -282,7 +282,7 @@ ruby_game_object_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 }
 
 // RUBY METHOD: o.scale -> gets obj scale
-ruby_game_object_get_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_get_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -290,7 +290,7 @@ ruby_game_object_get_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mr
 }
 
 // RUBY METHOD: o.rotation -> gets obj rotation
-ruby_game_object_get_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_get_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -298,7 +298,7 @@ ruby_game_object_get_rotation :: proc "c" (state: mrb.State, self: mrb.Value) ->
 }
 
 // RUBY METHOD: obj.visible -> gets visible flag
-ruby_game_object_get_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_get_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -306,7 +306,7 @@ ruby_game_object_get_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 }
 
 // RUBY METHOD: obj.pos = v2 -> sets obj pos
-ruby_game_object_set_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_set_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	pos_val: mrb.Value
 	mrb.get_args(state, "o", &pos_val)
@@ -336,7 +336,7 @@ ruby_game_object_set_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 }
 
 // RUBY METHOD: obj.scale = v2 -> sets obj scale
-ruby_game_object_set_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_set_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	scale_val: mrb.Value
 	mrb.get_args(state, "o", &scale_val)
@@ -355,7 +355,7 @@ ruby_game_object_set_scale :: proc "c" (state: mrb.State, self: mrb.Value) -> mr
 }
 
 // RUBY METHOD: obj.rotation=(angle) -> sets rotation in radians
-ruby_game_object_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	rotation_val: mrb.Value
 	mrb.get_args(state, "o", &rotation_val)
@@ -375,7 +375,7 @@ ruby_game_object_set_rotation :: proc "c" (state: mrb.State, self: mrb.Value) ->
 }
 
 // RUBY METHOD: obj.visible = yn -> sets obj visible flag
-ruby_game_object_set_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_set_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	yn_val: mrb.Value
 	mrb.get_args(state, "o", &yn_val)
@@ -390,7 +390,7 @@ ruby_game_object_set_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 }
 
 // RUBY METHOD: obj.move(velocity, dt) -> mover API, returns clipped velocity
-ruby_game_object_move :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_move :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	vel_val: mrb.Value
 	dt: f64
@@ -407,7 +407,7 @@ ruby_game_object_move :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY METHOD: obj.impulse(v2) -> apply impulse (dynamic bodies)
-ruby_game_object_impulse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_impulse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	imp_val: mrb.Value
 	mrb.get_args(state, "o", &imp_val)
@@ -423,7 +423,7 @@ ruby_game_object_impulse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 }
 
 // RUBY METHOD: obj.force(v2) -> apply force (dynamic bodies)
-ruby_game_object_force :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_force :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	force_val: mrb.Value
 	mrb.get_args(state, "o", &force_val)
@@ -439,7 +439,7 @@ ruby_game_object_force :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 }
 
 // RUBY METHOD: obj.velocity -> get linear velocity
-ruby_game_object_get_velocity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_get_velocity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil || !b2.Body_IsValid(obj.body_id) { return create_vector2({0, 0}) }
@@ -448,7 +448,7 @@ ruby_game_object_get_velocity :: proc "c" (state: mrb.State, self: mrb.Value) ->
 }
 
 // RUBY METHOD: obj.velocity = v2 -> set linear velocity
-ruby_game_object_set_velocity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_set_velocity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	vel_val: mrb.Value
 	mrb.get_args(state, "o", &vel_val)
@@ -470,7 +470,7 @@ ruby_game_object_set_velocity :: proc "c" (state: mrb.State, self: mrb.Value) ->
 // step can still resolve `other` to this object. Safe to call multiple times.
 // User code typically wraps this in its own `destroy` that also removes the
 // obj from game-side containers.
-ruby_game_object_destroy_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_destroy_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := extract_native(Game_Object, self)
 	if obj == nil { return mrb.NIL }
@@ -479,7 +479,7 @@ ruby_game_object_destroy_body :: proc "c" (state: mrb.State, self: mrb.Value) ->
 }
 
 // RUBY METHOD: obj.overlaps?(other) -> bool (AABB intersection)
-ruby_game_object_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	other_val: mrb.Value
 	mrb.get_args(state, "o", &other_val)
@@ -498,7 +498,7 @@ ruby_game_object_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb
 
 // RUBY METHOD: obj.overlapping -> [GameObject, ...] currently inside this sensor
 // Only meaningful for sensor objects; returns [] otherwise.
-ruby_game_object_overlapping :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_go_overlapping :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	result := mrb.ary_new(g.mrb_state)
 
@@ -527,22 +527,22 @@ ruby_game_object_overlapping :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 setup_game_object :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "GameObject")
 
-	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_game_object_get_pos, 0)
-	mrb.define_method(g.mrb_state, c, "pos=", cast(rawptr)ruby_game_object_set_pos, 1)
-	mrb.define_method(g.mrb_state, c, "rotation", cast(rawptr)ruby_game_object_get_rotation, 0)
-	mrb.define_method(g.mrb_state, c, "rotation=", cast(rawptr)ruby_game_object_set_rotation, 1)
-	mrb.define_method(g.mrb_state, c, "scale", cast(rawptr)ruby_game_object_get_scale, 0)
-	mrb.define_method(g.mrb_state, c, "scale=", cast(rawptr)ruby_game_object_set_scale, 1)
-	mrb.define_method(g.mrb_state, c, "visible", cast(rawptr)ruby_game_object_get_visible, 0)
-	mrb.define_method(g.mrb_state, c, "visible=", cast(rawptr)ruby_game_object_set_visible, 1)
+	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_go_get_pos, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "pos=", cast(rawptr)ruby_go_set_pos, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "rotation", cast(rawptr)ruby_go_get_rotation, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "rotation=", cast(rawptr)ruby_go_set_rotation, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "scale", cast(rawptr)ruby_go_get_scale, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "scale=", cast(rawptr)ruby_go_set_scale, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "visible", cast(rawptr)ruby_go_get_visible, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "visible=", cast(rawptr)ruby_go_set_visible, mrb.ARGS_REQ(1))
 
 	// physics methods
-	mrb.define_method(g.mrb_state, c, "move", cast(rawptr)ruby_game_object_move, 2)
-	mrb.define_method(g.mrb_state, c, "impulse", cast(rawptr)ruby_game_object_impulse, 1)
-	mrb.define_method(g.mrb_state, c, "force", cast(rawptr)ruby_game_object_force, 1)
-	mrb.define_method(g.mrb_state, c, "velocity", cast(rawptr)ruby_game_object_get_velocity, 0)
-	mrb.define_method(g.mrb_state, c, "velocity=", cast(rawptr)ruby_game_object_set_velocity, 1)
-	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_game_object_overlaps, 1)
-	mrb.define_method(g.mrb_state, c, "overlapping", cast(rawptr)ruby_game_object_overlapping, 0)
-	mrb.define_method(g.mrb_state, c, "destroy_body", cast(rawptr)ruby_game_object_destroy_body, 0)
+	mrb.define_method(g.mrb_state, c, "move", cast(rawptr)ruby_go_move, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "impulse", cast(rawptr)ruby_go_impulse, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "force", cast(rawptr)ruby_go_force, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "velocity", cast(rawptr)ruby_go_get_velocity, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "velocity=", cast(rawptr)ruby_go_set_velocity, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_go_overlaps, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "overlapping", cast(rawptr)ruby_go_overlapping, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "destroy_body", cast(rawptr)ruby_go_destroy_body, mrb.ARGS_NONE)
 }

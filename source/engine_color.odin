@@ -22,7 +22,7 @@ create_color :: proc(c: rl.Color) -> mrb.Value {
 }
 
 // RUBY FUNCTION: color(r, g, b, a=255) -> returns Color object (integer values 0-255)
-// @engine_method: name="_color_int", arity=-1
+// @engine_method: name="_color_int", aspec=ARGS_ARG(3,1)
 ruby_color_int :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r, g, b, a: f64
@@ -36,7 +36,7 @@ ruby_color_int :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // RUBY FUNCTION: color_normalized(r, g, b, a=1.0) -> returns Color object (normalized values 0-1)
-// @engine_method: name="_color_normalized", arity=-1
+// @engine_method: name="_color_normalized", aspec=ARGS_ARG(3,1)
 ruby_color_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r, g, b, a: f64
@@ -56,7 +56,7 @@ ruby_color_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 }
 
 // RUBY FUNCTION: color_hex(hex_string) -> returns Color object from hex string
-// @engine_method: name="_color_hex", arity=1
+// @engine_method: name="_color_hex", aspec=ARGS_REQ(1)
 ruby_color_hex :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	hex_val: mrb.Value
@@ -179,13 +179,13 @@ ruby_color_set_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 setup_color :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Color")
 
-	mrb.define_method(g.mrb_state, c, "r", cast(rawptr)ruby_color_get_r, 0)
-	mrb.define_method(g.mrb_state, c, "g", cast(rawptr)ruby_color_get_g, 0)
-	mrb.define_method(g.mrb_state, c, "b", cast(rawptr)ruby_color_get_b, 0)
-	mrb.define_method(g.mrb_state, c, "a", cast(rawptr)ruby_color_get_a, 0)
-	mrb.define_method(g.mrb_state, c, "r=", cast(rawptr)ruby_color_set_r, 1)
-	mrb.define_method(g.mrb_state, c, "g=", cast(rawptr)ruby_color_set_g, 1)
-	mrb.define_method(g.mrb_state, c, "b=", cast(rawptr)ruby_color_set_b, 1)
-	mrb.define_method(g.mrb_state, c, "a=", cast(rawptr)ruby_color_set_a, 1)
-	mrb.define_method(g.mrb_state, c, "==", cast(rawptr)ruby_color_equal, 1)
+	mrb.define_method(g.mrb_state, c, "r", cast(rawptr)ruby_color_get_r, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "g", cast(rawptr)ruby_color_get_g, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "b", cast(rawptr)ruby_color_get_b, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "a", cast(rawptr)ruby_color_get_a, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "r=", cast(rawptr)ruby_color_set_r, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "g=", cast(rawptr)ruby_color_set_g, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "b=", cast(rawptr)ruby_color_set_b, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "a=", cast(rawptr)ruby_color_set_a, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "==", cast(rawptr)ruby_color_equal, mrb.ARGS_REQ(1))
 }

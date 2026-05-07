@@ -43,7 +43,7 @@ create_text :: proc(str: string, font_val: mrb.Value) -> mrb.Value {
 }
 
 // RUBY FUNCTION: text(str, font) — returns a Text shape.
-// @engine_method: name="text", arity=2
+// @engine_method: name="text", aspec=ARGS_REQ(2)
 ruby_text :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	text_val, font_val: mrb.Value
@@ -171,8 +171,10 @@ setup_text :: proc() {
 	mrb.define_const(g.mrb_state, c, "CENTER", mrb.boxing_int_value(g.mrb_state, i32(Text_Align.CENTER)))
 	mrb.define_const(g.mrb_state, c, "RIGHT", mrb.boxing_int_value(g.mrb_state, i32(Text_Align.RIGHT)))
 
-	mrb.define_method(g.mrb_state, c, "str", cast(rawptr)ruby_text_get_str, 0)
-	mrb.define_method(g.mrb_state, c, "font", cast(rawptr)ruby_text_get_font, 0)
-	mrb.define_method(g.mrb_state, c, "measure", cast(rawptr)ruby_text_measure, -1)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_text_draw, -1)
+	mrb.define_method(g.mrb_state, c, "str", cast(rawptr)ruby_text_get_str, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "font", cast(rawptr)ruby_text_get_font, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "measure", cast(rawptr)ruby_text_measure, mrb.ARGS_OPT(1))
+
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_text_draw, mrb.ARGS_OPT(1))
+
 }

@@ -52,9 +52,10 @@ MRuby::CrossBuild.new('emscripten') do |conf|
   conf.gembox 'full-core'
 
   # compiler settings for emscripten
+  # exception flags come from the emscripten toolchain (`-fwasm-exceptions`).
+  # don't add `-fexceptions` here — conflicts with the wasm-native path.
   conf.cc do |cc|
     cc.flags << "-O2"
-    cc.flags << "-fexceptions"
     # export all symbols so Odin can find them
     cc.flags << "-s EXPORT_ALL=1"
     cc.flags << "-s LINKABLE=1"

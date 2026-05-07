@@ -29,7 +29,7 @@ create_poly :: proc(verts: []rl.Vector2) -> mrb.Value {
 }
 
 // RUBY FUNCTION: poly(verts) — verts is an Array of Vector2 (min 3).
-// @engine_method: name="poly", arity=1
+// @engine_method: name="poly", aspec=ARGS_REQ(1)
 ruby_poly :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -123,10 +123,11 @@ ruby_poly_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 setup_poly :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Poly")
-	mrb.define_method(g.mrb_state, c, "verts", cast(rawptr)ruby_poly_verts, 0)
-	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_poly_count, 0)
-	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_poly_contains, 1)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_poly_draw, -1)
+	mrb.define_method(g.mrb_state, c, "verts", cast(rawptr)ruby_poly_verts, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_poly_count, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_poly_contains, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_poly_draw, mrb.ARGS_OPT(1))
+
 }
 
 draw_polygon :: proc(

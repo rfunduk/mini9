@@ -87,7 +87,7 @@ detect_tween_type :: proc(value: mrb.Value) -> typeid {
 }
 
 // RUBY FUNCTION: tween(from, to, duration, delay: 0, easing: Tween.LINEAR) { block } -> returns Tween object
-// @engine_method: name="tween", arity=-1
+// @engine_method: name="tween", aspec=ARGS_ARG(3,1)|ARGS_BLOCK
 ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -355,13 +355,13 @@ tween_time_left :: proc(self: mrb.Value) -> f64 {
 setup_tween :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Tween")
 
-	mrb.define_method(g.mrb_state, c, "value", cast(rawptr)ruby_tween_value, 0)
-	mrb.define_method(g.mrb_state, c, "running?", cast(rawptr)ruby_tween_running, 0)
-	mrb.define_method(g.mrb_state, c, "finished?", cast(rawptr)ruby_tween_finished, 0)
-	mrb.define_method(g.mrb_state, c, "just_finished?", cast(rawptr)ruby_tween_just_finished, 0)
-	mrb.define_method(g.mrb_state, c, "time_left", cast(rawptr)ruby_tween_time_left, 0)
-	mrb.define_method(g.mrb_state, c, "progress", cast(rawptr)ruby_tween_progress, 0)
-	mrb.define_method(g.mrb_state, c, "stop", cast(rawptr)ruby_tween_stop, 0)
+	mrb.define_method(g.mrb_state, c, "value", cast(rawptr)ruby_tween_value, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "running?", cast(rawptr)ruby_tween_running, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "finished?", cast(rawptr)ruby_tween_finished, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "just_finished?", cast(rawptr)ruby_tween_just_finished, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "time_left", cast(rawptr)ruby_tween_time_left, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "progress", cast(rawptr)ruby_tween_progress, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "stop", cast(rawptr)ruby_tween_stop, mrb.ARGS_NONE)
 }
 
 cleanup_tween :: proc() {

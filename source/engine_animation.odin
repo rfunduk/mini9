@@ -63,7 +63,7 @@ create_anim :: proc(interval: f32, direction: i32, mode: Animation_Mode, values:
 }
 
 // RUBY FUNCTION: anim(interval:, values:, direction: 1, mode: Anim::LOOP) -> returns Anim object
-// @engine_method: name="anim", arity=1
+// @engine_method: name="anim", aspec=ARGS_REQ(1)
 ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -266,17 +266,17 @@ ruby_anim_last :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 setup_animation :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Anim")
 
-	mrb.define_method(g.mrb_state, c, "update", cast(rawptr)ruby_anim_update, 1)
-	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_anim_reset, 0)
-	mrb.define_method(g.mrb_state, c, "current", cast(rawptr)ruby_anim_current, 0)
-	mrb.define_method(g.mrb_state, c, "index", cast(rawptr)ruby_anim_index, 0)
-	mrb.define_method(g.mrb_state, c, "values", cast(rawptr)ruby_anim_values, 0)
-	mrb.define_method(g.mrb_state, c, "direction", cast(rawptr)ruby_anim_direction, 0)
-	mrb.define_method(g.mrb_state, c, "direction=", cast(rawptr)ruby_anim_set_direction, 1)
-	mrb.define_method(g.mrb_state, c, "interval", cast(rawptr)ruby_anim_interval, 0)
-	mrb.define_method(g.mrb_state, c, "interval=", cast(rawptr)ruby_anim_set_interval, 1)
-	mrb.define_method(g.mrb_state, c, "mode", cast(rawptr)ruby_anim_mode, 0)
-	mrb.define_method(g.mrb_state, c, "mode=", cast(rawptr)ruby_anim_set_mode, 1)
-	mrb.define_method(g.mrb_state, c, "progress", cast(rawptr)ruby_anim_progress, 0)
-	mrb.define_method(g.mrb_state, c, "last?", cast(rawptr)ruby_anim_last, 0)
+	mrb.define_method(g.mrb_state, c, "update", cast(rawptr)ruby_anim_update, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_anim_reset, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "current", cast(rawptr)ruby_anim_current, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "index", cast(rawptr)ruby_anim_index, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "values", cast(rawptr)ruby_anim_values, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "direction", cast(rawptr)ruby_anim_direction, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "direction=", cast(rawptr)ruby_anim_set_direction, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "interval", cast(rawptr)ruby_anim_interval, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "interval=", cast(rawptr)ruby_anim_set_interval, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "mode", cast(rawptr)ruby_anim_mode, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "mode=", cast(rawptr)ruby_anim_set_mode, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "progress", cast(rawptr)ruby_anim_progress, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "last?", cast(rawptr)ruby_anim_last, mrb.ARGS_NONE)
 }

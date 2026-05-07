@@ -134,7 +134,7 @@ load_deferred_textures :: proc() {
 }
 
 // RUBY FUNCTION: texture(path) -> returns Texture object
-// @engine_method: name="texture", arity=1
+// @engine_method: name="texture", aspec=ARGS_REQ(1)
 ruby_texture :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
@@ -184,8 +184,9 @@ ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 setup_texture :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Texture")
-	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_texture_get_size, 0)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_texture_draw, 1)
+	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_texture_get_size, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_texture_draw, mrb.ARGS_ARG(1, 1))
+
 }
 
 cleanup_texture :: proc() {

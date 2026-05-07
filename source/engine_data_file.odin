@@ -46,7 +46,7 @@ file_from_data :: proc(path: string, data: []u8) -> mrb.Value {
 }
 
 // RUBY FUNCTION: file(path=nil) -> returns FileData object
-// @engine_method: name="file", arity=-1
+// @engine_method: name="file", aspec=ARGS_REQ(1)
 ruby_file :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	path_val: mrb.Value
@@ -77,5 +77,5 @@ ruby_file_get_lines :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 
 setup_data_file :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "DataFile")
-	mrb.define_method(g.mrb_state, c, "lines", cast(rawptr)ruby_file_get_lines, 0)
+	mrb.define_method(g.mrb_state, c, "lines", cast(rawptr)ruby_file_get_lines, mrb.ARGS_NONE)
 }
