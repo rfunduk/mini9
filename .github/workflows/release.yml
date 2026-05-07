@@ -8,7 +8,7 @@ on:
 env:
   # Odin nightly tag + asset naming. Bump when needed.
   # Verify tag/asset names at https://github.com/odin-lang/Odin/releases
-  ODIN_TAG: dev-2026-03
+  ODIN_TAG: dev-2026-05
 
 jobs:
   build:

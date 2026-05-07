@@ -255,7 +255,7 @@ prepare_output_path :: proc(args: ^Args) -> string {
 			)
 		} else {
 			// ensure parent directory exists for the ROM file
-			parent_dir := filepath.dir(output_path, context.temp_allocator)
+			parent_dir := filepath.dir(output_path)
 			if len(parent_dir) > 0 && parent_dir != "." {
 				mkdir_err := make_directory_recursive(parent_dir)
 				if mkdir_err != nil {
@@ -393,7 +393,7 @@ make_directory_recursive :: proc(path: string) -> os.Error {
 	}
 
 	// get parent directory
-	parent := filepath.dir(path, context.temp_allocator)
+	parent := filepath.dir(path)
 	if len(parent) > 0 && parent != "." && parent != path {
 		// recursively create parent directory
 		parent_err := make_directory_recursive(parent)
