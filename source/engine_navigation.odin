@@ -420,7 +420,8 @@ nav_update_path :: proc(n: ^Navigator) {
 	n.path_dirty = false
 }
 
-ruby_navigator_init :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// Navigator._attach(parent) — auto-called by obj() for fields responding to :_attach
+ruby_nav_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	this_obj: mrb.Value
 	mrb.get_args(state, "o", &this_obj)
@@ -437,7 +438,7 @@ ruby_navigator_init :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	return self
 }
 
-ruby_navigator_set_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_set_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	val: mrb.Value
 	mrb.get_args(state, "o", &val)
@@ -461,14 +462,14 @@ ruby_navigator_set_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb
 	return val
 }
 
-ruby_navigator_get_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_get_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	n := extract_native(Navigator, self)
 	if n == nil || !n.has_target { return mrb.NIL }
 	return create_vector2(n.target)
 }
 
-ruby_navigator_next_position :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_next_position :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	n := extract_native(Navigator, self)
 	if n == nil { return mrb.NIL }
@@ -517,7 +518,7 @@ ruby_navigator_next_position :: proc "c" (state: mrb.State, self: mrb.Value) -> 
 	return create_vector2(out)
 }
 
-ruby_navigator_path :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_path :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	n := extract_native(Navigator, self)
 	if n == nil { return mrb.NIL }
@@ -528,14 +529,14 @@ ruby_navigator_path :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 
 // Cheap len(path) without rebuilding the Ruby Array + per-waypoint Vector2
 // objects — used by `to_s` / debug inspection in hot paths.
-ruby_navigator_path_count :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_path_count :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	n := extract_native(Navigator, self)
 	if n == nil { return mrb.fixnum_value(0) }
 	return mrb.fixnum_value(mrb.Int(len(n.path)))
 }
 
-ruby_navigator_arrived :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_arrived :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	n := extract_native(Navigator, self)
 	if n == nil { return mrb.TRUE }
@@ -547,7 +548,7 @@ ruby_navigator_arrived :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	return (d.x * d.x + d.y * d.y <= NAV_ARRIVED_EPS * NAV_ARRIVED_EPS) ? mrb.TRUE : mrb.FALSE
 }
 
-ruby_navigator_recalculate :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_recalculate :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	n := extract_native(Navigator, self)
 	if n == nil { return self }
@@ -558,7 +559,7 @@ ruby_navigator_recalculate :: proc "c" (state: mrb.State, self: mrb.Value) -> mr
 	return self
 }
 
-ruby_navigator_set_snap :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_set_snap :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	v: f64
 	mrb.get_args(state, "f", &v)
@@ -567,7 +568,7 @@ ruby_navigator_set_snap :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	return mrb.word_boxing_float_value(state, v)
 }
 
-ruby_navigator_get_snap :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_get_snap :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	n := extract_native(Navigator, self)
 	return mrb.word_boxing_float_value(state, n == nil ? 0 : f64(n.snap))
@@ -580,14 +581,14 @@ cleanup_navigation :: proc() {
 
 setup_navigation :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Navigator")
-	mrb.define_method(g.mrb_state, c, "init", cast(rawptr)ruby_navigator_init, 1)
-	mrb.define_method(g.mrb_state, c, "target=", cast(rawptr)ruby_navigator_set_target, 1)
-	mrb.define_method(g.mrb_state, c, "target", cast(rawptr)ruby_navigator_get_target, 0)
-	mrb.define_method(g.mrb_state, c, "next_position", cast(rawptr)ruby_navigator_next_position, 0)
-	mrb.define_method(g.mrb_state, c, "path", cast(rawptr)ruby_navigator_path, 0)
-	mrb.define_method(g.mrb_state, c, "path_count", cast(rawptr)ruby_navigator_path_count, 0)
-	mrb.define_method(g.mrb_state, c, "arrived?", cast(rawptr)ruby_navigator_arrived, 0)
-	mrb.define_method(g.mrb_state, c, "recalculate", cast(rawptr)ruby_navigator_recalculate, 0)
-	mrb.define_method(g.mrb_state, c, "snap=", cast(rawptr)ruby_navigator_set_snap, 1)
-	mrb.define_method(g.mrb_state, c, "snap", cast(rawptr)ruby_navigator_get_snap, 0)
+	mrb.define_method(g.mrb_state, c, "_attach", cast(rawptr)ruby_nav_attach, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "target=", cast(rawptr)ruby_nav_set_target, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "target", cast(rawptr)ruby_nav_get_target, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "next_position", cast(rawptr)ruby_nav_next_position, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "path", cast(rawptr)ruby_nav_path, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "path_count", cast(rawptr)ruby_nav_path_count, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "arrived?", cast(rawptr)ruby_nav_arrived, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "recalculate", cast(rawptr)ruby_nav_recalculate, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "snap=", cast(rawptr)ruby_nav_set_snap, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "snap", cast(rawptr)ruby_nav_get_snap, mrb.ARGS_NONE)
 }
