@@ -1,6 +1,6 @@
 package engine
 
-import "core:log"
+import "core:fmt"
 import "core:strings"
 import mrb "lib:mruby"
 
@@ -43,14 +43,12 @@ ruby_metrics :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_log :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
-	if !(ENGINE_DEBUG || g.debug) { return mrb.NIL }
-
 	argv: ^mrb.Value
 	argc: i32
 	mrb.get_args(state, "*", &argv, &argc)
 
 	if argc == 0 {
-		log.infof("")
+		fmt.println()
 		return mrb.NIL
 	}
 
@@ -65,8 +63,7 @@ ruby_log :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		strings.write_string(&builder, formatted)
 	}
 
-	output := strings.to_string(builder)
-	log.infof(output)
+	fmt.println(strings.to_string(builder))
 
 	return mrb.NIL
 }

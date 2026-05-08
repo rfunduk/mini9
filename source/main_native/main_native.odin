@@ -1,10 +1,10 @@
 package main_native
 
 import "core:flags"
+import "core:fmt"
 import "core:log"
 import "core:mem"
 import "core:os"
-import "core:strings"
 
 import engine ".."
 
@@ -16,6 +16,7 @@ Args :: struct {
 	output:      string `args:"name=output,name=o" usage:"output file path for packaging"`,
 	no_compress: bool `args:"name=no-compress" usage:"disable ROM compression"`,
 	web:         bool `args:"name=web" usage:"create web build with embedded assets"`,
+	log_level:   string `args:"name=log-level" usage:"engine log level: debug, info, warn, error (default: warn release / debug debug-build)"`,
 }
 
 main :: proc() {
@@ -38,18 +39,23 @@ main :: proc() {
 		}
 	}
 
-	context.logger = log.create_console_logger(
-		.Debug,
-		{.Level, .Date, .Time, .Terminal_Color},
-		allocator = default_allocator,
-	)
-
 	args: Args
 	parse_error := flags.parse(&args, os.args[1:], .Unix)
 	if parse_error != nil {
 		flags.print_errors(Args, parse_error, os.args[0], .Unix)
 		os.exit(1)
 	}
+
+	level, level_ok := engine.resolve_log_level(args.log_level)
+	if !level_ok {
+		fmt.eprintfln("unknown --log-level: %q (expected debug, info, warn, error, fatal)", args.log_level)
+		os.exit(1)
+	}
+	context.logger = log.create_console_logger(
+		level,
+		{.Level, .Date, .Time, .Terminal_Color},
+		allocator = default_allocator,
+	)
 
 	// check if this is a packaging command
 	if args.command == "package" {

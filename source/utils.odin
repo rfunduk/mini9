@@ -26,6 +26,23 @@ file_exists :: proc(name: string) -> bool {
 	return _file_exists(name)
 }
 
+resolve_log_level :: proc(flag: string) -> (level: log.Level, ok: bool) {
+	default_level: log.Level = .Warning when !ENGINE_DEBUG else .Debug
+	
+	// odinfmt:disable
+	switch strings.to_lower(flag, context.temp_allocator) {
+	case "":                return default_level, true
+	case "debug":           return .Debug, true
+	case "info":            return .Info, true
+	case "warn", "warning": return .Warning, true
+	case "error":           return .Error, true
+	case "fatal":           return .Fatal, true
+	}
+	// odinfmt:enable
+
+	return default_level, false
+}
+
 extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
 	when #config(CHECK_MRUBY_DATA_TYPES, false) {
 		return cast(^T)mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
