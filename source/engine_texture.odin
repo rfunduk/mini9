@@ -46,7 +46,7 @@ ruby_texture_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 }
 
 // load_texture_standalone — used after init phase OR for atlas spillover.
-// Decodes file → texture, assigns to Texture struct as STANDALONE.
+// Decodes file -> texture, assigns to Texture struct as STANDALONE.
 load_texture_standalone :: proc(path: cstring, ruby_obj: mrb.Value) -> ^Texture {
 	path_str := string(path)
 	file_data, ok := read_entire_file(path_str)
@@ -112,7 +112,7 @@ create_texture :: proc(path: string) -> mrb.Value {
 	mrb.data_init(ruby_obj, texture_ptr, NATIVE_TO_MRUBY_TYPE[Texture])
 
 	if g.phase == .UPDATE {
-		// post-init lazy load → standalone (atlas already built)
+		// post-init lazy load -> standalone (atlas already built)
 		cpath := strings.clone_to_cstring(path, context.temp_allocator)
 		load_texture_standalone(cpath, ruby_obj)
 	} else {

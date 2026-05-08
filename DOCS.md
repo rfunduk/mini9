@@ -1150,7 +1150,7 @@ end
 **Notes:**
 - `move` uses a capsule approximating the body shape. Sliding is automatic.
 - Dynamic bodies sync position back to `obj.pos` each physics step — don't fight it with manual `pos=`; apply forces/velocity instead.
-- Pre-step sync pushes `obj.pos` to box2d for static/kinematic bodies, so in-place mutations like `this.pos.y -= n` work.
+- Pre-step sync pushes `obj.pos` and `obj.rotation` to box2d for static/kinematic bodies, so in-place mutations like `this.pos.y -= n` or `this.rotation += dt` work. Bodies are created with `fixedRotation = true` — orientation is script-driven, not physics-driven.
 - `move` rounds to the nearest pixel to avoid sub-pixel drift.
 - Physics runs at fixed 60Hz regardless of render `fps()` — simulation is deterministic.
 
@@ -1171,6 +1171,7 @@ Navmesh-driven pathfinding. Works with physics obstacles in its mask layers.
 | `n.arrived?` | bool | True when within ~0.5px of the goal |
 | `n.recalculate` | self | Rebuild navmesh (call when static `holes:` change, or after adding/removing Box2D bodies) |
 | `n.snap` / `n.snap = f` | Float | Quantize `next_position` to this grid. `0` = off |
+| `n.draw_debug` | self | Translucent navmesh + path + target overlay. Call from `draw` or `ui` |
 
 **Constructor kwargs:**
 
@@ -1179,7 +1180,7 @@ Navmesh-driven pathfinding. Works with physics obstacles in its mask layers.
 - `holes:` — static obstacles. Array of shapes (same types as `bounds:`). Use for level geometry that doesn't have a physics body
 - `margin:` — agent radius in px. Shrinks `bounds:` inward and inflates every hole outward so the agent's center path keeps that clearance from walls
 
-`debug(true)` renders the navmesh, path, and current target.
+`n.draw_debug` renders the navmesh, path, and current target. Place it in `draw` or `ui` for whichever draw-order you want.
 
 ```ruby
 LEVEL = rect(v2(0), resolution)
@@ -1368,9 +1369,8 @@ BOSSES[current_boss.name] = true   # finds the :grunk entry, not a new one
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `debug(yn=nil)` | bool | Enable debug mode (also via debug build) |
 | `metrics(yn=nil)` | bool | Show FPS/metrics overlay |
-| `log(*args)` | nil | Print to console (only in debug builds) |
+| `log(*args)` | nil | Print to console. Pass `--log-level debug` on CLI for verbose engine tracing |
 
 ---
 

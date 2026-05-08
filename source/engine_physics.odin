@@ -117,8 +117,8 @@ Physics_Shape_Kind :: enum {
 // ─── layer helpers ───
 
 // Convert a Ruby layer spec to a bitmask.
-// Single integer N → bit (N-1), i.e. layer 1 = 0x0001, layer 3 = 0x0004
-// Array [1, 3] → 0x0001 | 0x0004
+// Single integer N -> bit (N-1), i.e. layer 1 = 0x0001, layer 3 = 0x0004
+// Array [1, 3] -> 0x0001 | 0x0004
 layer_to_bitmask :: proc(state: mrb.State, val: mrb.Value) -> u64 {
 	if val == mrb.NIL { return 0 }
 
@@ -310,7 +310,7 @@ create_physics_body :: proc(
 	// it enabled to be detectable as visitors. Default-on everywhere.
 	shape_def.enableSensorEvents = true
 
-	// Shape filter: explicit-only. No mask → interacts with nothing. Forces
+	// Shape filter: explicit-only. No mask -> interacts with nothing. Forces
 	// users to opt-in to collisions/overlaps via layer+mask pair.
 	//
 	// Box2d contact rule: (a.cat & b.mask) && (b.cat & a.mask). Mover API's
@@ -427,7 +427,7 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 	obj.last_sync_rotation = obj.rotation
 
 	// sync back to game object pos — round to nearest pixel to avoid
-	// sub-pixel drift from box2d float math (285.999 → 286 not 285)
+	// sub-pixel drift from box2d float math (285.999 -> 286 not 285)
 	biased := new_center - obj.body_center_offset + 0.5
 	top_left := rl.Vector2{f32(int(biased.x)), f32(int(biased.y))}
 

@@ -113,7 +113,7 @@ funnel :: proc(start: Vec2, portals: [][2]Vec2, allocator := context.allocator) 
 		i += 1
 	}
 
-	// Final apex → goal leg. `to` is portals[last][0] = portals[last][1].
+	// Final apex -> goal leg. `to` is portals[last][0] = portals[last][1].
 	last := portals[len(portals) - 1][0]
 	if len(path) == 0 || !vec_eq(path[len(path) - 1], last) {
 		append(&path, last)

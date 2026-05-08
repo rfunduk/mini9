@@ -212,7 +212,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 		if current != nil && current.exit_proc != mrb.NIL {
 			argv := [3]mrb.Value{fsm.this_obj, fsm.current_state, next_state}
 			msg := fmt.tprintf(
-				"%s exit → %s",
+				"%s exit -> %s",
 				mrb.inspect(state, current.name, context.temp_allocator),
 				mrb.inspect(state, next_name, context.temp_allocator),
 			)
@@ -230,7 +230,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 		from_name :=
 			last_state == mrb.NIL ? "nil" : mrb.inspect(state, extract_native(State, last_state).name, context.temp_allocator)
 		msg := fmt.tprintf(
-			"%s → %s enter",
+			"%s -> %s enter",
 			from_name,
 			mrb.inspect(state, next.name, context.temp_allocator),
 		)

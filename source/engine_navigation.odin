@@ -239,7 +239,7 @@ inflate_polygon :: proc(poly: []rv.Vec2, margin: f32) {
 	if n < 3 || margin == 0 { return }
 
 	// Determine polygon winding so we know which perpendicular is "outward".
-	// Shoelace > 0 in math coords = CCW. For CCW edge (a→b), outward normal
+	// Shoelace > 0 in math coords = CCW. For CCW edge (a->b), outward normal
 	// points to the right of travel (dy, -dx). Flip for CW.
 	sum: f32 = 0
 	for i in 0 ..< n {
@@ -282,8 +282,8 @@ inflate_polygon :: proc(poly: []rv.Vec2, margin: f32) {
 			continue
 		}
 		// Solve v = k·(n1+n2) with v·n1 = margin and v·n2 = margin.
-		// Gives k = 2·margin / |n1+n2|². Rectangle corner (|b|²=2) → k=margin,
-		// offset magnitude = margin·√2 along diagonal → each edge shifts by margin.
+		// Gives k = 2·margin / |n1+n2|². Rectangle corner (|b|²=2) -> k=margin,
+		// offset magnitude = margin·√2 along diagonal -> each edge shifts by margin.
 		k := 2 * margin / (blen * blen)
 		out[i] = {poly[i].x + bx * k, poly[i].y + by * k}
 	}
@@ -469,10 +469,10 @@ ruby_nav_next_position :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	}
 
 	// Pick where to move next.
-	//   path empty → unreachable (target sits in a disconnected region, e.g.
+	//   path empty -> unreachable (target sits in a disconnected region, e.g.
 	//     a collider fully splits the bounds). Stand still rather than
 	//     marching in a straight line through the obstacle.
-	//   path >= 2 → follow corners.
+	//   path >= 2 -> follow corners.
 	out := parent_pos
 	if len(n.path) >= 2 {
 		idx := n.cursor + 1

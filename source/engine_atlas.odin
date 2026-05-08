@@ -197,7 +197,7 @@ pack_atlas :: proc() {
 
 	rl.SetShapesTexture(atlas_texture, atlas_white_uv)
 
-	// sprite textures → point at atlas
+	// sprite textures -> point at atlas
 	for r in rects {
 		if r.kind != .TEXTURE || !r.was_packed { continue }
 		p := &pending[r.idx]
@@ -209,7 +209,7 @@ pack_atlas :: proc() {
 		rl.UnloadImage(p.image)
 	}
 
-	// fonts → free original GPU texture, point at atlas, shift glyph rects
+	// fonts -> free original GPU texture, point at atlas, shift glyph rects
 	for r in rects {
 		if r.kind != .FONT || !r.was_packed { continue }
 		p := &pending_fonts[r.idx]
@@ -222,7 +222,7 @@ pack_atlas :: proc() {
 		rl.UnloadImage(p.image)
 	}
 
-	// spillover: textures that didn't fit → STANDALONE
+	// spillover: textures that didn't fit -> STANDALONE
 	for r in rects {
 		if r.kind != .TEXTURE || r.was_packed { continue }
 		p := &pending[r.idx]

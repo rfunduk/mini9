@@ -75,7 +75,7 @@ mrb_to_json :: proc(state: mrb.State, v: mrb.Value) -> (json.Value, bool) {
 		for i in 0 ..< n {
 			k := mrb.ary_entry(keys, c.int(i))
 			// String keys only. The Ruby `save()` wrapper normalizes
-			// Symbol → String on the way in, so by the time we get here
+			// Symbol -> String on the way in, so by the time we get here
 			// any non-String key is genuinely unsupported (e.g. Integer, nested Array).
 			// Load returns IndifferentHash — sym/string lookups both work.
 			if !mrb.string_p(k) { return nil, false }

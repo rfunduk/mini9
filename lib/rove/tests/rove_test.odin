@@ -241,7 +241,7 @@ test_find_path_around_tight_pillar :: proc(t: ^testing.T) {
 		d := path[i] - path[i - 1]
 		total += math.sqrt(d.x * d.x + d.y * d.y)
 	}
-	// Optimal detour: (5,20) → (10,17) → (30,17) → (35,20) ≈ 31.66.
+	// Optimal detour: (5,20) -> (10,17) -> (30,17) -> (35,20) ≈ 31.66.
 	// Upper bound catches gross failures (e.g. a path that wraps the wrong
 	// way around the mesh).
 	testing.expectf(t, total > 31 && total < 40, "path length %v outside sane detour range [31, 40]", total)
@@ -290,7 +290,7 @@ test_find_path_start_equals_goal :: proc(t: ^testing.T) {
 
 @(test)
 test_build_degenerate_returns_ok_false :: proc(t: ^testing.T) {
-	// Fewer than 3 verts → can't tessellate.
+	// Fewer than 3 verts -> can't tessellate.
 	poly := []rv.Vec2{{0, 0}, {1, 0}}
 	m, ok := rv.build(poly)
 	defer rv.destroy(&m)

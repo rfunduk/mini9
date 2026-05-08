@@ -225,7 +225,7 @@ draw_circle :: proc(
 	} else {
 		// DrawRing (filled annulus) instead of DrawCircleLinesV so the
 		// outline batches with other shape draws — line primitives force a
-		// batch flush → extra draw call. thickness controls ring width.
+		// batch flush -> extra draw call. thickness controls ring width.
 		inner := max(radius - thickness, 0)
 		rl.DrawRing(p, inner, radius, 0, 360, 36, color)
 	}

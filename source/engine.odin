@@ -165,7 +165,7 @@ _engine_update :: proc() {
 	{
 		// Bound the arena across the draw phase too. User draw callbacks that
 		// allocate ruby-side values (Vector2, Rect, strings, etc.) via native
-		// methods already self-manage at each ruby→native boundary, but
+		// methods already self-manage at each ruby->native boundary, but
 		// engine-internal drawing is pure odin and would otherwise leak.
 		draw_arena_idx := mrb.gc_arena_save(g.mrb_state)
 		defer mrb.gc_arena_restore(g.mrb_state, draw_arena_idx)

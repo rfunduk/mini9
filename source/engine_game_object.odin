@@ -157,12 +157,12 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	val = mrb.kwarg(state, kwargs, sym.sensor)
 	if val != mrb.NIL { sensor = mrb.boolean(val) }
 
-	// sensor: true with no body type → default to static (trigger zone)
+	// sensor: true with no body type -> default to static (trigger zone)
 	if sensor && body_type == .NONE { body_type = .STATIC }
 
-	// mask default: non-sensor with no explicit mask → "see everything"
+	// mask default: non-sensor with no explicit mask -> "see everything"
 	// (passive target semantics: walls/scenery visible to everyone). sensor
-	// default stays 0 → must opt in to what it listens for.
+	// default stays 0 -> must opt in to what it listens for.
 	if !sensor && !mask_provided { mask = 0xFFFFFFFFFFFFFFFF }
 
 	// derive physics shape from `shape:` kwarg (Circ or Rect). Required if body_type != NONE.

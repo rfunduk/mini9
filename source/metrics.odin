@@ -243,7 +243,7 @@ draw_memory_graph :: proc() {
 	threshold_text := fmt.ctprintf("Thresh: %7d", gc_threshold)
 	rl.DrawText(threshold_text, i32(graph_x + 5), i32(graph_y + 26), 10, rl.GRAY)
 
-	// Arena sample (RED if climbing unbounded → odin-side create_* without
+	// Arena sample (RED if climbing unbounded -> odin-side create_* without
 	// arena save/restore). Healthy = near zero after frame ends.
 	arena_color := rl.GRAY
 	if arena_peak > 500 { arena_color = rl.YELLOW }

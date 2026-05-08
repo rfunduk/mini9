@@ -87,11 +87,11 @@ closest_on_segment :: proc(p, a, b: Vec2) -> Vec2 {
 }
 
 // A* over triangle adjacency.
-// Cost: centroid→edge-midpoint→centroid (two-hop through shared portal).
+// Cost: centroid->edge-midpoint->centroid (two-hop through shared portal).
 //   More faithful to the actual corridor length than plain centroid-to-
 //   centroid — picks better corridors on L-shapes with skinny triangles
 //   where centroid distance underrates the detour through a portal.
-// Heuristic: euclidean centroid→goal (admissible, since any real corridor
+// Heuristic: euclidean centroid->goal (admissible, since any real corridor
 //   through portals is ≥ straight-line centroid-to-goal).
 // Returns triangle indices start..goal, empty if unreachable or endpoints
 // fall outside the mesh. Caller owns the returned slice.

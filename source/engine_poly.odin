@@ -84,7 +84,7 @@ ruby_poly_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return point_in_polygon(pt^, p.verts[:]) ? mrb.TRUE : mrb.FALSE
 }
 
-// Ray-casting point-in-polygon (odd winding count → inside).
+// Ray-casting point-in-polygon (odd winding count -> inside).
 @(private = "file")
 point_in_polygon :: proc(pt: rl.Vector2, poly: []rl.Vector2) -> bool {
 	inside := false
@@ -222,7 +222,7 @@ _triangulate_ear_clip :: proc(verts: []rl.Vector2, allocator := context.temp_all
 			b := pts[i]
 			c := pts[ni]
 
-			// convex vertex under screen-CCW winding → cross < 0
+			// convex vertex under screen-CCW winding -> cross < 0
 			cross := (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
 			if cross >= 0 { continue }
 
