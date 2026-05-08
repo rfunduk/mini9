@@ -37,8 +37,6 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	pressed_this_frame = make(map[i32]bool)
 	released_this_frame = make(map[i32]bool)
 
-	g.camera.zoom = 1
-
 	rl.SetTraceLogLevel(.ERROR)
 
 	when ODIN_OS == .JS {
@@ -51,11 +49,7 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	}
 
 	// default camera
-	g.camera = {
-		zoom   = 1,
-		target = g.resolution / 2,
-		offset = g.resolution / 2,
-	}
+	g.camera = default_camera()
 
 	// initialize mruby system & load user code
 	g.mrb_state = mrb.open()

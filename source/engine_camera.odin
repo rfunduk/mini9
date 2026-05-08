@@ -9,6 +9,10 @@ Camera_Instance :: struct {
 	original_camera: rl.Camera2D,
 }
 
+default_camera :: proc() -> rl.Camera2D {
+	return {zoom = 1, target = g.resolution / 2, offset = g.resolution / 2}
+}
+
 ruby_camera_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	// note: camera's are not gc'd, but we need a finalizer anyway
 	context = global_context
@@ -82,6 +86,9 @@ ruby_camera_set_active :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 		// deactivate all other cameras
 		for other_camera in g.cameras { other_camera.active = false }
 		g.camera = camera.rl_camera
+	} else if camera.active {
+		// deactivating the active camera -> restore default
+		g.camera = default_camera()
 	}
 	camera.active = is_active
 
