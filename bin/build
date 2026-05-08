@@ -191,7 +191,7 @@ def generate
     # aspec is the literal text from the @engine_method annotation,
     # an mruby ARGS_* expression. Render with `mrb.` prefix.
     rendered = aspec.split("|").map { |s| "mrb.#{s}" }.join("|")
-    init_content << "\tmrb.define_method(g.mrb_state, kernel_module, \"#{name}\", cast(rawptr)#{f}, #{rendered})"
+    init_content << "\tmrb.define_private_method(g.mrb_state, kernel_module, \"#{name}\", cast(rawptr)#{f}, #{rendered})"
   end
 
   # For init-type files: pre-register the data class (sets TT_DATA) BEFORE

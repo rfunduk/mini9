@@ -63,6 +63,7 @@ foreign lib {
 
 	// method definition
 	define_method :: proc(state: State, class: rawptr, name: cstring, func: rawptr, aspec: u32) ---
+	define_private_method :: proc(state: State, class: rawptr, name: cstring, func: rawptr, aspec: u32) ---
 	define_module_function :: proc(state: State, mod: rawptr, name: cstring, func: rawptr, aspec: u32) ---
 	alias_method :: proc(state: State, class: rawptr, new_name: Sym, old_name: Sym) ---
 	define_const :: proc(state: State, cla: rawptr, name: cstring, val: Value) ---

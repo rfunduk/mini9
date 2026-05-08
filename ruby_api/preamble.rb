@@ -15,6 +15,13 @@ class Object
   end
 end
 
+# `puts` and `p` route to mini9's `log` — same channel, prefixed timestamp.
+# Lets gamedevs use familiar Ruby idioms without thinking about it.
+module Kernel
+  alias_method :puts, :log
+  alias_method :p, :log
+end
+
 # Hash-like with indifferent access — Symbol and String keys are equivalent.
 # `data[:hp]` and `data["hp"]` look up the same entry. Used by the save
 # system, also handy any time game data crosses a Symbol/String boundary

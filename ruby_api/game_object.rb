@@ -18,9 +18,6 @@ class GameObject
         end
       else
         @_keys << key.to_sym
-        # auto-wire engine-internal subcomponents (Spawner, etc.) via a
-        # private `_attach(parent)` hook. User-facing `init:` proc is a
-        # separate lifecycle concern; see native obj() for when it fires.
         @_attach_keys << key if val.respond_to?(:_attach)
         instance_variable_set("@#{key}", val)
         define_singleton_method(key) { instance_variable_get("@#{key}") }
@@ -68,10 +65,4 @@ class GameObject
   end
 
   def init(*); end
-
-  # clean up global helpers like v2/etc that aren't needed on GameObject
-  # and could cause confusion
-  ENGINE_METHODS.each do |m|
-    undef_method m if method_defined?(m)
-  end
 end
