@@ -6,6 +6,11 @@ import mrb "lib:mruby"
 import rl "lib:raylib"
 import rlgl "lib:raylib/rlgl"
 
+// Compile-time flag: this is a debug build of mini9 itself (the framework),
+// not a debug build of a game made with it. Toggles framework-dev affordances
+// like SAFE_DISPATCH, default log verbosity, etc.
+ENGINE_DEBUG :: #config(ENGINE_DEBUG, false)
+
 Game_Phase :: enum {
 	INIT,
 	UPDATE,
@@ -18,7 +23,6 @@ Engine_Memory :: struct {
 	rom_path:          string,
 	title:             string,
 	resolution:        rl.Vector2,
-	debug:             bool,
 	metrics:           bool,
 	fps:               i32,
 	camera:            rl.Camera2D,

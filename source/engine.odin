@@ -24,7 +24,6 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 		rom_data    = rom_data,
 		rom_path    = strings.clone(rom_path),
 		title       = strings.clone(""),
-		debug       = ENGINE_DEBUG,
 		metrics     = false,
 		resolution  = rl.Vector2{128, 128},
 		clear_color = rl.Color{0, 0, 0, 255},
@@ -186,7 +185,6 @@ _engine_update :: proc() {
 
 		rl.BeginMode2D(g.camera)
 		call_user_draw()
-		if g.debug { draw_nav_debug() }
 		g.draw_calls += i32(g.batch.drawCounter)
 		rl.EndMode2D()
 

@@ -143,37 +143,6 @@ ruby_nav :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return ruby_obj
 }
 
-// Engine-side debug overlay — translucent Godot-style navmesh visualization.
-// Drawn on top of user art so retro palette is untouched. Gated on `debug(true)`.
-draw_nav_debug :: proc() {
-	fill_col := rl.Color{80, 200, 255, 40} // faint cyan interior
-	edge_col := rl.Color{80, 200, 255, 180} // bright cyan borders
-	path_col := rl.Color{255, 240, 60, 220} // yellow path
-	target_col := rl.Color{255, 80, 80, 255} // red target
-
-	for nav in navigators {
-		if !nav.has_mesh { continue }
-		for tri in nav.mesh.tris {
-			a := nav.mesh.verts[tri[0]]
-			b := nav.mesh.verts[tri[1]]
-			c := nav.mesh.verts[tri[2]]
-			rl.DrawTriangle(a, b, c, fill_col)
-			rl.DrawLineV(a, b, edge_col)
-			rl.DrawLineV(b, c, edge_col)
-			rl.DrawLineV(c, a, edge_col)
-		}
-		if len(nav.path) > 1 {
-			for i in 0 ..< len(nav.path) - 1 {
-				rl.DrawLineEx(nav.path[i], nav.path[i + 1], 1, path_col)
-			}
-			for p in nav.path {
-				rl.DrawCircleV(p, 1.5, path_col)
-			}
-		}
-		if nav.has_target { rl.DrawCircleV(nav.target, 2, target_col) }
-	}
-}
-
 @(private = "file")
 cleanup_new_navigator :: proc(n: ^Navigator) {
 	delete(n.bounds)
@@ -574,6 +543,41 @@ ruby_nav_get_snap :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, n == nil ? 0 : f64(n.snap))
 }
 
+// Engine-side debug overlay — translucent Godot-style navmesh visualization.
+ruby_nav_draw_debug :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	n := extract_native(Navigator, self)
+	if n == nil { return self }
+
+	fill_col := rl.Color{80, 200, 255, 40}
+	edge_col := rl.Color{80, 200, 255, 180}
+	path_col := rl.Color{255, 240, 60, 220}
+	target_col := rl.Color{255, 80, 80, 255}
+
+	if n.has_mesh {
+		for tri in n.mesh.tris {
+			a := n.mesh.verts[tri[0]]
+			b := n.mesh.verts[tri[1]]
+			c := n.mesh.verts[tri[2]]
+			rl.DrawTriangle(a, b, c, fill_col)
+			rl.DrawLineV(a, b, edge_col)
+			rl.DrawLineV(b, c, edge_col)
+			rl.DrawLineV(c, a, edge_col)
+		}
+	}
+	if len(n.path) > 1 {
+		for i in 0 ..< len(n.path) - 1 {
+			rl.DrawLineEx(n.path[i], n.path[i + 1], 1, path_col)
+		}
+		for p in n.path {
+			rl.DrawCircleV(p, 1.5, path_col)
+		}
+	}
+	if n.has_target { rl.DrawCircleV(n.target, 2, target_col) }
+
+	return self
+}
+
 cleanup_navigation :: proc() {
 	delete(navigators)
 	navigators = nil
@@ -591,4 +595,5 @@ setup_navigation :: proc() {
 	mrb.define_method(g.mrb_state, c, "recalculate", cast(rawptr)ruby_nav_recalculate, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "snap=", cast(rawptr)ruby_nav_set_snap, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "snap", cast(rawptr)ruby_nav_get_snap, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "draw_debug", cast(rawptr)ruby_nav_draw_debug, mrb.ARGS_NONE)
 }
