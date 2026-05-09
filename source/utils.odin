@@ -148,8 +148,7 @@ load_engine_bytecode :: proc(name: string, bytecode: []u8) {
 }
 
 // load and execute main.rb. when the target directory has no main.rb, fall
-// back to the embedded welcome screen (assets/welcome.rb baked into the
-// binary via #load — never written to the user's filesystem).
+// back to the embedded welcome screen (assets/welcome.rb baked in)
 load_main_rb :: proc() {
 	contents: []byte
 	filename: cstring = "main.rb"

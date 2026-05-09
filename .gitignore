@@ -2,5 +2,5 @@ build/**
 **/*__generated*
 vendor/*
 mruby.rb.lock
-*.rom
+*.m9
 *.o

@@ -17,7 +17,7 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	g^ = Engine_Memory {
 		rom_data    = rom_data,
 		rom_path    = strings.clone(rom_path),
-		title       = strings.clone(""),
+		title       = strings.clone("mini9"),
 		metrics     = false,
 		resolution  = rl.Vector2{128, 128},
 		clear_color = rl.Color{0, 0, 0, 255},
@@ -60,6 +60,7 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	engine_init_ruby_api()
 	load_main_rb()
 	determine_game_callbacks()
+	apply_metadata_title()
 
 	// WINDOW_HIGHDPI only on macOS (retina). Browser owns DPI;
 	// Linux/Windows double-scale dest_rect under HIGHDPI w/ raylib 6.0.

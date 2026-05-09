@@ -24,13 +24,18 @@ mrb_ctx: mrb.CContext
 rom_data: ^engine.Rom_Data
 
 @(private = "file")
-Rom_Metadata :: struct {
-	title:            string `json:"title"`,
-	exclude_patterns: []string `json:"exclude"`,
-	name:             string, // not user-authored — set to source dir basename at package time. used as stable save-file identity (web localStorage key, etc) so renaming the .rom doesn't orphan saves.
-	rom_size:         i64,
-	wasm_size:        i64,
-	total_size:       i64,
+Package_Build :: struct {
+	using metadata: engine.Rom_Metadata,
+
+	// not user-authored — set to source dir basename at package time.
+	// used as stable save-file identity (web localStorage key, etc)
+	// so renaming the .m9 doesn't orphan saves.
+	name:           string,
+
+	// sizes used for loading progress on web
+	rom_size:       i64,
+	wasm_size:      i64,
+	total_size:     i64,
 }
 
 packager :: proc(args: ^Args) {
@@ -47,7 +52,7 @@ packager :: proc(args: ^Args) {
 		fmt.printfln("ERROR: Unable to package game at %s, source not found.", args.source)
 	}
 
-	metadata := parse_metadata(args.source)
+	metadata := load_package_metadata(args.source)
 	metadata.name = filepath.base(args.source)
 	args.output = prepare_output_path(args)
 
@@ -92,18 +97,18 @@ packager :: proc(args: ^Args) {
 		}
 	}
 
-	// dump ROM data to binary format
+	// dump cart data to binary format
 	rom_binary := engine.rom_data_dump(rom_data, !args.web && !args.no_compress)
 	if rom_binary == nil {
-		fmt.eprintfln("ERROR: Failed to serialize ROM data")
+		fmt.eprintfln("ERROR: Failed to serialize cart data")
 		os.exit(1)
 	}
 
-	// write ROM file
+	// write cart file
 	rom_output_file := args.output
 	if args.web {
 		// also write out web stuff
-		rom_output_file, _ = filepath.join({rom_output_file, "cart.rom"}, context.temp_allocator)
+		rom_output_file, _ = filepath.join({rom_output_file, "cart.m9"}, context.temp_allocator)
 		for web_asset in engine.web_assets {
 			asset_path, _ := filepath.join({args.output, web_asset.name}, context.temp_allocator)
 			write_err := os.write_entire_file(asset_path, web_asset.data)
@@ -115,7 +120,7 @@ packager :: proc(args: ^Args) {
 	}
 	write_err := os.write_entire_file(rom_output_file, rom_binary)
 	if write_err != nil {
-		fmt.eprintfln("ERROR: Failed to write ROM file: %s", args.output)
+		fmt.eprintfln("ERROR: Failed to write cart file: %s", args.output)
 		os.exit(1)
 	}
 
@@ -126,7 +131,7 @@ packager :: proc(args: ^Args) {
 		update_html_metadata(args.output, metadata)
 		fmt.printfln("\n⟶ Packaged for Web: %s (%d bytes)...", args.output, metadata.total_size)
 	} else {
-		fmt.printfln("\n⟶ Created ROM: %s (%d bytes)", args.output, len(rom_binary))
+		fmt.printfln("\n⟶ Created cart: %s (%d bytes)", args.output, len(rom_binary))
 	}
 
 	// cleanup. each rom_data value is an owned slice from load_ruby_file
@@ -241,20 +246,20 @@ prepare_output_path :: proc(args: ^Args) -> string {
 		}
 	} else {
 		if len(output_path) == 0 {
-			// default to ./<dirname>.rom
+			// default to ./<dirname>.m9
 			abs_source, _ := filepath.abs(args.source, context.temp_allocator)
 			dir_name := filepath.base(abs_source)
-			output_path = fmt.tprintf("%s.rom", dir_name)
+			output_path = fmt.tprintf("%s.m9", dir_name)
 		} else if os.is_dir(output_path) {
-			// output is a directory, append input filename with .rom extension
+			// output is a directory, append input filename with .m9 extension
 			abs_source, _ := filepath.abs(args.source, context.temp_allocator)
 			dir_name := filepath.base(abs_source)
 			output_path, _ = filepath.join(
-				{output_path, fmt.tprintf("%s.rom", dir_name)},
+				{output_path, fmt.tprintf("%s.m9", dir_name)},
 				context.temp_allocator,
 			)
 		} else {
-			// ensure parent directory exists for the ROM file
+			// ensure parent directory exists for the cart file
 			parent_dir := filepath.dir(output_path)
 			if len(parent_dir) > 0 && parent_dir != "." {
 				mkdir_err := make_directory_recursive(parent_dir)
@@ -313,7 +318,7 @@ find_files_to_include :: proc(args: ^Args, exclude_patterns: []string) -> [dynam
 	return filtered_files
 }
 
-parse_metadata :: proc(path: string) -> (metadata: Rom_Metadata) {
+load_package_metadata :: proc(path: string) -> (build: Package_Build) {
 	metadata_path, _ := filepath.join({path, "metadata"}, context.temp_allocator)
 
 	if os.exists(metadata_path) {
@@ -323,7 +328,7 @@ parse_metadata :: proc(path: string) -> (metadata: Rom_Metadata) {
 			os.exit(1)
 		}
 
-		parse_err := json.unmarshal(data, &metadata, .SJSON, context.temp_allocator)
+		parse_err := json.unmarshal(data, &build.metadata, .SJSON, context.temp_allocator)
 		if parse_err != nil {
 			fmt.eprintfln("Error parsing metadata: %v", parse_err)
 			os.exit(1)
@@ -333,7 +338,7 @@ parse_metadata :: proc(path: string) -> (metadata: Rom_Metadata) {
 	return
 }
 
-calculate_file_sizes :: proc(path: string, metadata: ^Rom_Metadata) {
+calculate_file_sizes :: proc(path: string, metadata: ^Package_Build) {
 	w := os.walker_create_path(path)
 	defer os.walker_destroy(&w)
 	for info in os.walker_walk(&w) {
@@ -342,13 +347,13 @@ calculate_file_sizes :: proc(path: string, metadata: ^Rom_Metadata) {
 		switch info.name {
 		case "index.wasm":
 			metadata.wasm_size = info.size
-		case "cart.rom":
+		case "cart.m9":
 			metadata.rom_size = info.size
 		}
 	}
 }
 
-update_html_metadata :: proc(path: string, metadata: Rom_Metadata) {
+update_html_metadata :: proc(path: string, metadata: Package_Build) {
 	html_file, _ := filepath.join({path, "index.html"}, context.temp_allocator)
 	html_content, _ := os.read_entire_file(html_file, context.temp_allocator)
 	html_str := string(html_content)

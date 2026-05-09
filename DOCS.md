@@ -1,11 +1,8 @@
 # Mini9
 
-2D game framework. Ruby scripts on top of a native Odin/Raylib engine.
-
 A minimum game is a single `main.rb` file:
 
 ```ruby
-title("My Game")
 resolution(320, 240)
 
 def update
@@ -17,8 +14,6 @@ def draw
   circ(v2(160, 120), 20).draw(color: P.red, filled: true)
 end
 ```
-
-`P` is predefined as a copy of `Palette::DEFAULT` — no setup needed for the built-in colors.
 
 Run it: `mini9 /path/to/game/`.
 
@@ -104,20 +99,20 @@ exclude = ["**/*.aseprite", ".DS_Store", "notes.txt"]
 
 | Key | Type | Notes |
 |---|---|---|
-| `title` | string | Window title. Overrides `title()` from `main.rb` when packaging |
-| `exclude` | array of glob strings | Files to omit from `.rom` packaging |
+| `title` | string | Window/browser title |
+| `exclude` | array of glob strings | Files to omit from packaging |
 
 ### Running
 
 ```
 mini9 path/to/my_game/        # run from a directory
-mini9 path/to/my_game.rom     # run a packaged ROM
+mini9 path/to/my_game.m9      # run a packaged cart
 ```
 
 ### Packaging
 
 ```
-mini9 package --source my_game --output .          # → my_game.rom
+mini9 package --source my_game --output .          # → my_game.m9
 mini9 package --web --source my_game --output .    # → my_game/ + index.html
 ```
 
@@ -163,7 +158,6 @@ Call during load (before the first frame). Most setup functions can only be chan
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `title(str)` | nil | Window title |
 | `resolution(w, h=w)` | Vector2 | Internal render resolution. Window scales to fit |
 | `fps(target)` | Integer | Target framerate. Minimum 5. INIT phase only |
 | `fullscreen(yn=nil)` | bool | No args → current state. Not available on web |
@@ -293,7 +287,7 @@ Load a GIMP `.gpl` palette file. Colors become methods on the palette object, na
 | Signature | Returns | Notes |
 |---|---|---|
 | `palette(path)` | Palette | Loads a `.gpl` file |
-| `pal[name_or_index]` | Color | Lookup by name (string/symbol) or by integer index |
+| `pal[name_or_index]`, `pal.<name>` | Color | Lookup by name (string/symbol) or by integer index |
 | `pal.count` | Integer | Number of colors |
 | `pal.colors` | Array[Color] | All colors in file order |
 | `pal.path` | String | Source path |
@@ -1171,7 +1165,7 @@ Navmesh-driven pathfinding. Works with physics obstacles in its mask layers.
 | `n.arrived?` | bool | True when within ~0.5px of the goal |
 | `n.recalculate` | self | Rebuild navmesh (call when static `holes:` change, or after adding/removing Box2D bodies) |
 | `n.snap` / `n.snap = f` | Float | Quantize `next_position` to this grid. `0` = off |
-| `n.draw_debug` | self | Translucent navmesh + path + target overlay. Call from `draw` or `ui` |
+| `n.draw_debug` | self | Translucent navmesh + path + target overlay |
 
 **Constructor kwargs:**
 
@@ -1179,8 +1173,6 @@ Navmesh-driven pathfinding. Works with physics obstacles in its mask layers.
 - `mask:` — Box2D layer number (1..64) or Array of layer numbers. Bodies on these layers are extracted as navmesh holes every `recalculate`
 - `holes:` — static obstacles. Array of shapes (same types as `bounds:`). Use for level geometry that doesn't have a physics body
 - `margin:` — agent radius in px. Shrinks `bounds:` inward and inflates every hole outward so the agent's center path keeps that clearance from walls
-
-`n.draw_debug` renders the navmesh, path, and current target. Place it in `draw` or `ui` for whichever draw-order you want.
 
 ```ruby
 LEVEL = rect(v2(0), resolution)
@@ -1303,9 +1295,9 @@ LEVEL.lines.each_with_index { |row, y| parse_row(row, y) }
 ## Save & Load
 
 Persistent key-value store. One JSON blob per game. On native, written sibling
-to the `.rom` (or `save.m9` inside the game dir when running unpackaged). On web,
+to the `.m9` (or `save.m9s` inside the game dir when running unpackaged). On web,
 stored in `localStorage` under a key derived from the source dir basename at
-package time — survives `.rom` renames, doesn't collide across games.
+package time — survives `.m9` renames, doesn't collide across games.
 
 Plain JSON on disk — players can hand-edit their save. That's intentional.
 

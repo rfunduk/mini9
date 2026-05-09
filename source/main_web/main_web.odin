@@ -29,8 +29,8 @@ main_start :: proc "c" () {
 
 	web_context = context
 
-	// load ROM data from JavaScript
-	rom_data: ^engine.Rom_Data = engine.get_rom_data("cart.rom")
+	// load cart data from JavaScript
+	rom_data: ^engine.Rom_Data = engine.get_rom_data("cart.m9")
 
 	engine.engine_init(rom_data)
 }

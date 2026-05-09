@@ -1,5 +1,5 @@
 # save / load persistent key-value data. backing store is a small JSON file
-# sibling to the .rom (native) or a localStorage entry keyed by game name
+# sibling to the .m9 (native) or a localStorage entry keyed by game name
 # (web). plain text on disk — users can hand-edit their saves. that's a
 # feature.
 #

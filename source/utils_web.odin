@@ -66,7 +66,7 @@ _read_entire_file :: proc(
 	data: []byte,
 	success: bool,
 ) {
-	// first check ROM data if available
+	// first check cart data if available
 	if g.rom_data != nil {
 		if rom_file_data, found := g.rom_data[name]; found {
 			// clone: see utils_native.odin for rationale. Callers assume
@@ -77,7 +77,7 @@ _read_entire_file :: proc(
 		}
 	}
 
-	log.errorf("File not found in ROM: %v", name)
+	log.errorf("File not found in cart: %v", name)
 	return
 }
 
@@ -116,7 +116,7 @@ _write_entire_file :: proc(name: string, data: []byte, truncate := true) -> (suc
 }
 
 _file_exists :: proc(name: string) -> bool {
-	// first check ROM data if available
+	// first check cart data if available
 	if g.rom_data != nil {
 		if _, found := g.rom_data[name]; found {
 			return true
@@ -156,27 +156,27 @@ _compress_data :: proc(data: []u8) -> (compressed: []u8, ok: bool) {
 }
 
 _decompress_data :: proc(compressed_data: []u8, expected_size: int) -> []u8 {
-	// no decompression needed in web builds since ROMs are uncompressed
-	log.error("Attempted to decompress data in web build - ROMs should be uncompressed")
+	// no decompression needed in web builds since carts are uncompressed
+	log.error("Attempted to decompress data in web build - cart should be uncompressed")
 	return nil
 }
 
 get_rom_data :: proc(_: cstring) -> ^Rom_Data {
 	rom_size := web_get_rom_size()
 	if rom_size > 0 {
-		// allocate buffer for ROM data
+		// allocate buffer for cart data
 		rom_buffer := make([]u8, rom_size)
 
-		// ask JavaScript to copy ROM data into our buffer
+		// ask JavaScript to copy cart data into our buffer
 		web_load_rom_data(raw_data(rom_buffer))
 
-		// parse the ROM data
+		// parse the cart data
 		rom_data := new(Rom_Data)
 		if rom_data_load(rom_buffer, rom_data) {
-			log.infof("✓ Loaded ROM data with %d files", len(rom_data))
+			log.infof("✓ Loaded cart data with %d files", len(rom_data))
 			return rom_data
 		} else {
-			log.error("Failed to parse ROM data")
+			log.error("Failed to parse cart data")
 			free(rom_data)
 			return nil
 		}

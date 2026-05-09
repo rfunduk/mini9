@@ -1,21 +1,15 @@
 # Mini9 welcome screen when no game loaded
 
-title("mini9 — no game loaded")
 resolution(320, 180)
 fps(60)
 
-SNIPPET_BOX = rect(v2(24, 58), v2(272, 76))
+SNIPPET_BOX = rect(v2(24, 58), v2(272, 66))
 
 # token-based syntax highlighting. each line is an array of [text, color]
 # pairs which we draw left-to-right, advancing x by text.measure.x. that
 # gives us correct kerning on the variable-width pixel fonts without any
 # manual measurement.
 SNIPPET = [
-  [['title',      P.blue],
-   ['(',          P.white],
-   ['"My Game"',  P.green],
-   [')',          P.white]],
-
   [['def ',       P.magenta],
    ['update',     P.yellow]],
 
@@ -35,29 +29,47 @@ SNIPPET = [
    ['(',          P.white],
    ['"hi"',       P.green],
    [', ',         P.white],
-   ['v2',         P.blue],
-   ['(10, 10), ', P.white],
    ['Font',       P.peach],
    ['::',         P.white],
    ['SMALL',      P.peach],
-   [')',          P.white]],
+   [').draw(',    P.white],
+   ['offset:',    P.orange],
+   [' v2',        P.blue],
+   ['(10)',       P.white]],
 
   [['end',        P.magenta]],
 ]
 
+g.ball = v2()
+
+TRAIL = particles(
+  max: 100,
+  rate: 50,
+  lifetime: 4.5,
+  pos: v2(0),
+  accel: v2(0, 5),
+  shape: :pixel,
+  color: range(P.pink, color(0,0,0,0), 8),
+  start: false
+)
+
 def update
   quit if pressed?(:escape)
+
+  g.ball = v2(
+    160 + Math.sin(time * 1.4) * 120,
+    152 + (Math.sin(time * 4.2).abs * -8)
+  )
+  TRAIL.pos = circ(g.ball, 2)
+  TRAIL.start
 end
 
 def draw
   clear(P.dark_blue)
-
-  # bouncing ball — shows rendering and the update loop are alive
-  t = time
-  bx = 160 + Math.sin(t * 1.4) * 120
-  by = 152 + (Math.sin(t * 4.2).abs * -8)
+  TRAIL.draw
   line(v2(40, 156), v2(280, 156)).draw(color: P.light_gray)
-  circ(v2(bx, by), 4).draw(filled: true, color: P.yellow)
+  rect(v2(30, 157), v2(280, 156)).draw(color: P.dark_blue, filled: true)
+  circ(g.ball, 5).draw(filled: true, color: P.yellow)
 end
 
 def ui

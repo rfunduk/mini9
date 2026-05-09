@@ -31,7 +31,7 @@ Compression_Algorithm :: enum u8 {
 rom_data_dump :: proc(rom_data: ^Rom_Data, use_compression := true) -> []u8 {
 	if rom_data == nil || len(rom_data) == 0 { return nil }
 
-	// create uncompressed ROM payload (no headers - just file table + data)
+	// create uncompressed cart payload (no headers - just file table + data)
 	uncompressed_payload := build_rom_payload(rom_data)
 	defer delete(uncompressed_payload)
 
@@ -42,7 +42,7 @@ rom_data_dump :: proc(rom_data: ^Rom_Data, use_compression := true) -> []u8 {
 	defer { if compressed_data != nil { delete(compressed_data) } }
 
 	if use_compression {
-		// compress the ROM payload
+		// compress the cart payload
 		compress_ok: bool
 		compressed_data, compress_ok = _compress_data(uncompressed_payload)
 
@@ -155,7 +155,7 @@ rom_data_load :: proc(data: []u8, rom_data: ^Rom_Data) -> bool {
 		return false
 	}
 
-	// parse decompressed ROM data
+	// parse decompressed cart data
 	return parse_rom_data(decompressed_buffer, rom_data)
 }
 
@@ -211,7 +211,7 @@ parse_rom_data :: proc(data: []u8, rom_data: ^Rom_Data) -> bool {
 
 @(private = "file")
 build_rom_payload :: proc(rom_data: ^Rom_Data) -> []u8 {
-	// calculate size needed for payload (without ROM headers)
+	// calculate size needed for payload (without cart headers)
 	file_table_size := 0
 	data_size := 0
 

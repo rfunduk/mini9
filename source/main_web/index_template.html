@@ -116,7 +116,7 @@
 
                 function makeStreamer(which) {
                     return response => {
-                        if (!response.ok) { throw new Error(`Failed to fetch ROM: ${response.status}`) }
+                        if (!response.ok) { throw new Error(`Failed to fetch cart: ${response.status}`) }
                         const reader = response.body.getReader()
                         const stream = new ReadableStream({
                             start(controller) {
@@ -144,7 +144,7 @@
                     }
                 }
 
-                const romFetch = fetch("cart.rom").then(makeStreamer("rom")).then(async response =>
+                const romFetch = fetch("cart.m9").then(makeStreamer("rom")).then(async response =>
                     romData = new Uint8Array(await response.arrayBuffer())
                 )
 

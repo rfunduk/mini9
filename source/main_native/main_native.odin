@@ -14,7 +14,7 @@ Args :: struct {
 	command:     string `args:"pos=0" usage:"command (package), or game file path"`,
 	source:      string `args:"name=source,name=s" usage:"source directory for packaging"`,
 	output:      string `args:"name=output,name=o" usage:"output file path for packaging"`,
-	no_compress: bool `args:"name=no-compress" usage:"disable ROM compression"`,
+	no_compress: bool `args:"name=no-compress" usage:"disable cart compression"`,
 	web:         bool `args:"name=web" usage:"create web build with embedded assets"`,
 	log_level:   string `args:"name=log-level" usage:"engine log level: debug, info, warn, error (default: warn release / debug debug-build)"`,
 }
@@ -65,7 +65,7 @@ main :: proc() {
 
 	rom_data: ^engine.Rom_Data = nil
 
-	// check if command is a path to a ROM file
+	// check if command is a path to a cart file
 	if len(args.command) > 0 {
 		if os.is_dir(args.command) {
 			os.chdir(args.command)

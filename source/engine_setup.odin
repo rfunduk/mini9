@@ -1,6 +1,5 @@
 package engine
 
-import "core:strings"
 import mrb "lib:mruby"
 import rl "lib:raylib"
 
@@ -87,21 +86,6 @@ ruby_resolution :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	g.resolution = {f32(w), f32(h)}
 	return create_vector2(g.resolution)
-}
-
-// RUBY FUNCTION: title(title) -> sets window title
-// @engine_method: name="title", aspec=ARGS_REQ(1)
-ruby_title :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	title_val: mrb.Value
-	mrb.get_args(state, "o", &title_val)
-
-	str_obj := mrb.obj_as_string(state, title_val)
-	c_str := mrb.str_to_cstr(state, str_obj)
-
-	delete(g.title)
-	g.title = strings.clone_from_cstring(c_str)
-	return mrb.NIL
 }
 
 // RUBY FUNCTION: cursor(enabled) -> enables/disables cursor, returns current state

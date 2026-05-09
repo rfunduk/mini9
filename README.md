@@ -1,46 +1,67 @@
 <img src="./assets/mini9.png" alt="mini9" width=674 />
 
-Here we have a game... ... I want to say 'framework'...? Yes, a **game framework**. I'd describe it as bigger than [pico](https://www.lexaloffle.com/pico-8.php)-size, but not much. And limitations-wise, there certainly are some, but it's more flexible than an [8](https://www.lexaloffle.com/pico-8.php)... see what I'm getting at?
-
-## But really what is it?
-
-I really like pico-8 but I'm old and I just want to do whatever I want, see? I like limitations but it's just too much. I want to make art in aseprite and just load it up. I absolutely cannot make a decent sound effect or music to save my life in pico-8. Also lua is not really my speed; it's fine, but I would rather not.
-
-So here we have a _slightly larger_, _slightly more flexible_ thing. It's written in [Odin](https://odin-lang.org) and uses [Ruby](https://www.ruby-lang.org/) as the game language (actually [mruby](https://mruby.org/) so no gems/etc).
+A 2D game framework for writing games with Ruby. More batteries than a fantasy console, less than an engine.
 
 See [DOCS.md](DOCS.md) for the full API reference.
+
+### Quick Start
 
 Make a directory with a `main.rb`:
 
 ```ruby
+g.target = resolution/2
+
 def update
   quit if pressed?(:escape)
+  g.target = g.target.move_toward(mouse, 50*dt)
 end
 
 def draw
-  rect(mouse - v2(16), v2(32)).draw(
-    filled: true,
-    color: P.blue
-  )
+  rect(v2(16)).draw(offset: g.target - v2(8), filled: true, color: P.blue)
+  circ(5).draw(offset: mouse, filled: true, color: P.yellow)
 end
 ```
 
-See below for how to build & run that.
+
+## Usage
+
+Download latest release, put it in `PATH`. <small>I have no idea if any of this works on Windows and I provide no consideration whatsoever for that case, so sorry.</small>
+
+### Run your game
+
+```bash
+mini9 path/to/mygame
+```
+
+### Package a 'cart'
+
+```bash
+mini9 package --source path/to/mygame --output .
+mini9 mygame.m9
+```
+
+### Package for web
+
+```bash
+mini9 package --web --source path/to/mygame --output .
+# ./mygame dir contains index.html, cart, etc
+```
 
 
-## More specific details on how to get going.
+## Dev
 
-### Install dependencies
+### Prerequisites
 
-- `odin` in `PATH` is required.
-- `ruby` in `PATH` is required.
-- [`mruby`](https://mruby.org/) is needed, run: `bin/setup`
-- Emscripten is how the web magic works, also via: `bin/setup`
+- `odin` [2026-05](https://github.com/odin-lang/Odin/releases/tag/dev-2026-05)
+- `ruby` 3.4+
+- `git`, `cmake`, `make`, `cc`, `bison`, `python3`
+- on Linux: `libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev libxkbcommon-dev`, `libwayland-dev wayland-protocols`
 
-I should put up releases in this repo, but for now you need all that to get this going.
+### Setup dependencies
 
-Hopefully goes without saying I have no idea if any of this works on Windows and I provide no consideration whatsoever for that case, so sorry.
-
+```bash
+bin/setup
+```
 
 ### Build (`debug` or `release`)
 
@@ -48,34 +69,10 @@ Hopefully goes without saying I have no idea if any of this works on Windows and
 bin/build debug
 ```
 
-### Run your game
-
-```bash
-build/debug/mini9 path/to/mygame
-```
-
 ### Try it in browser
 
-This handy little script relies on `python3` in `PATH` for the webserver.
+This handy little script packages up the game and starts an appropriate webserver:
 
 ```bash
 bin/dev_web path/to/mygame
-```
-
-### Package a 'cart'
-
-```bash
-build/debug/mini9 package \
-  --source path/to/mygame \
-  --output .
-build/debug/mini9 mygame.rom
-```
-
-### Package for web
-
-```bash
-build/debug/mini9 package --web \
-  --source path/to/mygame \
-  --output .
-# ./mygame contains index.html, etc
 ```

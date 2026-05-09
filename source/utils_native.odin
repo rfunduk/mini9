@@ -48,7 +48,7 @@ init_game_window :: proc() {
 get_rom_data :: proc(path: string) -> ^Rom_Data {
 	rom_file_data, read_err := os.read_entire_file(path, context.allocator)
 	if read_err != nil {
-		log.errorf("Error: Failed to read ROM file: %s", path)
+		log.errorf("Error: Failed to read cart file: %s", path)
 		os.exit(1)
 	}
 	// rom_data_load copies every file's bytes out into its own owned slice
@@ -58,10 +58,10 @@ get_rom_data :: proc(path: string) -> ^Rom_Data {
 
 	rom_data := new(Rom_Data)
 	if !rom_data_load(rom_file_data, rom_data) {
-		log.errorf("Error: Failed to parse ROM file: %s", path)
+		log.errorf("Error: Failed to parse cart file: %s", path)
 		os.exit(1)
 	}
-	log.infof("✓ Loaded ROM: %s (%d bytes)", path, len(rom_file_data))
+	log.infof("✓ Loaded cart: %s (%d bytes)", path, len(rom_file_data))
 	return rom_data
 }
 
@@ -73,7 +73,7 @@ _read_entire_file :: proc(
 	data: []byte,
 	success: bool,
 ) {
-	// first check ROM data if available
+	// first check cart data if available
 	if g.rom_data != nil {
 		if rom_file_data, found := g.rom_data[name]; found {
 			// clone: callers (sound/texture/data_file/import/palette/music)
@@ -96,17 +96,17 @@ _write_entire_file :: proc(name: string, data: []byte, truncate := true) -> (suc
 }
 
 // path for the save file, derived from the rom path passed at engine_init.
-// rom mode: `<rom sans .rom>.m9` (sibling of the rom, so renaming rom orphans
+// rom mode: `<rom sans .m9>.m9s` (sibling of the rom, so renaming rom orphans
 // the save — accept tradeoff; using metadata name would add runtime parse).
-// dir mode: `./save.m9` in cwd (main_native chdirs into the game dir).
+// dir mode: `./save.m9s` in cwd (main_native chdirs into the game dir).
 _save_file_path :: proc(allocator := context.temp_allocator) -> string {
 	if len(g.rom_path) > 0 && os.is_file(g.rom_path) {
 		ext := filepath.ext(g.rom_path)
 		base := g.rom_path[:len(g.rom_path) - len(ext)]
-		return strings.concatenate({base, ".m9"}, allocator)
+		return strings.concatenate({base, ".m9s"}, allocator)
 	}
 	// dir mode: main_native chdirs into the game dir, so cwd = game dir
-	return strings.clone("save.m9", allocator)
+	return strings.clone("save.m9s", allocator)
 }
 
 _save_file_read :: proc(allocator := context.allocator) -> (data: []byte, ok: bool) {
@@ -122,7 +122,7 @@ _save_file_write :: proc(data: []byte) -> bool {
 }
 
 _file_exists :: proc(name: string) -> bool {
-	// first check ROM data if available
+	// first check cart data if available
 	if g.rom_data != nil {
 		if _, found := g.rom_data[name]; found {
 			return true
