@@ -99,14 +99,10 @@ ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_anim_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
-	dt_val: mrb.Value
-	mrb.get_args(state, "o", &dt_val)
-
 	anim := extract_native(Anim, self)
 	if anim == nil { return mrb.NIL }
 
-	dt := f32(mrb.to_f64(dt_val))
-	anim.timer -= dt
+	anim.timer -= FIXED_DT
 	if anim.timer > 0 { return mrb.NIL }
 
 	anim.timer += anim.interval
@@ -266,7 +262,7 @@ ruby_anim_last :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 setup_animation :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Anim")
 
-	mrb.define_method(g.mrb_state, c, "update", cast(rawptr)ruby_anim_update, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "update", cast(rawptr)ruby_anim_update, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "reset", cast(rawptr)ruby_anim_reset, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "current", cast(rawptr)ruby_anim_current, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "index", cast(rawptr)ruby_anim_index, mrb.ARGS_NONE)

@@ -324,7 +324,7 @@ ruby_music_fade_time :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 }
 
 // music system update - handles streaming, fades and cleanup
-update_music_system :: proc(dt: f32) {
+update_music_system :: proc() {
 	for music in g.music {
 		if !music.active { continue }
 
@@ -338,7 +338,7 @@ update_music_system :: proc(dt: f32) {
 				music.fade_target,
 				music.fade_speed,
 				music.volume,
-				dt,
+				FIXED_DT,
 			)
 			music.fade_time = new_fade_time
 			music.volume = new_volume

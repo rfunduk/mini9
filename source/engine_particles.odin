@@ -418,14 +418,13 @@ particles_spawn_one :: proc(p: ^Particles_Instance) {
 	if !was_alive { p.count += 1 }
 }
 
-update_particles :: proc(dt: f64) {
+update_particles :: proc() {
 	if len(particles_list) == 0 { return }
 
-	dtf := f32(dt)
 	for p in particles_list {
 		if p.destroyed { continue }
 		if p.running && p.rate > 0 {
-			p.accum += dtf * p.rate
+			p.accum += FIXED_DT * p.rate
 			for p.accum >= 1 {
 				particles_spawn_one(p)
 				p.accum -= 1
@@ -437,7 +436,7 @@ update_particles :: proc(dt: f64) {
 		_, has_ang_accel_curve := p.ang_accel_spec.spec.(Curve)
 		for i in 0 ..< p.max {
 			if p.life[i] <= 0 { continue }
-			p.life[i] -= dtf
+			p.life[i] -= FIXED_DT
 			if p.life[i] <= 0 {
 				p.count -= 1
 				continue
@@ -445,21 +444,21 @@ update_particles :: proc(dt: f64) {
 			t := 1 - p.life[i] / p.max_life[i]
 			acc := p.accel[i]
 			if has_accel_curve { acc = eval_v2(p.accel_spec, t, {0, 0}) }
-			p.vel[i] += acc * dtf
+			p.vel[i] += acc * FIXED_DT
 			if has_drag {
 				d := clamp(eval_f(p.drag_spec, t, 0), 0, 1)
 				p.vel[i] *= 1 - d
 			}
-			p.pos[i] += p.vel[i] * dtf
+			p.pos[i] += p.vel[i] * FIXED_DT
 
 			ang_acc := p.ang_accel[i]
 			if has_ang_accel_curve { ang_acc = eval_f(p.ang_accel_spec, t, 0) }
-			p.ang_vel[i] += ang_acc * dtf
+			p.ang_vel[i] += ang_acc * FIXED_DT
 			if has_ang_drag {
 				d := clamp(eval_f(p.ang_drag_spec, t, 0), 0, 1)
 				p.ang_vel[i] *= 1 - d
 			}
-			p.rot[i] += p.ang_vel[i] * dtf
+			p.rot[i] += p.ang_vel[i] * FIXED_DT
 		}
 	}
 

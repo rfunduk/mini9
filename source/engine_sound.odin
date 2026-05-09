@@ -359,7 +359,7 @@ ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 // audio system update - handles fades and cleanup
-update_audio_system :: proc(dt: f32) {
+update_audio_system :: proc() {
 	for sound in g.sounds {
 		for &instance in sound.instances {
 			if !instance.active { continue }
@@ -371,7 +371,7 @@ update_audio_system :: proc(dt: f32) {
 					instance.fade_target,
 					instance.fade_speed,
 					instance.volume,
-					dt,
+					FIXED_DT,
 				)
 				instance.fade_time = new_fade_time
 				instance.volume = new_volume

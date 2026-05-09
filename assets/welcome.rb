@@ -17,8 +17,7 @@ SNIPPET = [
    [')',          P.white]],
 
   [['def ',       P.magenta],
-   ['update',     P.yellow],
-   ['(dt)',       P.white]],
+   ['update',     P.yellow]],
 
   [['    quit ',  P.blue],
    ['if ',        P.magenta],
@@ -46,7 +45,7 @@ SNIPPET = [
   [['end',        P.magenta]],
 ]
 
-def update(dt)
+def update
   quit if pressed?(:escape)
 end
 

@@ -164,7 +164,7 @@ ruby_timer_remaining :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 }
 
 // Called once per fixed-timestep tick before user update.
-update_timers :: proc(dt: f64) {
+update_timers :: proc() {
 	if len(timers) == 0 { return }
 
 	// snapshot length so timers added during a callback don't fire this tick
@@ -173,7 +173,7 @@ update_timers :: proc(dt: f64) {
 		t := timers[i]
 		if t.finished { continue }
 
-		t.elapsed += dt
+		t.elapsed += f64(FIXED_DT)
 		for t.elapsed >= t.interval && !t.finished {
 			fire_timer(t)
 			if t.repeating {

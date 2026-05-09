@@ -56,6 +56,13 @@ ruby_time :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, rl.GetTime())
 }
 
+// RUBY FUNCTION: dt() -> fixed timestep delta in seconds
+// @engine_method: name="dt", aspec=ARGS_NONE
+ruby_dt :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	return mrb.word_boxing_float_value(state, f64(FIXED_DT))
+}
+
 // RUBY FUNCTION: quit() -> exits the game
 // @engine_method: name="quit", aspec=ARGS_NONE
 ruby_quit :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {

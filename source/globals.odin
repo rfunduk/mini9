@@ -11,6 +11,12 @@ import rlgl "lib:raylib/rlgl"
 // like SAFE_DISPATCH, default log verbosity, etc.
 ENGINE_DEBUG :: #config(ENGINE_DEBUG, false)
 
+// 16.67ms fixed timestep
+FIXED_DT: f32 = 1.0 / 60.0
+
+// cap at 250ms (prevents spiral of death)
+MAX_FRAME_TIME: f32 = 0.25
+
 Game_Phase :: enum {
 	INIT,
 	UPDATE,
@@ -36,10 +42,7 @@ Engine_Memory :: struct {
 	dest_rect:         rl.Rectangle,
 	batch:             rlgl.RenderBatch,
 	draw_calls:        i32,
-	has_init:          bool,
-	has_event:         bool,
 	has_update:        bool,
-	wants_dt:          bool,
 	has_draw:          bool,
 	has_ui:            bool,
 	frame_count:       u32,

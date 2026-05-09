@@ -158,7 +158,7 @@ setup_physics :: proc() {
 	physics_world = b2.CreateWorld(world_def)
 }
 
-step_physics :: proc(dt: f32) {
+step_physics :: proc() {
 	if !b2.World_IsValid(physics_world) { return }
 
 	// Push any user-driven body positions to box2d before stepping — catches
@@ -170,13 +170,13 @@ step_physics :: proc(dt: f32) {
 	if dynamic_body_count == 0 {
 		// Still need a step so sensor overlap begin/end events fire when
 		// kinematic-driven (position-set) bodies move into sensors.
-		b2.World_Step(physics_world, dt, PHYSICS_SUB_STEPS)
+		b2.World_Step(physics_world, FIXED_DT, PHYSICS_SUB_STEPS)
 		drain_sensor_events()
 		flush_destroyed_bodies()
 		return
 	}
 
-	b2.World_Step(physics_world, dt, PHYSICS_SUB_STEPS)
+	b2.World_Step(physics_world, FIXED_DT, PHYSICS_SUB_STEPS)
 	drain_sensor_events()
 	sync_dynamic_bodies()
 	flush_destroyed_bodies()

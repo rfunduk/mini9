@@ -8,7 +8,7 @@ A minimum game is a single `main.rb` file:
 title("My Game")
 resolution(320, 240)
 
-def update(dt)
+def update
   quit if pressed?(:escape)
 end
 
@@ -131,14 +131,14 @@ Define any of these top-level methods and the engine will call them each frame. 
 
 | Method | When called | Notes |
 |---|---|---|
-| `update(dt=nil)` | Each frame, before draw | `dt` is optional — declare it if you want delta time in seconds |
+| `update` | Each frame, before draw | |
 | `draw` | Each frame, inside camera transform | Render the world |
 | `ui` | Each frame, outside camera transform | Render HUD/menus (no zoom, no camera offset) |
 | `event(e)` | Once per dispatched custom event | `e` is a `CustomEvent` with `.message` and `.data` |
 
 ```ruby
-def update(dt)
-  PLAYER.move(dt)
+def update
+  PLAYER.move
 end
 
 def draw
@@ -169,6 +169,7 @@ Call during load (before the first frame). Most setup functions can only be chan
 | `fullscreen(yn=nil)` | bool | No args → current state. Not available on web |
 | `cursor(yn=nil)` | bool | Show/hide OS cursor |
 | `time` | Float | Seconds since game started |
+| `dt` | Float | Delta time |
 | `quit` | nil | Exit the game |
 | `web?` | bool | True if running in browser |
 | `assert(yn, message=nil)` | nil | Raises `RuntimeError` if `yn` is falsy |
@@ -577,7 +578,7 @@ Frame-based animations that cycle through a set of values on a timer.
 | Signature | Returns | Notes |
 |---|---|---|
 | `anim(interval:, values:, direction: 1, mode: Anim::LOOP)` | Anim | |
-| `a.update(dt)` | nil | Call each frame |
+| `a.update` | nil | Call each frame |
 | `a.reset` | nil | |
 | `a.current` | any | Current value from `values` |
 | `a.index` | Integer | Current index into `values` |
@@ -593,8 +594,8 @@ Frame-based animations that cycle through a set of values on a timer.
 ```ruby
 WALK = anim(interval: 0.1, values: [0, 1, 2, 3])
 
-def update(dt)
-  WALK.update(dt)
+def update
+  WALK.update
   PLAYER_SPRITE.frame = WALK.current
 end
 ```
@@ -641,8 +642,8 @@ Concat ranges for piecewise curves — each segment's count controls its time we
 ```ruby
 fade = anim(interval: 0.05, values: range(255, 0, 30, easing: Easing::CUBIC_OUT))
 
-def update(dt)
-  fade.update(dt)
+def update
+  fade.update
   clear(color(0, 0, 0, fade.current))
 end
 ```
@@ -781,7 +782,7 @@ BOOM = particles(
          range(P.dark_gray, P.light_gray, 3),
 )
 
-def update(dt)
+def update
   BOOM.burst(50) if pressed?(:space)
 end
 ```
@@ -918,7 +919,7 @@ Every `draw` call is camera-transformed. `ui` is not.
 ```ruby
 CAM = camera(target: v2(160, 120), zoom: 2.0)
 
-def update(dt)
+def update
   CAM.target = CAM.target.lerp(PLAYER.pos, 0.1)
 end
 ```
@@ -938,7 +939,7 @@ A sampled noise-based shake. Apply the `offset` to whatever you want to shake.
 ```ruby
 SHAKE = shake
 
-def update(dt)
+def update
   SHAKE.shake(0.3, 20, 4) if pressed?(:space)
 end
 
@@ -974,7 +975,7 @@ PLAYER = obj(
   health: 100,
   velocity: v2(0),
 
-  update: ->(this, dt) {
+  update: ->(this) {
     this.pos += this.velocity * dt
   },
 
@@ -983,8 +984,8 @@ PLAYER = obj(
   }
 )
 
-def update(dt); PLAYER.update(dt); end
-def draw; PLAYER.draw; end
+def update = PLAYER.update
+def draw= PLAYER.draw
 ```
 
 ---
@@ -997,7 +998,7 @@ Used for per-entity state (player idle/run/jump) or game states (menu/play/pause
 |---|---|---|
 | `state(name, enter: nil, update: nil, exit: nil)` | State | Callbacks receive `(this, state, ...)` depending on arity |
 | `fsm(default:, states:)` | FSM | |
-| `f.update(dt)` | nil | Drives the current state |
+| `f.update` | nil | Drives the current state |
 | `f.transition(name)` | nil | Force a transition |
 | `f.state` | State | Current state |
 | `s.name` | Symbol | |
@@ -1011,7 +1012,6 @@ State callback arities are detected automatically:
 - 0-arg: `->() { ... }`
 - 1-arg: `->(this) { ... }`
 - 2-arg: `->(this, state) { ... }`
-- 3-arg (update only): `->(this, state, dt) { ... }`
 
 ```ruby
 PLAYER = obj(
@@ -1021,20 +1021,20 @@ PLAYER = obj(
   fsm: fsm(default: :idle, states: [
     state(:idle,
       enter: ->(this) { this.sprite.frame = 0 },
-      update: ->(this, state, dt) {
+      update: ->(this, state) {
         state.transition(:run) if get_axis(%i{a d}, %i{w s}).length > 0
       }
     ),
     state(:run,
-      update: ->(this, state, dt) {
-        WALK_ANIM.update(dt)
+      update: ->(this, state) {
+        WALK_ANIM.update
         this.sprite.frame = WALK_ANIM.frame
       }
     )
   ])
 )
 
-def update(dt) = PLAYER.fsm.update(dt)
+def update = PLAYER.fsm.update
 ```
 
 ---
@@ -1083,7 +1083,7 @@ destroy: ->(this) {
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `o.move(velocity, dt)` | Vector2 | Mover API for kinematic bodies. Cast + slide. Returns velocity clipped by collision planes |
+| `o.move(velocity)` | Vector2 | Mover API for kinematic bodies. Cast + slide. Returns velocity clipped by collision planes |
 | `o.velocity` / `o.velocity = v2` | Vector2 | Dynamic body linear velocity |
 | `o.impulse(v2)` | self | Instant velocity change (dynamic only) |
 | `o.force(v2)` | self | Continuous force (dynamic only) |
@@ -1141,9 +1141,9 @@ COIN = obj(
   }
 )
 
-def update(dt)
+def update
   vel = get_axis(%i{a d}, %i{w s}) * 100
-  PLAYER.move(vel, dt)
+  PLAYER.move(vel)
 end
 ```
 
@@ -1194,7 +1194,7 @@ PLAYER = obj(
     holes:  [WALL],
     margin: 8 # keep 6px clear of walls
   ),
-  update: ->(this, dt) {
+  update: ->(this) {
     this.navigator.target = mouse if down?(:left_mouse)
     this.pos = this.pos.move_toward(this.navigator.next_position, this.speed * dt)
   },
@@ -1203,9 +1203,9 @@ PLAYER = obj(
   }
 )
 
-def update(dt)
+def update
   quit if pressed?(:escape)
-  PLAYER.update(dt)
+  PLAYER.update
 end
 def draw
   WALL.draw(filled: true)
@@ -1239,7 +1239,7 @@ Subscriber callbacks can take 0 or 1 arguments; arity is detected.
 ```ruby
 subscribe(:coin_collected, ->(e) { g.score += e.data[:value] })
 
-def update(dt)
+def update
   dispatch(:coin_collected, value: 100) if PLAYER.overlaps?(COIN)
 end
 ```
@@ -1408,12 +1408,12 @@ PLAYER = obj(
   speed: 80
 )
 
-def update(dt)
+def update
   dir = get_axis(%i{a d}, %i{w s})
   PLAYER.pos += dir * PLAYER.speed * dt
 
   if dir.length > 0
-    WALK.update(dt)
+    WALK.update
     PLAYER.sprite.frame = WALK.current
     PLAYER.sprite.fliph = true  if dir.x < 0
     PLAYER.sprite.fliph = false if dir.x > 0
@@ -1437,7 +1437,7 @@ g.score = 0
 
 subscribe(:coin_collected, ->(e) { g.score += e.data[:value] })
 
-def update(dt)
+def update
   dispatch(:coin_collected, value: 10) if pressed?(:space)
 end
 

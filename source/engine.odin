@@ -8,12 +8,6 @@ import rl "lib:raylib"
 import rlgl "lib:raylib/rlgl"
 
 @(private = "file")
-FIXED_DT: f32 = 1.0 / 60.0 // 16.67ms fixed timestep
-
-@(private = "file")
-MAX_FRAME_TIME: f32 = 0.25 // cap at 250ms (prevents spiral of death)
-
-@(private = "file")
 accumulator: f32
 
 _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
@@ -138,22 +132,22 @@ _engine_update :: proc() {
 		call_user_events()
 
 		// fire any timers whose interval has elapsed
-		update_timers(f64(FIXED_DT))
+		update_timers()
 
 		// integrate particle systems
-		update_particles(f64(FIXED_DT))
+		update_particles()
 
 		// user update gets consistent fixed timestep
-		call_user_update(FIXED_DT)
+		call_user_update()
 
 		// only update audio systems if audio is initialized
 		if g.audio_initialized {
-			update_audio_system(FIXED_DT)
-			update_music_system(FIXED_DT)
+			update_audio_system()
+			update_music_system()
 		}
 
 		update_shake_system()
-		step_physics(FIXED_DT)
+		step_physics()
 
 		accumulator -= FIXED_DT
 	}

@@ -389,12 +389,11 @@ ruby_go_set_visible :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	return yn_val
 }
 
-// RUBY METHOD: obj.move(velocity, dt) -> mover API, returns clipped velocity
+// RUBY METHOD: obj.move(velocity) -> mover API, returns clipped velocity
 ruby_go_move :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	vel_val: mrb.Value
-	dt: f64
-	mrb.get_args(state, "of", &vel_val, &dt)
+	mrb.get_args(state, "o", &vel_val)
 
 	obj := extract_native(Game_Object, self)
 	if obj == nil || !b2.Body_IsValid(obj.body_id) { return create_vector2({0, 0}) }
@@ -402,7 +401,7 @@ ruby_go_move :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	vel := extract_native(rl.Vector2, vel_val)
 	if vel == nil { return create_vector2({0, 0}) }
 
-	clipped := physics_move(obj, vel^, f32(dt))
+	clipped := physics_move(obj, vel^, FIXED_DT)
 	return create_vector2(clipped)
 }
 
@@ -537,7 +536,7 @@ setup_game_object :: proc() {
 	mrb.define_method(g.mrb_state, c, "visible=", cast(rawptr)ruby_go_set_visible, mrb.ARGS_REQ(1))
 
 	// physics methods
-	mrb.define_method(g.mrb_state, c, "move", cast(rawptr)ruby_go_move, mrb.ARGS_REQ(2))
+	mrb.define_method(g.mrb_state, c, "move", cast(rawptr)ruby_go_move, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "impulse", cast(rawptr)ruby_go_impulse, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "force", cast(rawptr)ruby_go_force, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "velocity", cast(rawptr)ruby_go_get_velocity, mrb.ARGS_NONE)

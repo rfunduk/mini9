@@ -29,10 +29,10 @@ FSM :: struct {
 // variadic / arity > 3). `ctx_msg` is logged before the exception handler
 // on raise so the user sees which transition blew up.
 @(private)
-dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: ^[3]mrb.Value, ctx_msg: string) -> bool {
+dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: []mrb.Value, ctx_msg: string) -> bool {
 	effective := arity
-	if effective < 0 || effective > 3 { effective = 3 }
-	ok, exc := mrb.protected_funcall(g.mrb_state, block, "call", c.int(effective), raw_data(argv[:]))
+	if effective < 0 || effective > i32(len(argv)) { effective = i32(len(argv)) }
+	ok, exc := mrb.protected_funcall(g.mrb_state, block, "call", c.int(effective), raw_data(argv))
 	if !ok {
 		log.errorf("[FSM] %s raised:", ctx_msg)
 		handle_ruby_exception(g.mrb_state, exc, .FSM_CALLBACK)
@@ -216,7 +216,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 				mrb.inspect(state, current.name, context.temp_allocator),
 				mrb.inspect(state, next_name, context.temp_allocator),
 			)
-			dispatch_fsm_callback(current.exit_proc, current.exit_arity, &argv, msg)
+			dispatch_fsm_callback(current.exit_proc, current.exit_arity, argv[:], msg)
 		}
 	}
 
@@ -234,7 +234,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 			from_name,
 			mrb.inspect(state, next.name, context.temp_allocator),
 		)
-		dispatch_fsm_callback(next.enter_proc, next.enter_arity, &argv, msg)
+		dispatch_fsm_callback(next.enter_proc, next.enter_arity, argv[:], msg)
 	}
 }
 
@@ -252,12 +252,8 @@ ruby_fsm_transition :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	return mrb.NIL
 }
 
-// FSM.update(dt) - the hot path we're optimizing
 ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-
-	dt_val: mrb.Value
-	mrb.get_args(state, "o", &dt_val)
 
 	fsm := extract_native(FSM, self)
 	if fsm == nil { return mrb.NIL }
@@ -269,9 +265,9 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if current == nil { return mrb.NIL }
 
 	if current.update_proc != mrb.NIL {
-		argv := [3]mrb.Value{fsm.this_obj, fsm.current_state, dt_val}
+		argv := [2]mrb.Value{fsm.this_obj, fsm.current_state}
 		msg := fmt.tprintf("%s update", mrb.inspect(state, current.name, context.temp_allocator))
-		dispatch_fsm_callback(current.update_proc, current.update_arity, &argv, msg)
+		dispatch_fsm_callback(current.update_proc, current.update_arity, argv[:], msg)
 	}
 
 	return mrb.NIL
@@ -337,7 +333,7 @@ setup_state_machine :: proc() {
 	// Setup FSM class
 	fc := mrb.get_data_class(g.mrb_state, "FSM")
 	mrb.define_method(g.mrb_state, fc, "_attach", cast(rawptr)ruby_fsm_attach, mrb.ARGS_REQ(1))
-	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, fc, "state", cast(rawptr)ruby_fsm_state, mrb.ARGS_NONE)
 }
