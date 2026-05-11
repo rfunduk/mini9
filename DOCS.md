@@ -598,40 +598,75 @@ end
 
 ## Tweening
 
-Time-based interpolation from one value to another, with easing. Works on Numerics and Vector2s.
+Time-based interpolation from one value to another, with easing. Works on Numerics and Vector2s. Tweens auto-update each tick until finished.
 
-| Signature | Returns | Notes |
+`tween(from, to, duration, delay: 0, easing: Easing::LINEAR) { |t| ... }` starts a tween. The block fires every frame with the tween object — read `t.value` to get the current interpolated value and assign it wherever it belongs.
+
+```ruby
+tween(v2(0), v2(100, 50), 1.0, easing: Easing::CUBIC_OUT) do |t|
+  g.player.pos = t.value
+end
+```
+
+Capture the return value to query state or stop early:
+
+```ruby
+g.slide = tween(0.0, 320.0, 0.8) { |t| g.banner_x = t.value }
+g.slide.stop if pressed?(:escape)
+```
+
+Chain tweens by checking `just_finished?` inside the block — true for exactly one frame at the end:
+
+```ruby
+def oscillate(obj)
+  target = v2(randf_range(0, resolution.x), randf_range(0, resolution.y))
+  tween(obj.pos, target, 1.0, easing: Easing::SINE_IN_OUT) do |t|
+    obj.pos = t.value
+    next unless t.just_finished?
+    tween(t.value, obj.home, 1.0, easing: Easing::SINE_IN_OUT) do |t2|
+      obj.pos = t2.value
+      oscillate(obj) if t2.just_finished?
+    end
+  end
+end
+```
+
+| Method | Returns | Notes |
 |---|---|---|
-| `tween(from, to, duration, delay: 0, easing: Easing::LINEAR) { \|value\| ... }` | Tween | Block fires every frame |
 | `t.value` | Numeric/Vector2 | Current interpolated value |
-| `t.running?` | bool | |
-| `t.finished?` | bool | |
+| `t.running?` | bool | Active and not finished |
+| `t.finished?` | bool | Completed |
 | `t.just_finished?` | bool | True for exactly one frame |
-| `t.time_left` | Float | Seconds |
+| `t.time_left` | Float | Seconds remaining (0 when done) |
 | `t.progress` | Float | 0.0–1.0 |
-| `t.stop` | nil | |
+| `t.stop` | nil | Cancel immediately |
 
 **Easing constants** (all `Easing::*`):
 
 `LINEAR`, plus `IN` / `OUT` / `IN_OUT` variants of: `QUADRATIC`, `CUBIC`, `QUARTIC`, `QUINTIC`, `SINE`, `CIRCULAR`, `EXPONENTIAL`, `ELASTIC`, `BACK`, `BOUNCE`. Total: 31 easings.
 
+### Easing helpers
+
+The same easing curves are exposed two more ways, for cases where a full tween is overkill.
+
+`ease(t, easing)` evaluates an easing function at `t` (0.0–1.0). One-shot — no tween object, no allocation. Good for driving a value off `time` or a manually tracked phase:
+
 ```ruby
-tween(v2(0), v2(100, 50), 1.0, easing: Easing::CUBIC_OUT) do |pos|
-  PLAYER.pos = pos
-end
+# soften the corners of a triangle wave into a smooth bob
+phase = (time % 2.0) / 2.0
+tri   = phase < 0.5 ? phase * 2.0 : (1.0 - phase) * 2.0
+g.player.y = 100 + ease(tri, Easing::SINE_IN_OUT) * 8
 ```
 
-`ease(t, Easing::LINEAR)` returns the eased value of `t` (0.0–1.0). Useful standalone.
-
-`range(from, to, count, easing: Easing::LINEAR)` returns an Array of `count` values from `from` to `to`, with easing applied. First and last entries are exactly `from` / `to`. `count` must be ≥ 2. Supports Numeric, Vector2, and Color — type is detected from `from`/`to` (both must match). Feed into `anim`'s `values:` for eased sequences, or pass directly to `particles` for curve-over-life:
+`range(from, to, count, easing: Easing::LINEAR)` pre-samples an easing curve into an Array of `count` values. First and last entries are exactly `from` / `to`; `count` must be ≥ 2. Supports Numeric, Vector2, and Color (channel-lerped) — type is detected from `from`/`to` (both must match).
 
 ```ruby
 range(1.0, 0.0, 20)                 # Array of 20 Floats
 range(v2(0), v2(100, 50), 10)       # Array of 10 Vector2s
-range(P.yellow, P.red, 8)           # Array of 8 Colors (channel-lerped)
+range(P.yellow, P.red, 8)           # Array of 8 Colors
 ```
 
-Concat ranges for piecewise curves — each segment's count controls its time weight:
+Feed it into `anim`'s `values:` for eased sequences, or pass directly to `particles` for curve-over-life:
 
 ```ruby
 fade = anim(interval: 0.05, values: range(255, 0, 30, easing: Easing::CUBIC_OUT))
@@ -641,6 +676,8 @@ def update
   clear(color(0, 0, 0, fade.current))
 end
 ```
+
+Concat ranges for piecewise curves — each segment's count controls its time weight.
 
 ---
 
@@ -1098,7 +1135,32 @@ Dispatch rules: every object involved in a sensor interaction gets exactly one `
 | Signature | Returns | Notes |
 |---|---|---|
 | `gravity(v2)` or `gravity(n)` | nil | Set world gravity. Number form is y-only |
-| `raycast(origin, direction, mask)` | `[hit, point, normal, fraction]` | Ray against all bodies on layers in `mask` |
+| `raycast(origin:, direction:, mask: ALL, limit: 1, shape: nil)` | `Array[Hit]` | Cast ray (or sweep shape) through the world. See below |
+
+**Raycast:**
+
+```ruby
+hits = raycast(
+  origin:    v2(100, 100),
+  direction: v2(200, 0),    # vector — magnitude = max distance
+  mask:      [1, 3],        # default: all layers
+  limit:     1,             # default 1; -1 = unlimited
+  shape:     nil,           # nil = ray; Circ / Rect = swept shape cast
+)
+hits.each { |h| puts "hit #{h.collider} at #{h.point} (frac=#{h.fraction})" }
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `h.point` | Vector2 | World-space hit point |
+| `h.normal` | Vector2 | Surface normal at hit |
+| `h.fraction` | Float | 0..1 along `direction` (so `origin + direction * fraction == point`) |
+| `h.collider` | GameObject | The body that was hit |
+
+- `direction` is a translation vector — its **magnitude is the cast distance**. `direction: v2(200, 0)` casts 200 units to the right.
+- Returns `[]` on miss; never nil.
+- `limit: 1` returns at most one hit (closest). `limit: -1` collects every shape on the ray. Hit order is box2d traversal order, not strictly sorted by distance.
+- `shape:` accepts `Circ` or `Rect` for swept shape casts. The shape's `x`/`y` are ignored (warning logged) — the cast always starts at `origin:`. Use the short forms: `circ(r)`, `rect(v2(w, h))`.
 
 **Layers:** plain integers `1..64`. Pass a single int or an array for multi-layer: `layer: [1, 3]`.
 

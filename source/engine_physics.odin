@@ -1,5 +1,6 @@
 package engine
 
+import "core:log"
 import b2 "lib:box2d"
 import mrb "lib:mruby"
 import rl "lib:raylib"
@@ -472,45 +473,137 @@ ruby_gravity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 // ─── raycast ───
 
-// RUBY FUNCTION: raycast(origin, direction, mask) -> [hit, point, normal, fraction]
-// @engine_method: name="raycast", aspec=ARGS_REQ(3)
+@(private = "file")
+Cast_Ctx :: struct {
+	results: mrb.Value,
+	limit:   i32, // -1 = unlimited
+	count:   i32,
+}
+
+@(private = "file")
+build_hit :: proc(shape_id: b2.ShapeId, point, normal: b2.Vec2, fraction: f32) -> mrb.Value {
+	s := g.mrb_state
+	hit_class := mrb.class_get(s, "Hit")
+	pt := create_vector2({point.x, point.y})
+	nm := create_vector2({normal.x, normal.y})
+	fr := mrb.word_boxing_float_value(s, f64(fraction))
+	coll := obj_value_from_shape(shape_id)
+	args := [4]mrb.Value{pt, nm, fr, coll}
+	return mrb.obj_new(s, hit_class, 4, raw_data(args[:]))
+}
+
+@(private = "file")
+raycast_callback :: proc "c" (
+	shape_id: b2.ShapeId,
+	point, normal: b2.Vec2,
+	fraction: f32,
+	raw_ctx: rawptr,
+) -> f32 {
+	context = global_context
+	c := cast(^Cast_Ctx)raw_ctx
+	hit := build_hit(shape_id, point, normal, fraction)
+	mrb.ary_push(g.mrb_state, c.results, hit)
+	c.count += 1
+	if c.limit > 0 && c.count >= c.limit { return 0 } 	// terminate
+	return -1 // skip + continue (collect all hits)
+}
+
+// RUBY FUNCTION: raycast(origin:, direction:, mask: ALL, limit: 1, shape: nil) -> [Hit, ...]
+// @engine_method: name="raycast", aspec=ARGS_OPT(1)
 ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
-	origin_val, dir_val, mask_val: mrb.Value
-	mrb.get_args(state, "ooo", &origin_val, &dir_val, &mask_val)
+	kwargs: mrb.Value
+	mrb.get_args(state, "|H", &kwargs)
+	if kwargs == mrb.NIL {
+		return mrb.raise_error(state, "ArgumentError", "raycast requires keyword arguments")
+	}
 
+	origin_val := mrb.kwarg(state, kwargs, sym.origin)
+	if origin_val == mrb.NIL { origin_val = create_vector2({}) }
 	origin := extract_native(rl.Vector2, origin_val)
+	if origin == nil {
+		return mrb.raise_error(state, "TypeError", "raycast: `origin:` must be a Vector2")
+	}
+
+	dir_val := mrb.kwarg(state, kwargs, sym.direction)
+	if dir_val == mrb.NIL {
+		return mrb.raise_error(state, "ArgumentError", "raycast: missing `direction:`")
+	}
 	dir := extract_native(rl.Vector2, dir_val)
-	if origin == nil || dir == nil { return mrb.NIL }
+	if dir == nil {
+		return mrb.raise_error(state, "TypeError", "raycast: `direction:` must be a Vector2")
+	}
 
-	query_filter := b2.DefaultQueryFilter()
-	query_filter.maskBits = u64(mrb.integer(mask_val))
-	query_filter.categoryBits = 0xFFFFFFFFFFFFFFFF
+	mask: u64 = 0xFFFFFFFFFFFFFFFF
+	if v := mrb.kwarg(state, kwargs, sym.mask); v != mrb.NIL {
+		mask = layer_to_bitmask(state, v)
+	}
 
-	result := b2.World_CastRayClosest(physics_world, {origin.x, origin.y}, {dir.x, dir.y}, query_filter)
+	limit: i32 = 1
+	if v := mrb.kwarg(state, kwargs, sym.limit); v != mrb.NIL {
+		if !mrb.integer_p(v) {
+			return mrb.raise_error(state, "TypeError", "raycast: `limit:` must be an Integer")
+		}
+		limit = i32(mrb.integer(v))
+	}
 
-	result_array := mrb.ary_new(g.mrb_state)
-	mrb.ary_push(g.mrb_state, result_array, result.hit ? mrb.TRUE : mrb.FALSE)
-	mrb.ary_push(
-		g.mrb_state,
-		result_array,
-		result.hit ? create_vector2({result.point.x, result.point.y}) : mrb.NIL,
-	)
-	mrb.ary_push(
-		g.mrb_state,
-		result_array,
-		result.hit ? create_vector2({result.normal.x, result.normal.y}) : mrb.NIL,
-	)
-	mrb.ary_push(g.mrb_state, result_array, mrb.word_boxing_float_value(state, f64(result.fraction)))
+	filter := b2.DefaultQueryFilter()
+	filter.categoryBits = 0xFFFFFFFFFFFFFFFF
+	filter.maskBits = mask
 
-	return result_array
+	// Validate `shape:` (if any) BEFORE allocating the results array — keeps
+	// error paths free of GC roots that would need cleanup. raise_error uses
+	// longjmp and skips deferred unregister.
+	shape_val := mrb.kwarg(state, kwargs, sym.shape)
+	if shape_val != mrb.NIL && !is_native(Circ, shape_val) && !is_native(rl.Rectangle, shape_val) {
+		return mrb.raise_error(state, "TypeError", "raycast: `shape:` must be nil, Circ, or Rect")
+	}
+
+	results := mrb.ary_new(g.mrb_state)
+
+	// limit == 0 short-circuits — no work, empty result
+	if limit == 0 { return results }
+
+	mrb.gc_register(state, results)
+	defer mrb.gc_unregister(state, results)
+
+	ctx := Cast_Ctx {
+		results = results,
+		limit   = limit,
+		count   = 0,
+	}
+
+	if shape_val == mrb.NIL {
+		_ = b2.World_CastRay(physics_world, origin^, dir^, filter, raycast_callback, &ctx)
+	} else if is_native(Circ, shape_val) {
+		c := extract_native(Circ, shape_val)
+		if c.cx != 0 || c.cy != 0 {
+			log.warnf("raycast: Circ shape position (%v, %v) ignored — cast happens at `origin:`", c.cx, c.cy)
+		}
+		pts := [1]b2.Vec2{origin^}
+		proxy := b2.MakeProxy(pts[:], c.r)
+		_ = b2.World_CastShape(physics_world, proxy, dir^, filter, raycast_callback, &ctx)
+	} else {
+		// rl.Rectangle (validated above)
+		r := extract_native(rl.Rectangle, shape_val)
+		if r.x != 0 || r.y != 0 {
+			log.warnf("raycast: Rect shape position (%v, %v) ignored — cast happens at `origin:`", r.x, r.y)
+		}
+		hw := r.width / 2
+		hh := r.height / 2
+		cx := origin^.x
+		cy := origin^.y
+		pts := [4]b2.Vec2{{cx - hw, cy - hh}, {cx + hw, cy - hh}, {cx + hw, cy + hh}, {cx - hw, cy + hh}}
+		proxy := b2.MakeProxy(pts[:], 0)
+		_ = b2.World_CastShape(physics_world, proxy, dir^, filter, raycast_callback, &ctx)
+	}
+
+	return results
 }
 
 cleanup_physics :: proc() {
-	if b2.World_IsValid(physics_world) {
-		b2.DestroyWorld(physics_world)
-	}
+	if b2.World_IsValid(physics_world) { b2.DestroyWorld(physics_world) }
 	delete(user_driven_bodies)
 	user_driven_bodies = nil
 	delete(pending_destroy_bodies)
