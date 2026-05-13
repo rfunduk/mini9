@@ -58,6 +58,17 @@ Prop :: struct {
 	ref:  mrb.Value, // gc-registered ruby obj (NIL when not needed)
 }
 
+Particle :: struct {
+	pos:       rl.Vector2,
+	vel:       rl.Vector2,
+	accel:     rl.Vector2,
+	rot:       f32,
+	ang_vel:   f32,
+	ang_accel: f32,
+	life:      f32,
+	max_life:  f32,
+}
+
 Particles_Instance :: struct {
 	ruby_obj:       mrb.Value,
 	max:            i32,
@@ -82,15 +93,7 @@ Particles_Instance :: struct {
 	drag_spec:      Prop,
 	ang_drag_spec:  Prop,
 
-	// SOA
-	pos:            []rl.Vector2,
-	vel:            []rl.Vector2,
-	accel:          []rl.Vector2,
-	rot:            []f32,
-	ang_vel:        []f32,
-	ang_accel:      []f32,
-	life:           []f32,
-	max_life:       []f32,
+	particles:      #soa[]Particle,
 }
 
 PARTICLE_PROPS :: 11
@@ -126,35 +129,13 @@ particles_unregister_refs :: proc(state: mrb.State, p: ^Particles_Instance) {
 
 @(private = "file")
 particles_free_storage :: proc(p: ^Particles_Instance) {
-	delete(p.pos)
-	delete(p.vel)
-	delete(p.accel)
-	delete(p.rot)
-	delete(p.ang_vel)
-	delete(p.ang_accel)
-	delete(p.life)
-	delete(p.max_life)
-	p.pos = nil
-	p.vel = nil
-	p.accel = nil
-	p.rot = nil
-	p.ang_vel = nil
-	p.ang_accel = nil
-	p.life = nil
-	p.max_life = nil
+	delete_soa(p.particles)
+	p.particles = nil
 }
 
 @(private = "file")
 particles_alloc_storage :: proc(p: ^Particles_Instance) {
-	n := int(p.max)
-	p.pos = make([]rl.Vector2, n)
-	p.vel = make([]rl.Vector2, n)
-	p.accel = make([]rl.Vector2, n)
-	p.rot = make([]f32, n)
-	p.ang_vel = make([]f32, n)
-	p.ang_accel = make([]f32, n)
-	p.life = make([]f32, n)
-	p.max_life = make([]f32, n)
+	p.particles = make(#soa[]Particle, int(p.max))
 }
 
 // Parse a ruby value into a Prop. Type-sniffs to determine variant.
@@ -404,16 +385,17 @@ ruby_particles :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 @(private = "file")
 particles_spawn_one :: proc(p: ^Particles_Instance) {
 	i := p.head
-	was_alive := p.life[i] > 0
+	parts := p.particles
+	was_alive := parts[i].life > 0
 	life := sample_f(p.lifetime, 1)
-	p.pos[i] = sample_v2(p.pos_spec, {0, 0})
-	p.vel[i] = sample_v2(p.vel_spec, {0, 0})
-	p.accel[i] = sample_v2(p.accel_spec, {0, 0})
-	p.rot[i] = sample_f(p.rot_spec, 0)
-	p.ang_vel[i] = sample_f(p.ang_vel_spec, 0)
-	p.ang_accel[i] = sample_f(p.ang_accel_spec, 0)
-	p.life[i] = life
-	p.max_life[i] = life
+	parts[i].pos = sample_v2(p.pos_spec, {0, 0})
+	parts[i].vel = sample_v2(p.vel_spec, {0, 0})
+	parts[i].accel = sample_v2(p.accel_spec, {0, 0})
+	parts[i].rot = sample_f(p.rot_spec, 0)
+	parts[i].ang_vel = sample_f(p.ang_vel_spec, 0)
+	parts[i].ang_accel = sample_f(p.ang_accel_spec, 0)
+	parts[i].life = life
+	parts[i].max_life = life
 	p.head = (p.head + 1) % p.max
 	if !was_alive { p.count += 1 }
 }
@@ -434,31 +416,32 @@ update_particles :: proc() {
 		has_ang_drag := p.ang_drag_spec.spec != nil
 		_, has_accel_curve := p.accel_spec.spec.(Curve)
 		_, has_ang_accel_curve := p.ang_accel_spec.spec.(Curve)
+		parts := p.particles
 		for i in 0 ..< p.max {
-			if p.life[i] <= 0 { continue }
-			p.life[i] -= FIXED_DT
-			if p.life[i] <= 0 {
+			if parts[i].life <= 0 { continue }
+			parts[i].life -= FIXED_DT
+			if parts[i].life <= 0 {
 				p.count -= 1
 				continue
 			}
-			t := 1 - p.life[i] / p.max_life[i]
-			acc := p.accel[i]
+			t := 1 - parts[i].life / parts[i].max_life
+			acc := parts[i].accel
 			if has_accel_curve { acc = eval_v2(p.accel_spec, t, {0, 0}) }
-			p.vel[i] += acc * FIXED_DT
+			parts[i].vel += acc * FIXED_DT
 			if has_drag {
 				d := clamp(eval_f(p.drag_spec, t, 0), 0, 1)
-				p.vel[i] *= 1 - d
+				parts[i].vel *= 1 - d
 			}
-			p.pos[i] += p.vel[i] * FIXED_DT
+			parts[i].pos += parts[i].vel * FIXED_DT
 
-			ang_acc := p.ang_accel[i]
+			ang_acc := parts[i].ang_accel
 			if has_ang_accel_curve { ang_acc = eval_f(p.ang_accel_spec, t, 0) }
-			p.ang_vel[i] += ang_acc * FIXED_DT
+			parts[i].ang_vel += ang_acc * FIXED_DT
 			if has_ang_drag {
 				d := clamp(eval_f(p.ang_drag_spec, t, 0), 0, 1)
-				p.ang_vel[i] *= 1 - d
+				parts[i].ang_vel *= 1 - d
 			}
-			p.rot[i] += p.ang_vel[i] * FIXED_DT
+			parts[i].rot += parts[i].ang_vel * FIXED_DT
 		}
 	}
 
@@ -485,43 +468,44 @@ ruby_particles_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	p := extract_native(Particles_Instance, self)
 	if p == nil { return mrb.NIL }
 
+	parts := p.particles
 	switch p.shape {
 	case .Pixel:
 		for i in 0 ..< p.max {
-			if p.life[i] <= 0 { continue }
-			t := 1 - p.life[i] / p.max_life[i]
+			if parts[i].life <= 0 { continue }
+			t := 1 - parts[i].life / parts[i].max_life
 			c := eval_color(p.color_spec, t, rl.WHITE)
-			rl.DrawRectanglePro({p.pos[i].x, p.pos[i].y, 1, 1}, {0, 0}, 0, c)
+			rl.DrawRectanglePro({parts[i].pos.x, parts[i].pos.y, 1, 1}, {0, 0}, 0, c)
 		}
 	case .Rect:
 		for i in 0 ..< p.max {
-			if p.life[i] <= 0 { continue }
-			t := 1 - p.life[i] / p.max_life[i]
+			if parts[i].life <= 0 { continue }
+			t := 1 - parts[i].life / parts[i].max_life
 			s := eval_size(p.size_spec, t, {1, 1})
 			c := eval_color(p.color_spec, t, rl.WHITE)
-			rl.DrawRectanglePro({p.pos[i].x, p.pos[i].y, s.x, s.y}, s * 0.5, p.rot[i] * RAD_TO_DEG, c)
+			rl.DrawRectanglePro({parts[i].pos.x, parts[i].pos.y, s.x, s.y}, s * 0.5, parts[i].rot * RAD_TO_DEG, c)
 		}
 	case .Circle:
 		for i in 0 ..< p.max {
-			if p.life[i] <= 0 { continue }
-			t := 1 - p.life[i] / p.max_life[i]
+			if parts[i].life <= 0 { continue }
+			t := 1 - parts[i].life / parts[i].max_life
 			s := eval_size(p.size_spec, t, {1, 1})
 			c := eval_color(p.color_spec, t, rl.WHITE)
-			rl.DrawCircleSector(p.pos[i], s.x, 0, 360, 12, c)
+			rl.DrawCircleSector(parts[i].pos, s.x, 0, 360, 12, c)
 		}
 	case .Line:
 		for i in 0 ..< p.max {
-			if p.life[i] <= 0 { continue }
-			t := 1 - p.life[i] / p.max_life[i]
+			if parts[i].life <= 0 { continue }
+			t := 1 - parts[i].life / parts[i].max_life
 			delta := eval_size(p.size_spec, t, {1, 1})
 			c := eval_color(p.color_spec, t, rl.WHITE)
 			length := math.sqrt(delta.x * delta.x + delta.y * delta.y)
 			if length > 0 {
-				angle_deg := (math.atan2(delta.y, delta.x) + p.rot[i]) * RAD_TO_DEG
+				angle_deg := (math.atan2(delta.y, delta.x) + parts[i].rot) * RAD_TO_DEG
 				rl.DrawTexturePro(
 					atlas_texture,
 					atlas_white_uv,
-					{p.pos[i].x, p.pos[i].y, length, 1},
+					{parts[i].pos.x, parts[i].pos.y, length, 1},
 					{0, 0.5},
 					angle_deg,
 					c,
