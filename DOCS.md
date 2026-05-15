@@ -1072,56 +1072,72 @@ def update = PLAYER.fsm.update
 
 ## Collision/Physics
 
-Box2D-backed physics. Enable on a game object by passing `body:` to `obj(...)`. The collision shape is derived from the object's `shape:` kwarg — `Circ` → box2d circle, `Rect` → box2d polygon.
+Box2D-backed physics. Attach physics to a game object by passing a `body(...)` to `obj(...)`:
 
-**Body kwargs on `obj(...)`:**
+```ruby
+obj(pos: v2(100), body: body(:dynamic, shape: circ(8), spin: true))
+```
 
-| Kwarg | Type | Notes |
+No `body:` kwarg → no physics.
+
+**`body(type, ...)` constructor:**
+
+| Param | Type | Notes |
 |---|---|---|
-| `body:` | `:static` / `:kinematic` / `:dynamic` | Omit for no physics (unless `sensor: true`, which defaults to `:static`) |
-| `shape:` | `Circ` or `Rect` | **Required** when `body:` is set. Drives collision geometry |
+| `type` (positional) | `:static` / `:kinematic` / `:dynamic` | Required |
+| `shape:` | `Circ` or `Rect` | **Required.** Drives collision geometry |
 | `sensor:` | bool | Pass-through "trigger" — generates events without blocking movement |
-| `layer:` | Integer `1..64` or Array | Layer(s) this body is ON |
+| `layer:` | Integer `1..64` | Single layer this body is ON |
 | `mask:` | Integer `1..64` or Array | Layer(s) this body interacts WITH. Default for non-sensors: all layers. Default for sensors: none — must opt in |
 | `density:` | Float | Default `1.0` (dynamic mass calculation) |
 | `friction:` | Float | Default `0.3` (tangential contact resistance) |
 | `restitution:` | Float | Default `0.0` (bounciness, 0 = dead stop, 1 = elastic) |
 | `drag:` | Float | Default `0.0` (linear damping — velocity bleed per step) |
+| `spin:` | bool | Default `false`. `true` lets the solver rotate the body (rolling, tumbling). `:dynamic` only |
+| `ang_drag:` | Float | Default `0.0` (angular damping — only meaningful when `spin: true`) |
 
 **Body types:**
 - `:static` — never moves (walls, level geometry)
-- `:kinematic` — moved manually via `pos=` or `move()` (players, platforms, bullets)
+- `:kinematic` — moved manually via `pos=` or `body.move()` (players, platforms, bullets)
 - `:dynamic` — simulated, responds to forces, gravity, contacts
 
 **Body center positioning:** the body's collision center is derived from the shape's natural origin. For `circ(r)` (no offset), `pos` is the center. For `rect(v2(w,h))` (no offset), `pos` is the top-left — matches how each shape draws.
 
-**Lifecycle:**
+**Accessing the body:** `obj.body` returns the `Body` (or `nil` if no physics).
+
+**Body methods:**
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `o.destroy_body` | nil | Tear down the box2d body immediately. Idempotent. Mruby object lives until GC |
+| `b.type` | Symbol | `:static` / `:kinematic` / `:dynamic` |
+| `b.shape` | `Circ` / `Rect` | The collision shape passed at construction |
+| `b.sensor?` | bool | |
+| `b.spin?` | bool | |
+| `b.layer` | Integer | The 1..64 layer index (single bit) |
+| `b.mask` | Integer | Raw bitmask. Use bit ops to test |
+| `b.move(velocity)` | Vector2 | Mover API for kinematic bodies. Cast + slide. Returns clipped velocity |
+| `b.linear_vel` / `b.linear_vel = v2` | Vector2 | Linear velocity |
+| `b.angular_vel` / `b.angular_vel = f` | Float | Angular velocity, radians/sec (`spin: true` bodies) |
+| `b.apply_force(v2)` | self | Continuous force (dynamic only) |
+| `b.apply_impulse(v2)` | self | Instant velocity change (dynamic only) |
+| `b.apply_torque(f)` | self | Continuous torque (dynamic + `spin: true`) |
+| `b.density` / `b.density = f` | Float | Live mass property |
+| `b.friction` / `b.friction = f` | Float | |
+| `b.restitution` / `b.restitution = f` | Float | |
+| `b.destroy` | nil | Tear down the box2d body immediately. Idempotent. Mruby object lives until GC |
+| `b.overlaps?(other_body)` | bool | AABB overlap test |
+| `b.overlapping` | Array[GameObject] | Sensor-only. Game objects currently inside this sensor, filtered by `mask` |
 
-User code typically wraps this in its own `destroy`:
+User code typically wraps body destruction in its own `destroy`:
 
 ```ruby
 destroy: ->(this) {
-  this.destroy_body
+  this.body.destroy
   g.bullets.delete(this)
 }
 ```
 
-**GameObject physics methods:**
-
-| Signature | Returns | Notes |
-|---|---|---|
-| `o.move(velocity)` | Vector2 | Mover API for kinematic bodies. Cast + slide. Returns velocity clipped by collision planes |
-| `o.velocity` / `o.velocity = v2` | Vector2 | Dynamic body linear velocity |
-| `o.impulse(v2)` | self | Instant velocity change (dynamic only) |
-| `o.force(v2)` | self | Continuous force (dynamic only) |
-| `o.overlaps?(other)` | bool | AABB overlap test between two bodies |
-| `o.overlapping` | Array[GameObject] | Sensor-only. Objects currently inside this sensor, filtered by `mask` |
-
-**Sensor events:** sensors fire callbacks on begin/end of overlap.
+**Sensor events:** sensors fire callbacks on begin/end of overlap. Events land on the GameObject (not the body); `other` is the entering/leaving obj.
 
 | Kwarg | Signature | Notes |
 |---|---|---|
@@ -1172,42 +1188,40 @@ hits.each { |h| puts "hit #{h.collider} at #{h.point} (frac=#{h.fraction})" }
 ```ruby
 WALL = obj(
   pos: v2(0, 200),
-  shape: rect(v2(320, 16)),
-  body: :static,
-  layer: 1         # no mask needed — passive target
+  body: body(:static, shape: rect(v2(320, 16)), layer: 1)   # no mask needed — passive target
 )
 
 PLAYER = obj(
   pos: v2(100),
-  shape: circ(8),
-  body: :kinematic,
-  layer: 2,
-  mask: [1, 3]     # blocks on walls, triggers coins
+  body: body(:kinematic, shape: circ(8), layer: 2, mask: [1, 3])  # blocks walls, triggers coins
 )
 
 COIN = obj(
   pos: v2(50),
-  shape: circ(4),
-  sensor: true,    # body defaults to :static
-  layer: 3,
-  mask: 2,         # only player triggers it
+  body: body(:static, sensor: true, shape: circ(4), layer: 3, mask: 2),
   on_enter: ->(this, other) {
     g.score += 10
-    this.destroy_body
+    this.body.destroy
   }
+)
+
+BARREL = obj(
+  pos: v2(150),
+  body: body(:dynamic, shape: circ(6), spin: true, ang_drag: 0.05, layer: 4)
 )
 
 def update
   vel = get_axis(%i{a d}, %i{w s}) * 100
-  PLAYER.move(vel)
+  PLAYER.body.move(vel)
 end
 ```
 
 **Notes:**
-- `move` uses a capsule approximating the body shape. Sliding is automatic.
-- Dynamic bodies sync position back to `obj.pos` each physics step — don't fight it with manual `pos=`; apply forces/velocity instead.
-- Pre-step sync pushes `obj.pos` and `obj.rotation` to box2d for static/kinematic bodies, so in-place mutations like `this.pos.y -= n` or `this.rotation += dt` work. Bodies are created with `fixedRotation = true` — orientation is script-driven, not physics-driven.
-- `move` rounds to the nearest pixel to avoid sub-pixel drift.
+- `body.move` uses a capsule approximating the body shape. Sliding is automatic.
+- Dynamic bodies sync position back to `obj.pos` each physics step — don't fight it with manual `pos=`; apply forces/velocity instead. Same for rotation when `spin: true`.
+- Pre-step sync pushes `obj.pos` and `obj.rotation` to box2d for static/kinematic bodies, so in-place mutations like `this.pos.y -= n` or `this.rotation += dt` work.
+- Default `fixedRotation = true` — without `spin: true`, body orientation is script-driven, not physics-driven.
+- `body.move` rounds to the nearest pixel to avoid sub-pixel drift.
 - Physics runs at fixed 60Hz regardless of render `fps()` — simulation is deterministic.
 
 ---

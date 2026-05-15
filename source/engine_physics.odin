@@ -262,6 +262,12 @@ sync_dynamic_bodies :: proc() {
 			obj.pos = create_vector2(top_left)
 			mrb.gc_register(g.mrb_state, obj.pos)
 		}
+		obj.last_sync_center = pos
+
+		if obj.spin {
+			obj.rotation = b2.Rot_GetAngle(b2.Body_GetRotation(event.bodyId))
+			obj.last_sync_rotation = obj.rotation
+		}
 	}
 }
 
@@ -276,8 +282,9 @@ create_physics_body :: proc(
 	radius: f32,
 	center_offset: rl.Vector2,
 	layer, mask: u64,
-	density, friction, restitution, drag: f32,
+	density, friction, restitution, drag, ang_drag: f32,
 	sensor: bool,
+	spin: bool,
 ) -> (
 	b2.BodyId,
 	b2.ShapeId,
@@ -292,9 +299,10 @@ create_physics_body :: proc(
 		body_def.type = .dynamicBody
 	case .NONE: // unreachable
 	}
-	body_def.fixedRotation = true
+	body_def.fixedRotation = !spin
 	body_def.enableSleep = false
 	body_def.linearDamping = drag
+	body_def.angularDamping = ang_drag
 	// body center = pos + shape's center-offset
 	body_def.position = {pos.x + center_offset.x, pos.y + center_offset.y}
 	body_def.rotation = b2.MakeRot(rotation)
@@ -579,7 +587,11 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	} else if is_native(Circ, shape_val) {
 		c := extract_native(Circ, shape_val)
 		if c.cx != 0 || c.cy != 0 {
-			log.warnf("raycast: Circ shape position (%v, %v) ignored — cast happens at `origin:`", c.cx, c.cy)
+			log.warnf(
+				"raycast: Circ shape position (%v, %v) ignored — cast happens at `origin:`",
+				c.cx,
+				c.cy,
+			)
 		}
 		pts := [1]b2.Vec2{origin^}
 		proxy := b2.MakeProxy(pts[:], c.r)
@@ -588,7 +600,11 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		// rl.Rectangle (validated above)
 		r := extract_native(rl.Rectangle, shape_val)
 		if r.x != 0 || r.y != 0 {
-			log.warnf("raycast: Rect shape position (%v, %v) ignored — cast happens at `origin:`", r.x, r.y)
+			log.warnf(
+				"raycast: Rect shape position (%v, %v) ignored — cast happens at `origin:`",
+				r.x,
+				r.y,
+			)
 		}
 		hw := r.width / 2
 		hh := r.height / 2

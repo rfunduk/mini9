@@ -68,6 +68,12 @@ ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
+	// Arena-bound the whole call. create_game_object + mrb.alloc(s) + obj_new
+	// all allocate; without an outer scope, data_obj would lose arena
+	// protection between create_game_object and the gc_register below.
+	arena_idx := mrb.gc_arena_save(g.mrb_state)
+	defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
+
 	name_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "o|H", &name_val, &kwargs)
 

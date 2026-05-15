@@ -61,6 +61,39 @@ is_native :: #force_inline proc($T: typeid, val: mrb.Value) -> bool {
 }
 
 
+// gc_retain ties the lifetime of `child` to `owner`: stored as a hidden ivar
+// on `owner`, so the GC marks `child` reachable for exactly as long as `owner`
+// is reachable. Use this — not gc_register — for an mrb.Value held only inside
+// a native struct. gc_register installs a permanent root needing a matched
+// unregister, and mrb_gc_unregister drops *all* entries matching the value, so
+// two owners sharing one child can't be unrooted independently. Ivars are
+// per-object and swept automatically; no finalizer bookkeeping.
+//
+// CRITICAL CAVEAT: gc_retain only protects `child` while `owner` is itself
+// reachable from a GC root. It does NOT bridge a window where the owner chain
+// has no live root yet — e.g. handing a value off from a short-lived wrapper
+// (a BodySpec) that gets swept before the durable owner is wired up. mruby
+// also restores the GC arena when a C builtin returns, so "it's still in the
+// arena" is not protection across a return. For those handoffs, span the gap
+// with a temporary gc_register bridge and only gc_unregister it AFTER the
+// retained chain is rooted by something the script holds. See ruby_body /
+// ruby_obj (the BodySpec -> Body shape handoff) for the canonical pattern.
+gc_retain :: proc(owner: mrb.Value, key: cstring, child: mrb.Value) {
+	if child == mrb.NIL { return }
+	mrb.iv_set(g.mrb_state, owner, mrb.intern_cstr(g.mrb_state, key), child)
+}
+
+// gc_link makes `a` and `b` co-reachable: each retains the other via a hidden
+// ivar. Neither is collected while the other is externally reachable; once
+// both are unreachable the cycle is swept together (mruby GC is mark-sweep, so
+// the reference cycle is not a leak). Use for two native wrappers that point
+// at each other (e.g. Game_Object <-> Body) where holding either from script
+// must keep both valid.
+gc_link :: proc(a: mrb.Value, a_key: cstring, b: mrb.Value, b_key: cstring) {
+	gc_retain(a, a_key, b)
+	gc_retain(b, b_key, a)
+}
+
 // Engine-side label for which callback path was running when an exception
 // fired. The lib's protect helpers don't know about this — it lives here so
 // `handle_ruby_exception` can tell the user "error in UPDATE" vs "in DRAW",
