@@ -4,19 +4,46 @@ import "core:fmt"
 import mrb "lib:mruby"
 import rl "lib:raylib"
 
+// GC graph window. Sampled every 2 frames @60fps -> 30 samples/sec.
+@(private = "file")
+GC_SAMPLES :: 300 // ~10s window
+@(private = "file")
+GC_LOWMARK_WIN :: 90 // ~3s trailing min -> post-GC baseline (display line)
+@(private = "file")
+GC_EMA_ALPHA :: f32(0.15)
+
 @(private = "file")
 gc_live: uint
 @(private = "file")
 gc_threshold: uint
 @(private = "file")
-gc_history: [120]f32 // 2 seconds at 60fps
+gc_live_history: [GC_SAMPLES]f32 // absolute live object count
+@(private = "file")
+gc_ema_history: [GC_SAMPLES]f32 // EMA of live (the line the eye reads)
+@(private = "file")
+gc_threshold_history: [GC_SAMPLES]f32 // threshold overlay
 @(private = "file")
 gc_history_index: int
+@(private = "file")
+gc_ema: f32
 
+// No automatic leak verdict — GC period, threshold autotune and warmup
+// make any 10s auto-classification unsound (5 attempts, 5 failure modes).
+// The cyan baseline line is the leak signal; we report drift% and let the
+// human read it.
+
+// Rolling arena peak: max over a trailing window, decays. Sampled every
+// frame (cheap). All-time peak was sticky — one transient spike pinned it.
+@(private = "file")
+ARENA_SAMPLES :: 300 // ~5s @60fps
 @(private = "file")
 arena_current: int
 @(private = "file")
-arena_peak: int
+arena_peak: int // rolling max over arena_ring
+@(private = "file")
+arena_ring: [ARENA_SAMPLES]int
+@(private = "file")
+arena_ring_index: int
 
 @(private = "file")
 fps_current: f32
@@ -53,7 +80,12 @@ collect_metrics :: proc() {
 	// objects without arena scoping.
 	arena_now := int(mrb.gc_arena_save(g.mrb_state))
 	arena_current = arena_now
-	if arena_now > arena_peak { arena_peak = arena_now }
+	arena_ring[arena_ring_index] = arena_now
+	arena_ring_index = (arena_ring_index + 1) % len(arena_ring)
+	arena_peak = 0
+	for v in arena_ring {
+		if v > arena_peak { arena_peak = v }
+	}
 
 	// update displayed stats only every 10 frames for readability
 	if g.frame_count % 10 == 0 {
@@ -64,11 +96,13 @@ collect_metrics :: proc() {
 
 	// sample graph data every 2 frames
 	if g.frame_count % 2 == 0 {
-		live := mrb.gc_live(g.mrb_state)
-		threshold := mrb.gc_threshold(g.mrb_state)
-		percentage := f32(live) / f32(max(threshold, 1))
-		gc_history[gc_history_index] = percentage
-		gc_history_index = (gc_history_index + 1) % len(gc_history)
+		live := f32(mrb.gc_live(g.mrb_state))
+		threshold := f32(mrb.gc_threshold(g.mrb_state))
+		if gc_ema == 0 { gc_ema = live } else { gc_ema += (live - gc_ema) * GC_EMA_ALPHA }
+		gc_live_history[gc_history_index] = live
+		gc_ema_history[gc_history_index] = gc_ema
+		gc_threshold_history[gc_history_index] = threshold
+		gc_history_index = (gc_history_index + 1) % len(gc_live_history)
 
 		// also sample FPS - clamp relative to target FPS to avoid startup spikes
 		fps := f32(rl.GetFPS())
@@ -218,9 +252,33 @@ draw_fps_graph :: proc() {
 	draw_history_lines(graph_x, graph_y, fps_history[:], fps_history_index, max_fps, fps_color_fn)
 }
 
-memory_color_fn :: proc(val: f32, max_val: f32) -> rl.Color {
-	if val > 0.75 { return rl.RED } else if val > 0.5 { return rl.YELLOW }
-	return rl.GREEN
+// Draw a chronological series (already unrolled, oldest-first) as a polyline.
+@(private = "file")
+draw_series :: proc(x, y: f32, chrono: []f32, max_val: f32, color: rl.Color) {
+	graph_width :: 240
+	graph_height :: 80
+	graph_start_y := y + 40
+	graph_draw_height := f32(graph_height - 45)
+	point_width := f32(graph_width) / f32(len(chrono))
+
+	for i in 1 ..< len(chrono) {
+		if chrono[i] < 0 || chrono[i - 1] < 0 { continue }
+		pv := chrono[i - 1] / max_val
+		cv := chrono[i] / max_val
+		x1 := x + f32(i - 1) * point_width
+		x2 := x + f32(i) * point_width
+		y1 := graph_start_y + graph_draw_height - (pv * graph_draw_height)
+		y2 := graph_start_y + graph_draw_height - (cv * graph_draw_height)
+		rl.DrawLine(i32(x1), i32(y1), i32(x2), i32(y2), color)
+	}
+}
+
+// compact count: 842, 16.2k, 1.50M
+@(private = "file")
+humanize :: proc(v: f32) -> string {
+	if v < 1000 { return fmt.tprintf("%.0f", v) }
+	if v < 1e6 { return fmt.tprintf("%.1fk", v / 1000) }
+	return fmt.tprintf("%.2fM", v / 1e6)
 }
 
 draw_memory_graph :: proc() {
@@ -231,31 +289,88 @@ draw_memory_graph :: proc() {
 	}
 	graph_x, graph_y := get_graph_position(config.stack_index)
 
+	L :: GC_SAMPLES
+
+	// unroll ring buffers into chronological (oldest-first) order
+	live: [L]f32
+	ema: [L]f32
+	thr: [L]f32
+	base: [L]f32 // trailing-min of live -> post-GC baseline
+	for k in 0 ..< L {
+		idx := (gc_history_index + k) % L
+		live[k] = gc_live_history[idx]
+		ema[k] = gc_ema_history[idx]
+		thr[k] = gc_threshold_history[idx]
+	}
+	for k in 0 ..< L {
+		lo: f32 = -1
+		lo_from := max(0, k - GC_LOWMARK_WIN + 1)
+		for j in lo_from ..= k {
+			if live[j] <= 0 { continue }
+			if lo < 0 || live[j] < lo { lo = live[j] }
+		}
+		base[k] = lo
+	}
+
+	// absolute y-scale: fit both live and threshold, rounded up
+	max_val: f32 = 1
+	for k in 0 ..< L {
+		if live[k] > max_val { max_val = live[k] }
+		if thr[k] > max_val { max_val = thr[k] }
+	}
+	{
+		mag := f32(1)
+		for mag * 10 < max_val { mag *= 10 }
+		max_val = (f32(int(max_val / mag)) + 1) * mag
+	}
+
+	// No verdict. The cyan baseline line is the leak signal — flat = fine,
+	// climbing = leak. We only report the drift number; the human reads it.
+	// (5 heuristic verdicts, 5 failure modes — GC period, threshold autotune
+	// and warmup make any 10s auto-classification unsound.)
+	base_now: f32 = -1
+	for k := L - 1; k >= 0; k -= 1 {
+		if base[k] > 0 { base_now = base[k]; break }
+	}
+	first_i := -1
+	last_i := -1
+	for k in 0 ..< L {
+		if base[k] > 0 {
+			if first_i < 0 { first_i = k }
+			last_i = k
+		}
+	}
+	drift_pct: f32 = 0
+	if first_i >= 0 && last_i > first_i {
+		drift_pct = (base[last_i] - base[first_i]) / max(base[first_i], 1) * 100
+	}
+
 	draw_graph_frame(graph_x, graph_y, config)
 
-	percentage := f32(gc_live) / f32(max(gc_threshold, 1)) * 100
-	live_text := fmt.ctprintf("Live: %7d", gc_live)
+	base_disp := base_now > 0 ? base_now : 0
+	live_text := fmt.ctprintf("Live: %-7s Base: %s", humanize(f32(gc_live)), humanize(base_disp))
 	rl.DrawText(live_text, i32(graph_x + 5), i32(graph_y + 14), 10, rl.WHITE)
 
-	percent_text := fmt.ctprintf("%.0f%%", percentage)
-	rl.DrawText(percent_text, i32(graph_x + 110), i32(graph_y + 14), 10, rl.WHITE)
+	drift_text := fmt.ctprintf("Thresh: %-7s drift:%+4.0f%%", humanize(f32(gc_threshold)), drift_pct)
+	rl.DrawText(drift_text, i32(graph_x + 5), i32(graph_y + 26), 10, rl.GRAY)
 
-	threshold_text := fmt.ctprintf("Thresh: %7d", gc_threshold)
-	rl.DrawText(threshold_text, i32(graph_x + 5), i32(graph_y + 26), 10, rl.GRAY)
-
-	// Arena sample (RED if climbing unbounded -> odin-side create_* without
-	// arena save/restore). Healthy = near zero after frame ends.
+	// Arena: rolling peak over ~5s (not all-time). Climbing unbounded ->
+	// odin-side create_* without arena save/restore. Healthy = near zero.
 	arena_color := rl.GRAY
 	if arena_peak > 500 { arena_color = rl.YELLOW }
 	if arena_peak > 2000 { arena_color = rl.RED }
-	arena_text := fmt.ctprintf("Arena: %4d  Peak: %5d", arena_current, arena_peak)
+	arena_text := fmt.ctprintf("Arena:%4d  Pk(5s):%5d", arena_current, arena_peak)
 	rl.DrawText(arena_text, i32(graph_x + 5), i32(graph_y + 38), 10, arena_color)
 
-	// draw reference lines (25%, 50%, 75%, 100%)
 	ratios := [4]f32{0.25, 0.5, 0.75, 1.0}
-	draw_reference_lines(graph_x, graph_y, ratios[:], 1.0, 1.0) // max 100%, highlight 100%
+	draw_reference_lines(graph_x, graph_y, ratios[:], max_val)
 
-	draw_history_lines(graph_x, graph_y, gc_history[:], gc_history_index, 1.0, memory_color_fn)
+	// threshold overlay (gray), raw live (faint), EMA (green, main read),
+	// baseline (cyan leak indicator) — drawn back-to-front
+	draw_series(graph_x, graph_y, thr[:], max_val, {120, 120, 120, 160})
+	draw_series(graph_x, graph_y, live[:], max_val, {0, 200, 0, 90})
+	draw_series(graph_x, graph_y, ema[:], max_val, {0, 230, 0, 255})
+	draw_series(graph_x, graph_y, base[:], max_val, {0, 220, 255, 220})
 }
 
 draw_tweens_graph :: proc() {
