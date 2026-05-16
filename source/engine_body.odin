@@ -359,7 +359,10 @@ ruby_body_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	mrb.get_args(state, "o", &other_val)
 	me := body_obj(self)
 	other := body_obj(other_val)
-	if me == nil || other == nil { return mrb.FALSE }
+	if other == nil {
+		return mrb.raise_error(state, "TypeError", "overlaps? expected a Body (use obj.body, not obj)")
+	}
+	if me == nil { return mrb.FALSE }
 	if !b2.Shape_IsValid(me.shape_id) || !b2.Shape_IsValid(other.shape_id) { return mrb.FALSE }
 	// AABB reject first — practically free, kills the common (far apart) case.
 	a := b2.Shape_GetAABB(me.shape_id)
