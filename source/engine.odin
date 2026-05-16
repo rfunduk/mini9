@@ -74,6 +74,12 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 	rl.SetExitKey(nil)
 
 	g.render_texture = rl.LoadRenderTexture(i32(g.resolution.x), i32(g.resolution.y))
+
+	if !rl.IsWindowReady() || g.render_texture.texture.id == 0 {
+		log.errorf("GL context not viable")
+		panic("EXITING")
+	}
+
 	rl.SetTextureFilter(g.render_texture.texture, .POINT)
 
 	// custom render batch so we can inspect drawCounter for metrics
