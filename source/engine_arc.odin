@@ -10,11 +10,10 @@ import rl "lib:raylib"
 // (same convention as Vector2#angle). No physics — an arc collider is
 // nonsensical; use circ/rect/poly for collision.
 Arc :: struct {
-	cx:    f32,
-	cy:    f32,
-	r:     f32,
-	start: f32, // radians
-	sweep: f32, // radians, signed
+	center: rl.Vector2,
+	r:      f32,
+	start:  f32, // radians
+	sweep:  f32, // radians, signed
 }
 
 ruby_arc_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -43,7 +42,7 @@ ruby_arc :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	switch argc {
 	case 3:
 		return create_arc(
-			{0, 0, f32(mrb.to_f64(args[0])), f32(mrb.to_f64(args[1])), f32(mrb.to_f64(args[2]))},
+			{{0, 0}, f32(mrb.to_f64(args[0])), f32(mrb.to_f64(args[1])), f32(mrb.to_f64(args[2]))},
 		)
 	case 4:
 		center := extract_native(rl.Vector2, args[0])
@@ -55,19 +54,12 @@ ruby_arc :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			)
 		}
 		return create_arc(
-			{
-				center.x,
-				center.y,
-				f32(mrb.to_f64(args[1])),
-				f32(mrb.to_f64(args[2])),
-				f32(mrb.to_f64(args[3])),
-			},
+			{center^, f32(mrb.to_f64(args[1])), f32(mrb.to_f64(args[2])), f32(mrb.to_f64(args[3]))},
 		)
 	case 5:
 		return create_arc(
 			{
-				f32(mrb.to_f64(args[0])),
-				f32(mrb.to_f64(args[1])),
+				{f32(mrb.to_f64(args[0])), f32(mrb.to_f64(args[1]))},
 				f32(mrb.to_f64(args[2])),
 				f32(mrb.to_f64(args[3])),
 				f32(mrb.to_f64(args[4])),
@@ -87,19 +79,19 @@ ruby_arc_get_center :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	context = global_context
 	a := extract_native(Arc, self)
 	if a == nil { return create_vector2({0, 0}) }
-	return create_vector2({a.cx, a.cy})
+	return create_vector2(a.center)
 }
 
 ruby_arc_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	a := extract_native(Arc, self)
-	return mrb.word_boxing_float_value(state, a == nil ? 0 : f64(a.cx))
+	return mrb.word_boxing_float_value(state, a == nil ? 0 : f64(a.center.x))
 }
 
 ruby_arc_get_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	a := extract_native(Arc, self)
-	return mrb.word_boxing_float_value(state, a == nil ? 0 : f64(a.cy))
+	return mrb.word_boxing_float_value(state, a == nil ? 0 : f64(a.center.y))
 }
 
 ruby_arc_get_r :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -125,7 +117,7 @@ ruby_arc_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	v: f64
 	mrb.get_args(state, "f", &v)
 	a := extract_native(Arc, self)
-	if a != nil { a.cx = f32(v) }
+	if a != nil { a.center.x = f32(v) }
 	return mrb.word_boxing_float_value(state, v)
 }
 
@@ -134,7 +126,7 @@ ruby_arc_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	v: f64
 	mrb.get_args(state, "f", &v)
 	a := extract_native(Arc, self)
-	if a != nil { a.cy = f32(v) }
+	if a != nil { a.center.y = f32(v) }
 	return mrb.word_boxing_float_value(state, v)
 }
 
@@ -172,8 +164,8 @@ ruby_arc_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	a := extract_native(Arc, self)
 	p := extract_native(rl.Vector2, p_val)
 	if a == nil || p == nil { return mrb.FALSE }
-	dx := p.x - a.cx
-	dy := p.y - a.cy
+	dx := p.x - a.center.x
+	dy := p.y - a.center.y
 	if dx * dx + dy * dy > a.r * a.r { return mrb.FALSE }
 	if abs(a.sweep) >= 2 * math.PI { return mrb.TRUE } 	// full disc
 
@@ -193,7 +185,7 @@ ruby_arc_sample_point :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	if a == nil { return create_vector2({0, 0}) }
 	theta := a.start + rand.float32() * a.sweep
 	radius := math.sqrt(rand.float32()) * a.r // area-correct
-	return create_vector2({a.cx + radius * math.cos(theta), a.cy + radius * math.sin(theta)})
+	return create_vector2({a.center.x + radius * math.cos(theta), a.center.y + radius * math.sin(theta)})
 }
 
 ruby_arc_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -206,7 +198,7 @@ ruby_arc_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	offset := _parse_offset_kwarg(state, kwargs)
 	draw_arc(
-		pos = {a.cx + offset.x, a.cy + offset.y},
+		pos = a.center + offset,
 		radius = a.r,
 		start = a.start,
 		sweep = a.sweep,
@@ -226,7 +218,7 @@ ruby_arc_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	v := extract_native(rl.Vector2, other)
 	if a == nil { return mrb.NIL }
 	if v == nil { return mrb.raise_error(state, "ArgumentError", "Arc#+ expects a Vector2") }
-	return create_arc({a.cx + v.x, a.cy + v.y, a.r, a.start, a.sweep})
+	return create_arc({a.center + v^, a.r, a.start, a.sweep})
 }
 
 ruby_arc_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -237,7 +229,7 @@ ruby_arc_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	v := extract_native(rl.Vector2, other)
 	if a == nil { return mrb.NIL }
 	if v == nil { return mrb.raise_error(state, "ArgumentError", "Arc#- expects a Vector2") }
-	return create_arc({a.cx - v.x, a.cy - v.y, a.r, a.start, a.sweep})
+	return create_arc({a.center - v^, a.r, a.start, a.sweep})
 }
 
 setup_arc :: proc() {

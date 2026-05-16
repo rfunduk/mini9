@@ -586,11 +586,11 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		_ = b2.World_CastRay(physics_world, origin^, dir^, filter, raycast_callback, &ctx)
 	} else if is_native(Circ, shape_val) {
 		c := extract_native(Circ, shape_val)
-		if c.cx != 0 || c.cy != 0 {
+		if c.center.x != 0 || c.center.y != 0 {
 			log.warnf(
 				"raycast: Circ shape position (%v, %v) ignored — cast happens at `origin:`",
-				c.cx,
-				c.cy,
+				c.center.x,
+				c.center.y,
 			)
 		}
 		pts := [1]b2.Vec2{origin^}

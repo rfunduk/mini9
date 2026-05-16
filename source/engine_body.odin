@@ -113,7 +113,7 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 				spec.shape_kind = .CIRCLE
 				spec.radius = c.r
 				spec.half_size = {c.r, c.r}
-				spec.body_center_offset = {c.cx, c.cy}
+				spec.body_center_offset = c.center
 			} else if is_native(rl.Rectangle, val) {
 				r := extract_native(rl.Rectangle, val)
 				spec.shape_kind = .BOX

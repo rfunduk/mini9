@@ -212,7 +212,7 @@ sample_v2 :: #force_inline proc(p: Prop, default: rl.Vector2) -> rl.Vector2 {
 	case ^Circ:
 		theta := rand.float32() * 2 * math.PI
 		radius := math.sqrt(rand.float32()) * v.r
-		return {v.cx + radius * math.cos(theta), v.cy + radius * math.sin(theta)}
+		return {v.center.x + radius * math.cos(theta), v.center.y + radius * math.sin(theta)}
 	case Curve:
 		if v.elem == .V2 {
 			vp := extract_native(rl.Vector2, mrb.ary_entry(v.arr, 0))

@@ -7,9 +7,8 @@ import mrb "lib:mruby"
 import rl "lib:raylib"
 
 Circ :: struct {
-	cx: f32,
-	cy: f32,
-	r:  f32,
+	center: rl.Vector2,
+	r:      f32,
 }
 
 ruby_circ_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -37,15 +36,15 @@ ruby_circ :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	switch argc {
 	case 1:
-		return create_circ({0, 0, f32(mrb.to_f64(args[0]))})
+		return create_circ({{0, 0}, f32(mrb.to_f64(args[0]))})
 	case 2:
 		center := extract_native(rl.Vector2, args[0])
 		if center == nil {
 			return mrb.raise_error(state, "ArgumentError", "circ(center, radius): center must be Vector2")
 		}
-		return create_circ({center.x, center.y, f32(mrb.to_f64(args[1]))})
+		return create_circ({center^, f32(mrb.to_f64(args[1]))})
 	case 3:
-		return create_circ({f32(mrb.to_f64(args[0])), f32(mrb.to_f64(args[1])), f32(mrb.to_f64(args[2]))})
+		return create_circ({{f32(mrb.to_f64(args[0])), f32(mrb.to_f64(args[1]))}, f32(mrb.to_f64(args[2]))})
 	case:
 		return mrb.raise_error(
 			state,
@@ -60,19 +59,19 @@ ruby_circ_get_center :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 	context = global_context
 	c := extract_native(Circ, self)
 	if c == nil { return create_vector2({0, 0}) }
-	return create_vector2({c.cx, c.cy})
+	return create_vector2(c.center)
 }
 
 ruby_circ_get_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	c := extract_native(Circ, self)
-	return mrb.word_boxing_float_value(state, c == nil ? 0 : f64(c.cx))
+	return mrb.word_boxing_float_value(state, c == nil ? 0 : f64(c.center.x))
 }
 
 ruby_circ_get_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	c := extract_native(Circ, self)
-	return mrb.word_boxing_float_value(state, c == nil ? 0 : f64(c.cy))
+	return mrb.word_boxing_float_value(state, c == nil ? 0 : f64(c.center.y))
 }
 
 ruby_circ_get_r :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -86,7 +85,7 @@ ruby_circ_set_x :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	v: f64
 	mrb.get_args(state, "f", &v)
 	c := extract_native(Circ, self)
-	if c != nil { c.cx = f32(v) }
+	if c != nil { c.center.x = f32(v) }
 	return mrb.word_boxing_float_value(state, v)
 }
 
@@ -95,7 +94,7 @@ ruby_circ_set_y :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	v: f64
 	mrb.get_args(state, "f", &v)
 	c := extract_native(Circ, self)
-	if c != nil { c.cy = f32(v) }
+	if c != nil { c.center.y = f32(v) }
 	return mrb.word_boxing_float_value(state, v)
 }
 
@@ -115,8 +114,8 @@ ruby_circ_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	c := extract_native(Circ, self)
 	p := extract_native(rl.Vector2, p_val)
 	if c == nil || p == nil { return mrb.FALSE }
-	dx := p.x - c.cx
-	dy := p.y - c.cy
+	dx := p.x - c.center.x
+	dy := p.y - c.center.y
 	return (dx * dx + dy * dy <= c.r * c.r) ? mrb.TRUE : mrb.FALSE
 }
 
@@ -127,8 +126,8 @@ ruby_circ_distance :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	c := extract_native(Circ, self)
 	p := extract_native(rl.Vector2, p_val)
 	if c == nil || p == nil { return mrb.word_boxing_float_value(state, 0) }
-	dx := p.x - c.cx
-	dy := p.y - c.cy
+	dx := p.x - c.center.x
+	dy := p.y - c.center.y
 	return mrb.word_boxing_float_value(state, f64(math.sqrt(dx * dx + dy * dy)))
 }
 
@@ -141,17 +140,17 @@ ruby_circ_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 
 	if is_native(Circ, other) {
 		o := extract_native(Circ, other)
-		dx := o.cx - c.cx
-		dy := o.cy - c.cy
+		dx := o.center.x - c.center.x
+		dy := o.center.y - c.center.y
 		sum := c.r + o.r
 		return (dx * dx + dy * dy <= sum * sum) ? mrb.TRUE : mrb.FALSE
 	}
 	if is_native(rl.Rectangle, other) {
 		r := extract_native(rl.Rectangle, other)
-		closest_x := clamp(c.cx, r.x, r.x + r.width)
-		closest_y := clamp(c.cy, r.y, r.y + r.height)
-		dx := c.cx - closest_x
-		dy := c.cy - closest_y
+		closest_x := clamp(c.center.x, r.x, r.x + r.width)
+		closest_y := clamp(c.center.y, r.y, r.y + r.height)
+		dx := c.center.x - closest_x
+		dy := c.center.y - closest_y
 		return (dx * dx + dy * dy <= c.r * c.r) ? mrb.TRUE : mrb.FALSE
 	}
 	return mrb.raise_error(state, "TypeError", "Circ#overlaps? expects Circ or Rect")
@@ -164,7 +163,7 @@ ruby_circ_sample_point :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	// uniform sampling via sqrt(rand) for radius (area-correct)
 	theta := rand.float32() * 2 * math.PI
 	radius := math.sqrt(rand.float32()) * c.r
-	return create_vector2({c.cx + radius * math.cos(theta), c.cy + radius * math.sin(theta)})
+	return create_vector2({c.center.x + radius * math.cos(theta), c.center.y + radius * math.sin(theta)})
 }
 
 ruby_circ_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -177,7 +176,7 @@ ruby_circ_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	offset := _parse_offset_kwarg(state, kwargs)
 	draw_circle(
-		pos = {c.cx + offset.x, c.cy + offset.y},
+		pos = c.center + offset,
 		radius = c.r,
 		color = _parse_color_kwarg(state, kwargs),
 		thickness = _parse_f32_kwarg(state, kwargs, sym.thickness, 1),
@@ -195,7 +194,7 @@ ruby_circ_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	v := extract_native(rl.Vector2, other)
 	if c == nil { return mrb.NIL }
 	if v == nil { return mrb.raise_error(state, "ArgumentError", "Circ#+ expects a Vector2") }
-	return create_circ({c.cx + v.x, c.cy + v.y, c.r})
+	return create_circ({c.center + v^, c.r})
 }
 
 ruby_circ_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
@@ -206,7 +205,7 @@ ruby_circ_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	v := extract_native(rl.Vector2, other)
 	if c == nil { return mrb.NIL }
 	if v == nil { return mrb.raise_error(state, "ArgumentError", "Circ#- expects a Vector2") }
-	return create_circ({c.cx - v.x, c.cy - v.y, c.r})
+	return create_circ({c.center - v^, c.r})
 }
 
 setup_circ :: proc() {

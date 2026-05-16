@@ -42,9 +42,9 @@ Engine_Memory :: struct {
 	dest_rect:         rl.Rectangle,
 	batch:             rlgl.RenderBatch,
 	draw_calls:        i32,
-	has_update:        bool,
-	has_draw:          bool,
-	has_ui:            bool,
+	update_proc:       mrb.Value,
+	draw_proc:         mrb.Value,
+	ui_proc:           mrb.Value,
 	frame_count:       u32,
 
 	// mruby vm

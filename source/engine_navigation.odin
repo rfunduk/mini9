@@ -178,7 +178,7 @@ shape_to_verts :: proc(state: mrb.State, val: mrb.Value, dst: ^[dynamic]rl.Vecto
 		reserve(dst, len(dst) + NAV_CIRC_SEGMENTS)
 		for i in 0 ..< NAV_CIRC_SEGMENTS {
 			theta := f32(i) * 2 * math.PI / NAV_CIRC_SEGMENTS
-			append(dst, rl.Vector2{c.cx + c.r * math.cos(theta), c.cy + c.r * math.sin(theta)})
+			append(dst, rl.Vector2{c.center.x + c.r * math.cos(theta), c.center.y + c.r * math.sin(theta)})
 		}
 		return true
 	}
