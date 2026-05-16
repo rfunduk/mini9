@@ -135,8 +135,32 @@ draw_oval :: proc(
 	if did_clip { rl.EndScissorMode() }
 }
 
+ruby_oval_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	o := extract_native(Oval, self)
+	v := extract_native(rl.Vector2, other)
+	if o == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Oval#+ expects a Vector2") }
+	return create_oval({o.pos + v^, o.size})
+}
+
+ruby_oval_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	o := extract_native(Oval, self)
+	v := extract_native(rl.Vector2, other)
+	if o == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Oval#- expects a Vector2") }
+	return create_oval({o.pos - v^, o.size})
+}
+
 setup_oval :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Oval")
+	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_oval_add, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_oval_subtract, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "pos", cast(rawptr)ruby_oval_get_pos, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_oval_get_size, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_oval_get_x, mrb.ARGS_NONE)

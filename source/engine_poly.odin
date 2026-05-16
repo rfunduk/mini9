@@ -121,8 +121,36 @@ ruby_poly_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
+ruby_poly_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	p := extract_native(Poly, self)
+	v := extract_native(rl.Vector2, other)
+	if p == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Poly#+ expects a Vector2") }
+	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
+	for vert in p.verts { append(&tmp, vert + v^) }
+	return create_poly(tmp[:])
+}
+
+ruby_poly_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	p := extract_native(Poly, self)
+	v := extract_native(rl.Vector2, other)
+	if p == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Poly#- expects a Vector2") }
+	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
+	for vert in p.verts { append(&tmp, vert - v^) }
+	return create_poly(tmp[:])
+}
+
 setup_poly :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Poly")
+	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_poly_add, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_poly_subtract, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "verts", cast(rawptr)ruby_poly_verts, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_poly_count, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_poly_contains, mrb.ARGS_REQ(1))

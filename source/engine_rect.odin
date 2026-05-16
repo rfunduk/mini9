@@ -223,6 +223,28 @@ ruby_inflate_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	}
 }
 
+ruby_rect_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	r := extract_native(rl.Rectangle, self)
+	v := extract_native(rl.Vector2, other)
+	if r == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Rect#+ expects a Vector2") }
+	return create_rect({r.x + v.x, r.y + v.y, r.width, r.height})
+}
+
+ruby_rect_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	r := extract_native(rl.Rectangle, self)
+	v := extract_native(rl.Vector2, other)
+	if r == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Rect#- expects a Vector2") }
+	return create_rect({r.x - v.x, r.y - v.y, r.width, r.height})
+}
+
 ruby_rect_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	p_val: mrb.Value
@@ -303,6 +325,8 @@ setup_rect :: proc() {
 	mrb.define_method(g.mrb_state, c, "h=", cast(rawptr)ruby_rect_set_h, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "sample_point", cast(rawptr)ruby_rect_sample_point, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "inflate", cast(rawptr)ruby_inflate_rect, mrb.ARGS_ANY)
+	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_rect_add, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_rect_subtract, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_rect_contains, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_rect_draw, mrb.ARGS_OPT(1))
 

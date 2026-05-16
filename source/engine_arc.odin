@@ -218,8 +218,32 @@ ruby_arc_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
+ruby_arc_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	a := extract_native(Arc, self)
+	v := extract_native(rl.Vector2, other)
+	if a == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Arc#+ expects a Vector2") }
+	return create_arc({a.cx + v.x, a.cy + v.y, a.r, a.start, a.sweep})
+}
+
+ruby_arc_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	a := extract_native(Arc, self)
+	v := extract_native(rl.Vector2, other)
+	if a == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Arc#- expects a Vector2") }
+	return create_arc({a.cx - v.x, a.cy - v.y, a.r, a.start, a.sweep})
+}
+
 setup_arc :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Arc")
+	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_arc_add, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_arc_subtract, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "center", cast(rawptr)ruby_arc_get_center, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_arc_get_x, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_arc_get_y, mrb.ARGS_NONE)

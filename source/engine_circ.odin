@@ -187,8 +187,32 @@ ruby_circ_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
+ruby_circ_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	c := extract_native(Circ, self)
+	v := extract_native(rl.Vector2, other)
+	if c == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Circ#+ expects a Vector2") }
+	return create_circ({c.cx + v.x, c.cy + v.y, c.r})
+}
+
+ruby_circ_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	c := extract_native(Circ, self)
+	v := extract_native(rl.Vector2, other)
+	if c == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Circ#- expects a Vector2") }
+	return create_circ({c.cx - v.x, c.cy - v.y, c.r})
+}
+
 setup_circ :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Circ")
+	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_circ_add, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_circ_subtract, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "center", cast(rawptr)ruby_circ_get_center, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "x", cast(rawptr)ruby_circ_get_x, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "y", cast(rawptr)ruby_circ_get_y, mrb.ARGS_NONE)

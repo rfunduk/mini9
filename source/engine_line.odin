@@ -104,8 +104,32 @@ ruby_line_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
+ruby_line_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	l := extract_native(Line, self)
+	v := extract_native(rl.Vector2, other)
+	if l == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Line#+ expects a Vector2") }
+	return create_line({l.a + v^, l.b + v^})
+}
+
+ruby_line_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other: mrb.Value
+	mrb.get_args(state, "o", &other)
+	l := extract_native(Line, self)
+	v := extract_native(rl.Vector2, other)
+	if l == nil { return mrb.NIL }
+	if v == nil { return mrb.raise_error(state, "ArgumentError", "Line#- expects a Vector2") }
+	return create_line({l.a - v^, l.b - v^})
+}
+
 setup_line :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Line")
+	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_line_add, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_line_subtract, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "a", cast(rawptr)ruby_line_get_a, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "b", cast(rawptr)ruby_line_get_b, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "length", cast(rawptr)ruby_line_length, mrb.ARGS_NONE)
