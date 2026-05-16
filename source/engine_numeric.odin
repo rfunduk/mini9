@@ -132,6 +132,29 @@ ruby_randf_range :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.word_boxing_float_value(state, result)
 }
 
+// RUBY FUNCTION: inverse_lerp(a, b, v) -> where v falls in [a,b] as a 0..1 weight (unclamped)
+// @engine_method: name="inverse_lerp", aspec=ARGS_REQ(3)
+ruby_inverse_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	a, b, v: f64
+	mrb.get_args(state, "fff", &a, &b, &v)
+
+	// a == b: degenerate range, division by zero. Match Godot — return 0.
+	if a == b { return mrb.word_boxing_float_value(state, 0) }
+	return mrb.word_boxing_float_value(state, (v - a) / (b - a))
+}
+
+// RUBY FUNCTION: remap(v, in_lo, in_hi, out_lo, out_hi) -> v mapped from input range to output range (unclamped)
+// @engine_method: name="remap", aspec=ARGS_REQ(5)
+ruby_remap :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v, in_lo, in_hi, out_lo, out_hi: f64
+	mrb.get_args(state, "fffff", &v, &in_lo, &in_hi, &out_lo, &out_hi)
+
+	t := in_lo == in_hi ? 0 : (v - in_lo) / (in_hi - in_lo)
+	return mrb.word_boxing_float_value(state, out_lo + (out_hi - out_lo) * t)
+}
+
 setup_numeric :: proc() {
 	c := mrb.class_get(g.mrb_state, "Numeric")
 
