@@ -21,8 +21,7 @@ create_rect :: proc(r: rl.Rectangle) -> mrb.Value {
 	return ruby_obj
 }
 
-// RUBY FUNCTION: rect(*args) -> rect function that handles both signatures
-// supports rect(size_v2) or rect(pos_v2, size_v2) or rect(x, y, w, h)
+// RUBY FUNCTION: rect(*args) -> rect function that handles several signatures
 // @engine_method: name="rect", aspec=ARGS_ANY
 ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context

@@ -25,7 +25,7 @@ create_circ :: proc(c: Circ) -> mrb.Value {
 	return ruby_obj
 }
 
-// RUBY FUNCTION: circ(radius) / circ(center, radius) / circ(x, y, radius)
+// RUBY FUNCTION: circ(*args) -> circle function that handles several signatures
 // @engine_method: name="circ", aspec=ARGS_ANY
 ruby_circ :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context

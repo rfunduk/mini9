@@ -183,6 +183,7 @@ Every shape is an object you construct once, then render with `.draw(**opts)`. C
 | `rect(...)` | Rect — see [Shapes](#shapes) for the 3 forms | `color:`, `filled:`, `thickness:`, `rounded:`, `offset:`, `clip:` |
 | `circ(r)` / `circ(center, r)` / `circ(x, y, r)` | Circ | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
 | `oval(size)` or `oval(pos, size)` | Oval — `size` is v2(w_radius, h_radius) | `color:`, `filled:`, `offset:`, `clip:` |
+| `arc(r, start, sweep)` / `arc(center, ...)` / `arc(x, y, ...)` | Arc — circular wedge, angles in radians | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
 | `poly(verts)` | Poly — `verts` is Array[Vector2], min 3 | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
 | `text(str, font)` | Text — see [Text & Fonts](#text--fonts) | `color:`, `outline:`, `align:`, `rotation:`, `scale:`, `spacing:`, `offset:` |
 
@@ -417,6 +418,22 @@ Every shape constructor returns a native object with instance methods listed bel
 | `c.distance(v2)` | Float | |
 | `c.overlaps?(other)` | bool | `other` is Circ or Rect |
 | `c.sample_point` | Vector2 | Uniform random point inside disk |
+
+### Arc
+
+Drawing-only circular wedge (pie slice). Angles are **radians, CCW from +x** (same as `Vector2#angle`). No physics — use Circ/Rect/Poly for collision.
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `arc(radius, start, sweep)` | Arc | Centered at `v2(0)` |
+| `arc(center, radius, start, sweep)` | Arc | `center` is Vector2 |
+| `arc(x, y, radius, start, sweep)` | Arc | |
+| `a.center` | Vector2 | |
+| `a.x` / `a.y` / `a.r` / `a.radius` / `a.start` / `a.sweep` | Float | All assignable |
+| `a.contains?(v2)` | bool | Point inside the wedge |
+| `a.sample_point` | Vector2 | Uniform random point inside the wedge |
+
+Filled fills the sector; unfilled draws a ring band of `thickness:`. Negative `sweep` sweeps the other way. e.g. progress ring: `arc(8, -90.to_rad, 360.to_rad * pct)`.
 
 ### Line
 
