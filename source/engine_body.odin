@@ -501,29 +501,233 @@ ruby_body_set_restitution :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb
 	return mrb.word_boxing_float_value(state, v)
 }
 
+// RUBY METHOD: body.layer = n (single layer; Array/Range also accepted)
+ruby_body_set_layer :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: mrb.Value
+	mrb.get_args(state, "o", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+	lay := layer_to_bitmask(state, v)
+	f := b2.Shape_GetFilter(obj.shape_id)
+	f.categoryBits = lay
+	b2.Shape_SetFilter(obj.shape_id, f)
+	obj.layer = lay
+	return v
+}
+
+// RUBY METHOD: body.mask = n / [..] / range
+ruby_body_set_mask :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: mrb.Value
+	mrb.get_args(state, "o", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+	msk := layer_to_bitmask(state, v)
+	f := b2.Shape_GetFilter(obj.shape_id)
+	f.maskBits = msk
+	b2.Shape_SetFilter(obj.shape_id, f)
+	obj.mask = msk
+	return v
+}
+
+// RUBY METHOD: body.type = :static / :kinematic / :dynamic
+ruby_body_set_type :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: mrb.Value
+	mrb.get_args(state, "o", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+	if !mrb.symbol_p(v) {
+		return mrb.raise_error(state, "ArgumentError", "body.type= must be :static, :kinematic, or :dynamic")
+	}
+	new_type := Body_Type.NONE
+	bt: b2.BodyType
+	switch mrb.to_string(state, v) {
+	case "static":
+		new_type = .STATIC
+		bt = .staticBody
+	case "kinematic":
+		new_type = .KINEMATIC
+		bt = .kinematicBody
+	case "dynamic":
+		new_type = .DYNAMIC
+		bt = .dynamicBody
+	case:
+		return mrb.raise_error(state, "ArgumentError", "body.type= must be :static, :kinematic, or :dynamic")
+	}
+
+	old_type := obj.body_type
+	if new_type == old_type { return v }
+
+	// user-driven (static/kinematic) ⇄ dynamic bookkeeping: keep
+	// dynamic_body_count and the user_driven_bodies sync list consistent so
+	// physics_body_count and pre-step position sync stay correct.
+	old_user_driven := old_type == .STATIC || old_type == .KINEMATIC
+	new_user_driven := new_type == .STATIC || new_type == .KINEMATIC
+	if old_user_driven && !new_user_driven { untrack_user_driven_body(obj) }
+	if !old_user_driven && new_user_driven { track_user_driven_body(obj) }
+	if old_type == .DYNAMIC && new_type != .DYNAMIC { dynamic_body_count -= 1 }
+	if old_type != .DYNAMIC && new_type == .DYNAMIC { dynamic_body_count += 1 }
+
+	b2.Body_SetType(obj.body_id, bt)
+	obj.body_type = new_type
+	return v
+}
+
+// RUBY METHOD: body.drag -> f32 (linear damping)
+ruby_body_drag :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.word_boxing_float_value(state, 0)
+	}
+	return mrb.word_boxing_float_value(state, f64(b2.Body_GetLinearDamping(obj.body_id)))
+}
+
+// RUBY METHOD: body.drag = f
+ruby_body_set_drag :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: f64
+	mrb.get_args(state, "f", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+	b2.Body_SetLinearDamping(obj.body_id, f32(v))
+	return mrb.word_boxing_float_value(state, v)
+}
+
+// RUBY METHOD: body.ang_drag -> f32 (angular damping)
+ruby_body_ang_drag :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.word_boxing_float_value(state, 0)
+	}
+	return mrb.word_boxing_float_value(state, f64(b2.Body_GetAngularDamping(obj.body_id)))
+}
+
+// RUBY METHOD: body.ang_drag = f
+ruby_body_set_ang_drag :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: f64
+	mrb.get_args(state, "f", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+	b2.Body_SetAngularDamping(obj.body_id, f32(v))
+	return mrb.word_boxing_float_value(state, v)
+}
+
+// RUBY METHOD: body.spin = bool (physics-driven rotation; else fixedRotation)
+ruby_body_set_spin :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: mrb.Value
+	mrb.get_args(state, "o", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+	new_spin := mrb.boolean(v)
+	if new_spin && obj.body_type != .DYNAMIC {
+		return mrb.raise_error(state, "ArgumentError", "body.spin = true requires :dynamic")
+	}
+	b2.Body_SetFixedRotation(obj.body_id, !new_spin)
+	obj.spin = new_spin
+	return v
+}
+
+// RUBY METHOD: body.shape = Circ | Rect (swap collider; body/velocity intact)
+ruby_body_set_shape :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: mrb.Value
+	mrb.get_args(state, "o", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+
+	new_kind: Physics_Shape_Kind
+	half: rl.Vector2
+	radius: f32
+	offset: rl.Vector2
+	if is_native(Circ, v) {
+		c := extract_native(Circ, v)
+		new_kind = .CIRCLE
+		radius = c.r
+		half = {c.r, c.r}
+		offset = c.center
+	} else if is_native(rl.Rectangle, v) {
+		r := extract_native(rl.Rectangle, v)
+		new_kind = .BOX
+		half = {r.width / 2, r.height / 2}
+		offset = {r.x + r.width / 2, r.y + r.height / 2}
+	} else {
+		return mrb.raise_error(state, "TypeError", "body.shape= must be a Circ or Rect")
+	}
+
+	rebuild_body_shape(obj, new_kind, half, radius, offset, obj.sensor)
+
+	// Rewire the durable GC root: @__shape on the Body wrapper (self) is the
+	// sole keep-alive for the shape Value post-construction (the body() bridge
+	// was already dropped in ruby_obj). Overwriting the ivar releases the old
+	// Circ/Rect and roots the new one — no gc_register/unregister here.
+	obj.shape_val = v
+	gc_retain(self, "@__shape", v)
+	return v
+}
+
+// RUBY METHOD: body.sensor = bool (sensor flag is creation-time in box2d v3 →
+// rebuilds the shape, same geometry)
+ruby_body_set_sensor :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	v: mrb.Value
+	mrb.get_args(state, "o", &v)
+	obj := body_obj(self)
+	if obj == nil || !b2.Body_IsValid(obj.body_id) {
+		return mrb.raise_error(state, "RuntimeError", "physics body has been destroyed")
+	}
+	new_sensor := mrb.boolean(v)
+	if new_sensor == obj.sensor { return v }
+	kind, half, radius, offset := shape_descriptor(obj)
+	rebuild_body_shape(obj, kind, half, radius, offset, new_sensor)
+	return v
+}
+
 setup_body :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Body")
 
 	mrb.define_method(g.mrb_state, c, "type", cast(rawptr)ruby_body_type, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "type=", cast(rawptr)ruby_body_set_type, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "shape", cast(rawptr)ruby_body_shape, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "shape=", cast(rawptr)ruby_body_set_shape, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "sensor?", cast(rawptr)ruby_body_sensor, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "sensor=", cast(rawptr)ruby_body_set_sensor, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "spin?", cast(rawptr)ruby_body_spin, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "spin=", cast(rawptr)ruby_body_set_spin, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "layer", cast(rawptr)ruby_body_layer, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "layer=", cast(rawptr)ruby_body_set_layer, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "mask", cast(rawptr)ruby_body_mask, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "mask=", cast(rawptr)ruby_body_set_mask, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "destroy", cast(rawptr)ruby_body_destroy, mrb.ARGS_NONE)
+
+	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_body_overlaps, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "overlapping", cast(rawptr)ruby_body_overlapping, mrb.ARGS_NONE)
 
 	mrb.define_method(g.mrb_state, c, "move", cast(rawptr)ruby_body_move, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "apply_force", cast(rawptr)ruby_body_apply_force, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "apply_impulse", cast(rawptr)ruby_body_apply_impulse, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "apply_torque", cast(rawptr)ruby_body_apply_torque, mrb.ARGS_REQ(1))
-
-	mrb.define_method(g.mrb_state, c, "linear_vel", cast(rawptr)ruby_body_linear_vel, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, c, "linear_vel=", cast(rawptr)ruby_body_set_linear_vel, mrb.ARGS_REQ(1))
-	mrb.define_method(g.mrb_state, c, "angular_vel", cast(rawptr)ruby_body_angular_vel, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, c, "angular_vel=", cast(rawptr)ruby_body_set_angular_vel, mrb.ARGS_REQ(1))
-
-	mrb.define_method(g.mrb_state, c, "overlaps?", cast(rawptr)ruby_body_overlaps, mrb.ARGS_REQ(1))
-	mrb.define_method(g.mrb_state, c, "overlapping", cast(rawptr)ruby_body_overlapping, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "drag", cast(rawptr)ruby_body_drag, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "drag=", cast(rawptr)ruby_body_set_drag, mrb.ARGS_REQ(1))
 
 	mrb.define_method(g.mrb_state, c, "density", cast(rawptr)ruby_body_density, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "density=", cast(rawptr)ruby_body_set_density, mrb.ARGS_REQ(1))
@@ -531,4 +735,11 @@ setup_body :: proc() {
 	mrb.define_method(g.mrb_state, c, "friction=", cast(rawptr)ruby_body_set_friction, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "restitution", cast(rawptr)ruby_body_restitution, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "restitution=", cast(rawptr)ruby_body_set_restitution, mrb.ARGS_REQ(1))
+
+	mrb.define_method(g.mrb_state, c, "linear_vel", cast(rawptr)ruby_body_linear_vel, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "linear_vel=", cast(rawptr)ruby_body_set_linear_vel, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "angular_vel", cast(rawptr)ruby_body_angular_vel, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "angular_vel=", cast(rawptr)ruby_body_set_angular_vel, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "ang_drag", cast(rawptr)ruby_body_ang_drag, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "ang_drag=", cast(rawptr)ruby_body_set_ang_drag, mrb.ARGS_REQ(1))
 }

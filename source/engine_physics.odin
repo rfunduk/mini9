@@ -344,6 +344,90 @@ create_physics_body :: proc(
 	return body_id, shape_id
 }
 
+// Describe the current collider so a flag-only swap (sensor=) can rebuild the
+// same geometry. half_size/center_offset are mirrored on the Game_Object;
+// radius must be read back from box2d (not stored).
+shape_descriptor :: proc(
+	obj: ^Game_Object,
+) -> (
+	kind: Physics_Shape_Kind,
+	half: rl.Vector2,
+	radius: f32,
+	offset: rl.Vector2,
+) {
+	half = obj.half_size
+	offset = obj.body_center_offset
+	#partial switch b2.Shape_GetType(obj.shape_id) {
+	case .circleShape:
+		kind = .CIRCLE
+		radius = b2.Shape_GetCircle(obj.shape_id).radius
+	case:
+		kind = .BOX
+	}
+	return
+}
+
+// Swap the collider on a live body in place. body_id is preserved, so
+// velocity, transform and joints survive — only the b2.Shape is destroyed and
+// recreated. Material (density/friction/restitution/filter) is read off the
+// old shape BEFORE destruction and reapplied, so a shape= swap doesn't
+// silently reset physics material (those props live only in box2d, not on the
+// Game_Object). isSensor is creation-time-immutable in box2d v3
+// (Shape_EnableSensorEvents only toggles event reporting, not isSensor), so
+// sensor= must route here too. Legal only outside World_Step
+rebuild_body_shape :: proc(
+	obj: ^Game_Object,
+	new_kind: Physics_Shape_Kind,
+	new_half_size: rl.Vector2,
+	new_radius: f32,
+	new_center_offset: rl.Vector2,
+	new_sensor: bool,
+) {
+	old := obj.shape_id
+	density := b2.Shape_GetDensity(old)
+	friction := b2.Shape_GetFriction(old)
+	restitution := b2.Shape_GetRestitution(old)
+	filter := b2.Shape_GetFilter(old)
+
+	b2.DestroyShape(old, false)
+
+	shape_def := b2.DefaultShapeDef()
+	shape_def.density = density
+	shape_def.material.friction = friction
+	shape_def.material.restitution = restitution
+	shape_def.isSensor = new_sensor
+	shape_def.enableContactEvents = true
+	shape_def.enableSensorEvents = true
+	shape_def.filter = filter
+
+	switch new_kind {
+	case .BOX:
+		box := b2.MakeBox(new_half_size.x, new_half_size.y)
+		obj.shape_id = b2.CreatePolygonShape(obj.body_id, shape_def, box)
+	case .CIRCLE:
+		circle := b2.Circle {
+			center = {0, 0},
+			radius = new_radius,
+		}
+		obj.shape_id = b2.CreateCircleShape(obj.body_id, shape_def, circle)
+	case .NONE: // unreachable — validated by caller
+	}
+
+	obj.half_size = new_half_size
+	obj.body_center_offset = new_center_offset
+	obj.sensor = new_sensor
+	b2.Body_ApplyMassFromShapes(obj.body_id)
+
+	// Keep the obj visually anchored if the center offset changed: re-pin the
+	// body center to pos + new offset (matches sync_user_driven_positions).
+	if v := extract_native(rl.Vector2, obj.pos); v != nil {
+		new_center := v^ + new_center_offset
+		b2.Body_SetTransform(obj.body_id, new_center, b2.MakeRot(obj.rotation))
+		obj.last_sync_center = new_center
+		obj.last_sync_rotation = obj.rotation
+	}
+}
+
 // ─── mover API ───
 
 physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 {

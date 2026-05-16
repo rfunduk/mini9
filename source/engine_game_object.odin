@@ -212,12 +212,6 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 				//    temporary bridge root body() installed (half 2 of 2;
 				//    see ruby_body in engine_body.odin). Must run for EVERY
 				//    consumed BodySpec, else the bridge root leaks.
-				//    NB: gc_unregister removes ALL root entries for this
-				//    value. Safe because each rect()/circ() is normally a
-				//    unique value per body(); a shape shared across bodies
-				//    with no independent root (constant/ivar/local) and
-				//    interleaved body()/obj() construction is the one case
-				//    that can still bite — see jot gc-lifetime-body-wrapper.
 				if ptr.shape_val != mrb.NIL { mrb.gc_unregister(state, ptr.shape_val) }
 			}
 		}

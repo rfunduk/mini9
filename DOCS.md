@@ -1126,12 +1126,12 @@ No `body:` kwarg → no physics.
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `b.type` | Symbol | `:static` / `:kinematic` / `:dynamic` |
-| `b.shape` | `Circ` / `Rect` | The collision shape passed at construction |
-| `b.sensor?` | bool | |
-| `b.spin?` | bool | |
-| `b.layer` | Integer | The 1..64 layer index (single bit) |
-| `b.mask` | Integer | Raw bitmask. Use bit ops to test |
+| `b.type` / `b.type = sym` | Symbol | `:static` / `:kinematic` / `:dynamic`. Setter live-converts the body |
+| `b.shape` / `b.shape = s` | `Circ` / `Rect` | Setter swaps the collider in place — body, velocity, joints survive; material/filter preserved |
+| `b.sensor?` / `b.sensor = yn` | bool | Setter rebuilds the shape (sensor flag is creation-time in box2d) |
+| `b.spin?` / `b.spin = yn` | bool | `spin = true` requires `:dynamic` (else `ArgumentError`) |
+| `b.layer` / `b.layer = n` | Integer | The 1..64 layer index. Setter accepts Int (Array/Range also accepted) |
+| `b.mask` / `b.mask = n` | Integer | Raw bitmask. Setter accepts Int / Array / Range |
 | `b.move(velocity)` | Vector2 | Mover API for kinematic bodies. Cast + slide. Returns clipped velocity |
 | `b.linear_vel` / `b.linear_vel = v2` | Vector2 | Linear velocity |
 | `b.angular_vel` / `b.angular_vel = f` | Float | Angular velocity, radians/sec (`spin: true` bodies) |
@@ -1141,6 +1141,8 @@ No `body:` kwarg → no physics.
 | `b.density` / `b.density = f` | Float | Live mass property |
 | `b.friction` / `b.friction = f` | Float | |
 | `b.restitution` / `b.restitution = f` | Float | |
+| `b.drag` / `b.drag = f` | Float | Linear damping (velocity bleed per step) |
+| `b.ang_drag` / `b.ang_drag = f` | Float | Angular damping (only meaningful with `spin: true`) |
 | `b.destroy` | nil | Tear down the box2d body immediately. Idempotent. Mruby object lives until GC |
 | `b.overlaps?(other_body)` | bool | AABB overlap test |
 | `b.overlapping` | Array[GameObject] | Sensor-only. Game objects currently inside this sensor, filtered by `mask` |
