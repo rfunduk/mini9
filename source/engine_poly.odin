@@ -185,10 +185,13 @@ draw_polygon :: proc(
 			rl.DrawTriangle(t[0], t[1], t[2], color)
 		}
 	} else {
+		// rl.DrawLineEx -> DrawTriangleStrip -> batch flush -> +2 draw calls
+		// use draw_line instead. clip already applied above; pass nil so
+		// each edge doesn't re-toggle the scissor
 		for i in 0 ..< n {
 			a := pts[i]
 			b := pts[(i + 1) % n]
-			rl.DrawLineEx(a, b, thickness, color)
+			draw_line(a, b, color, thickness, nil)
 		}
 	}
 

@@ -387,7 +387,7 @@ ruby_body_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return out.distance < 1e-4 ? mrb.TRUE : mrb.FALSE
 }
 
-// Build a local-space b2.ShapeProxy from a shape. count==0 → unsupported
+// Build a local-space b2.ShapeProxy from a shape. count==0 -> unsupported
 // (chain segment); caller decides fallback. Transform applied by ShapeDistance.
 shape_proxy :: proc "c" (shape_id: b2.ShapeId) -> b2.ShapeProxy {
 	switch b2.Shape_GetType(shape_id) {
@@ -685,8 +685,7 @@ ruby_body_set_shape :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	return v
 }
 
-// RUBY METHOD: body.sensor = bool (sensor flag is creation-time in box2d v3 →
-// rebuilds the shape, same geometry)
+// RUBY METHOD: body.sensor = bool
 ruby_body_set_sensor :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	v: mrb.Value
