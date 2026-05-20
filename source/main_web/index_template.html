@@ -75,6 +75,17 @@
     </div>
     <script type="text/javascript" src="odin.js"></script>
     <script>
+        // stop arrows / space / pgup-pgdn / home-end from scrolling the
+        // page while the game has focus (esp painful when hosted in iframe)
+        const SCROLL_KEYS = new Set([
+            "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+            " ", "Spacebar", "PageUp", "PageDown", "Home", "End"
+        ])
+        window.addEventListener("keydown", (e) => {
+            if (SCROLL_KEYS.has(e.key)) { e.preventDefault() }
+        }, { passive: false })
+    </script>
+    <script>
         // localStorage key for save data
         const SAVE = "__NAME__"
 
@@ -108,6 +119,11 @@
                 const statusElement = document.getElementById('status')
                 const progressBar = document.getElementById('status-progress-bar')
                 const loaded = { rom: 0, wasm: 0, total: 0 }
+
+                // { preventScroll: true } stops the parent page (or
+                // containing iframe) from auto-scrolling the canvas
+                // into view on focus
+                function focusCanvas() { canvas.focus({ preventScroll: true }) }
 
                 function updateProgress() {
                     const progress = (loaded.total / TOTAL_SIZE) * 100
@@ -167,16 +183,16 @@
 
                     function send_resize() {
                         e.web_window_size_changed(window.innerWidth, window.innerHeight)
-                        setTimeout(() => canvas.focus(), 100)
+                        setTimeout(focusCanvas, 100)
                     }
 
                     window.addEventListener('resize', (event) => send_resize(), true)
 
                     // also regain focus on fullscreen changes
-                    document.addEventListener('fullscreenchange', () => setTimeout(() => canvas.focus(), 100))
+                    document.addEventListener('fullscreenchange', () => setTimeout(focusCanvas, 100))
 
                     // and on any click in the document (for itch.io UI interactions)
-                    document.addEventListener('click', () => setTimeout(() => canvas.focus(), 50))
+                    document.addEventListener('click', () => setTimeout(focusCanvas, 50))
 
                     // this can probably be done better: ideally we'd feed the
                     // initial size to `main_start`. but there seems to be a
@@ -198,7 +214,7 @@
                     window.requestAnimationFrame(do_main_update)
 
                     // focus the canvas for keyboard input
-                    canvas.focus()
+                    focusCanvas()
 
                     // hide loading screen
                     statusElement.classList.add('hidden')
