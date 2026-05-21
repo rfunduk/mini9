@@ -1,17 +1,238 @@
 #!/usr/bin/env ruby
 
 require "optparse"
-require "pathname"
 require "digest"
 require "fileutils"
+require "pathname"
 
-SRC_DIR = File.absolute_path("./source")
+ROOT = File.expand_path("..", __dir__)
+Dir.chdir(ROOT)
 
-TARGET = ARGV[0] || "debug"
-unless %w[debug release].include?(TARGET)
-  puts "Invalid target. Choose 'debug' or 'release'."
+USAGE = <<~TXT
+  Usage: bin/build <command> [options] [args]
+
+  Commands:
+    (no args)                   = debug
+    GAME                        = debug GAME (shorthand)
+    setup [--force]             install/refresh vendor dependencies
+    debug [--web] [GAME]        build debug; with GAME, run it (native or --web)
+    release [GAME]              build release; with GAME, run it
+    test [PACKAGE...]           run odin unit tests
+    publish vX.Y.Z              release build → sanity checks → tag -s → push
+
+    help                        show this
+TXT
+
+# ============================================================================
+# SHARED HELPERS
+# ============================================================================
+
+def die(msg)
+  warn "build: #{msg}"
   exit 1
 end
+
+def sh!(*cmd, env: {})
+  ok = system(env, *cmd)
+  die "command failed: #{cmd.join(" ")}" unless ok
+end
+
+def sh(*cmd)
+  out = IO.popen(cmd, err: [:child, :out]) { |io| io.read }
+  [out, $?.success?]
+end
+
+def section(title)
+  puts "\n\n#{title}"
+  puts "=" * title.length
+end
+
+# ============================================================================
+# SETUP — vendor deps (emsdk, mruby, box2d, libtess2, raylib)
+# Digest at vendor/.digest; re-runs only when versions or mruby.rb change.
+# ============================================================================
+
+MRUBY_VERSION    = "4.0.0"
+EMSDK_VERSION    = "4.0.13"
+BOX2D_VERSION    = "v3.1.1"
+LIBTESS2_VERSION = "8dbd6483e920311a58c9af10a10beb278efebc36"
+RAYLIB_VERSION   = "6.0"
+
+VENDOR = File.join(ROOT, "vendor")
+
+def clone_or_update(dir, repo, ref)
+  if File.directory?(dir)
+    puts "#{File.basename(dir)} exists, updating..."
+    Dir.chdir(dir) do
+      sh!("git", "fetch", "--tags")
+      sh!("git", "checkout", ref)
+    end
+  else
+    puts "Cloning #{File.basename(dir)}..."
+    sh!("git", "clone", repo, dir)
+    Dir.chdir(dir) { sh!("git", "checkout", ref) }
+  end
+end
+
+def load_emsdk_env!
+  return if @emsdk_env_loaded
+  env_script = File.join(VENDOR, "emsdk", "emsdk_env.sh")
+  out = `bash -c '. "#{env_script}" > /dev/null 2>&1 && env'`
+  die "could not source emsdk_env.sh" unless $?.success?
+  out.each_line do |line|
+    k, v = line.chomp.split("=", 2)
+    ENV[k] = v if k && v
+  end
+  @emsdk_env_loaded = true
+end
+
+def setup_digest_path = File.join(VENDOR, ".digest")
+
+def setup_digest_current
+  parts = [
+    MRUBY_VERSION, EMSDK_VERSION, BOX2D_VERSION, LIBTESS2_VERSION, RAYLIB_VERSION,
+    File.read(File.join(ROOT, "mruby.rb")),
+  ]
+  Digest::SHA256.hexdigest(parts.join("\n"))
+end
+
+def cmd_setup(argv)
+  force = false
+  OptionParser.new do |o|
+    o.on("-f", "--force", "rebuild deps even if digest matches") { force = true }
+  end.parse!(argv)
+  die "unexpected args: #{argv.join(" ")}" unless argv.empty?
+
+  if !force && File.exist?(setup_digest_path) && File.read(setup_digest_path) == setup_digest_current
+    puts "Vendor deps up to date. `bin/build setup --force` to rebuild"
+    return
+  end
+
+  FileUtils.mkdir_p(VENDOR)
+  puts "\n\n\n*** Installing development deps..."
+
+  # emscripten
+  section("Emscripten")
+  emsdk_dir = File.join(VENDOR, "emsdk")
+  clone_or_update(emsdk_dir, "https://github.com/emscripten-core/emsdk.git", EMSDK_VERSION)
+  ENV["EMSDK_QUIET"] = "1"
+  puts "Installing and activating emscripten..."
+  Dir.chdir(emsdk_dir) do
+    sh!("./emsdk", "install", "latest")
+    sh!("./emsdk", "activate", "latest")
+  end
+  load_emsdk_env!
+
+  # mruby
+  section("mruby")
+  mruby_dir = File.join(VENDOR, "mruby")
+  clone_or_update(mruby_dir, "https://github.com/mruby/mruby.git", MRUBY_VERSION)
+  puts "Building mruby..."
+  Dir.chdir(mruby_dir) do
+    sh!("rake", env: { "MRUBY_CONFIG" => File.join(ROOT, "mruby.rb") })
+  end
+
+  # box2d
+  section("box2d")
+  box2d_dir = File.join(VENDOR, "box2d")
+  clone_or_update(box2d_dir, "https://github.com/erincatto/box2d.git", BOX2D_VERSION)
+  cmake_flags = %w[
+    -DBOX2D_SAMPLES=OFF -DBOX2D_BENCHMARKS=OFF
+    -DBOX2D_DOCS=OFF -DBOX2D_UNIT_TESTS=OFF
+    -DCMAKE_BUILD_TYPE=Release
+  ]
+  puts "Building box2d (native)..."
+  Dir.chdir(box2d_dir) do
+    sh!("cmake", "-S", ".", "-B", "build", *cmake_flags)
+    sh!("cmake", "--build", "build", "--config", "Release")
+  end
+  puts "Building box2d (emscripten/wasm)..."
+  FileUtils.mkdir_p(File.join(box2d_dir, "build-wasm"))
+  Dir.chdir(File.join(box2d_dir, "build-wasm")) do
+    sh!("emcmake", "cmake", "-S", "..", "-B", ".", *cmake_flags)
+    sh!("emmake", "make")
+  end
+
+  # libtess2
+  section("libtess2")
+  tess_dir = File.join(VENDOR, "libtess2")
+  clone_or_update(tess_dir, "https://github.com/memononen/libtess2.git", LIBTESS2_VERSION)
+  Dir.chdir(tess_dir) do
+    puts "Building libtess2 (native)..."
+    FileUtils.rm_rf("build")
+    FileUtils.mkdir_p("build")
+    Dir.glob("Source/*.c").each do |f|
+      o = "build/#{File.basename(f, ".c")}.o"
+      sh!("cc", "-c", "-O2", "-IInclude", "-o", o, f)
+    end
+    sh!("ar", "rcs", "build/libtess2.a", *Dir.glob("build/*.o"))
+
+    puts "Building libtess2 (emscripten/wasm)..."
+    FileUtils.rm_rf("build-wasm")
+    FileUtils.mkdir_p("build-wasm")
+    Dir.glob("Source/*.c").each do |f|
+      o = "build-wasm/#{File.basename(f, ".c")}.o"
+      sh!("emcc", "-c", "-O2", "-fwasm-exceptions", "-IInclude", "-o", o, f)
+    end
+    sh!("emar", "rcs", "build-wasm/libtess2.a", *Dir.glob("build-wasm/*.o"))
+  end
+
+  # raylib — stripped (no 3D, no raygui)
+  section("raylib")
+  raylib_dir = File.join(VENDOR, "raylib")
+  if File.directory?(raylib_dir)
+    clone_or_update(raylib_dir, "https://github.com/raysan5/raylib.git", RAYLIB_VERSION)
+  else
+    puts "Cloning raylib..."
+    sh!("git", "clone", "--branch", RAYLIB_VERSION, "--depth", "1",
+        "https://github.com/raysan5/raylib.git", raylib_dir)
+  end
+
+  raylib_strip = %w[
+    -DSUPPORT_FILEFORMAT_OBJ=0 -DSUPPORT_FILEFORMAT_MTL=0
+    -DSUPPORT_FILEFORMAT_GLTF=0 -DSUPPORT_FILEFORMAT_VOX=0
+    -DSUPPORT_FILEFORMAT_IQM=0 -DSUPPORT_FILEFORMAT_M3D=0
+    -DSUPPORT_MESH_GENERATION=0
+  ].join(" ")
+
+  raylib_make_env = {
+    "RAYLIB_LIBTYPE"        => "STATIC",
+    "RAYLIB_MODULE_MODELS"  => "FALSE",
+    "RAYLIB_MODULE_RAYGUI"  => "FALSE",
+    "RAYLIB_BUILD_MODE"     => "RELEASE",
+    "CUSTOM_CFLAGS"         => raylib_strip,
+  }
+
+  FileUtils.mkdir_p(File.join(raylib_dir, "build-native"))
+  FileUtils.mkdir_p(File.join(raylib_dir, "build-wasm"))
+
+  src = File.join(raylib_dir, "src")
+  Dir.chdir(src) do
+    puts "Building raylib (native)..."
+    system("make", "clean")
+    sh!("make", "PLATFORM=PLATFORM_DESKTOP",
+        "RAYLIB_RELEASE_PATH=#{File.join(raylib_dir, "build-native")}",
+        "-j",
+        env: raylib_make_env)
+
+    puts "Building raylib (emscripten/wasm)..."
+    system("make", "clean")
+    sh!("make", "PLATFORM=PLATFORM_WEB",
+        "RAYLIB_RELEASE_PATH=#{File.join(raylib_dir, "build-wasm")}",
+        "-j",
+        env: raylib_make_env)
+  end
+
+  File.write(setup_digest_path, setup_digest_current)
+  puts "\nSetup complete."
+end
+
+# ============================================================================
+# COMPILE — Ruby API codegen + Odin native/web build
+# Pipeline: tools → lint → codegen → bin/_build.sh (shell worker).
+# ============================================================================
+
+SRC_DIR = File.join(ROOT, "source")
 
 def ruby_api_files
   return $ruby_api_files if $ruby_api_files
@@ -32,7 +253,6 @@ def ruby_api_files
       has_cleanup = odin_content.include?("cleanup_#{api_name} ::")
     end
 
-    # Collect all ENGINE declarations from leading comments
     type_mappings = []
     File.foreach(ruby_file) do |line|
       break unless line.start_with?("#") || line.strip.empty?
@@ -82,8 +302,7 @@ def engine_methods
 end
 
 def maybe_build_tools
-  # we need to build macros here as rb2bin uses them
-  # _build.sh still compiles it also :shrug:
+  # macros.o is needed by rb2bin; bin/_build.sh also recompiles it, fine.
   macros_c = "lib/mruby/macros.c"
   macros_o = "build/tools/macros.o"
   prev_digest_path = "bin/__macros_c__generated.digest"
@@ -134,7 +353,7 @@ def maybe_build_tools
   end
 end
 
-def generate
+def generate(target)
   File.write(
     File.join(SRC_DIR, "../ruby_api/auto__generated.rb"),
     "ENGINE_METHODS = [\n#{engine_methods.map { "\t\"#{_1[0]}\"" }.join(",\n")}\n]\n"
@@ -148,7 +367,7 @@ def generate
       "ruby_api/#{api_name}.rb",
       "ruby_api/#{api_name.gsub(/^_+|_+$/, "")}__generated.bin"
     ]
-    convert_cmd << "--debug" if TARGET == "debug"
+    convert_cmd << "--debug" if target == "debug"
 
     result = system(*convert_cmd, out: File::NULL, err: File::NULL)
     raise "Unable to generate bytecode" unless result
@@ -221,25 +440,333 @@ def generate
   File.write(File.join(SRC_DIR, "engine_ruby_api__generated.odin"), init_content.join("\n") + "\n")
 end
 
-maybe_build_tools
+MRUBY_INCLUDE = File.join(VENDOR, "mruby/include")
+MACROS_SRC    = File.join(ROOT, "lib/mruby/macros.c")
 
-puts "Linting source..."
-unless system("bin/__lint__generated", "source")
-  puts "Lint failed."
+# Web build: odin -> wasm obj, then emcc links engine.wasm + vendor .a's into
+# index.html (+ .js + .wasm). Outputs land in build/web; the native build
+# later bundles them into the executable.
+def build_web(target)
+  web_out = File.join(ROOT, "build/web")
+  FileUtils.mkdir_p(web_out)
+
+  engine_debug = target == "debug" ? "true" : "false"
+  debug_flag   = target == "debug" ? "-g" : nil
+
+  puts "  Building for web..."
+  ok = system(
+    "odin", "build", "source/main_web",
+    "-define:RAYLIB_WASM_LIB=env.o",
+    "-define:BOX2D_LIB=env.o",
+    "-define:LIBTESS2_LIB=env.o",
+    "-define:MRUBY_LIB=env.o",
+    "-define:MRUBY_MACROS_LIB=env.o",
+    "-define:RAYLIB_LIB=env.o",
+    "-collection:lib=lib",
+    "-target:js_wasm32",
+    "-build-mode:obj",
+    "-vet", "-strict-style",
+    "-define:ENGINE_DEBUG=#{engine_debug}",
+    "-out:#{web_out}/engine"
+  )
+  die "web build failed" unless ok
+
+  odin_root = `odin root`.strip
+  FileUtils.cp(File.join(odin_root, "core/sys/wasm/js/odin.js"), web_out)
+
+  load_emsdk_env!
+  ENV["EMSDK_QUIET"] = "1"
+
+  sh!("emcc", "-c", "-fwasm-exceptions",
+      "-I", MRUBY_INCLUDE,
+      "-I", File.join(VENDOR, "mruby/build/emscripten/include"),
+      MACROS_SRC,
+      "-o", File.join(web_out, "macros.o"))
+
+  files = [
+    File.join(web_out, "engine.wasm"),
+    "vendor/raylib/build-wasm/libraylib.web.a",
+    "vendor/mruby/build/emscripten/lib/libmruby.a",
+    "vendor/box2d/build-wasm/src/libbox2d.a",
+    "vendor/libtess2/build-wasm/libtess2.a",
+    File.join(web_out, "macros.o"),
+  ]
+  flags = %w[
+    -fwasm-exceptions
+    -sSUPPORT_LONGJMP=wasm
+    -sUSE_GLFW=3
+    -sWASM_BIGINT
+    -sWARN_ON_UNDEFINED_SYMBOLS=0
+    -sASSERTIONS
+    -sALLOW_TABLE_GROWTH=1
+    -sALLOW_MEMORY_GROWTH=1
+    -sINITIAL_MEMORY=67108864
+    -sMAXIMUM_MEMORY=268435456
+    -sFORCE_FILESYSTEM=1
+    -sEXPORTED_RUNTIME_METHODS=["HEAPF32"]
+    --shell-file source/main_web/index_template.html
+  ]
+  cmd = ["emcc"]
+  cmd << debug_flag if debug_flag
+  cmd += ["-o", File.join(web_out, "index.html")] + files + flags
+  sh!(*cmd)
+
+  FileUtils.rm_f([File.join(web_out, "engine.wasm"), File.join(web_out, "macros.o")])
+  puts "  Web assets: #{web_out}"
+end
+
+# Native build: cc the mruby macros, then odin links engine + vendor .a's
+# into build/<target>/mini9.
+def build_native(target)
+  out_dir = File.join(ROOT, "build", target)
+  FileUtils.mkdir_p(out_dir)
+
+  puts "  Building mruby macros..."
+  sh!("cc", "-c",
+      "-I", MRUBY_INCLUDE,
+      "-I", File.join(VENDOR, "mruby/build/host/include"),
+      MACROS_SRC,
+      "-o", File.join(out_dir, "macros.o"))
+
+  flags = %W[
+    -out:#{out_dir}/mini9
+    -define:MRUBY_LIB=../../vendor/mruby/build/host/lib/libmruby.a
+    -define:MRUBY_MACROS_LIB=../../build/#{target}/macros.o
+    -define:BOX2D_LIB=../../vendor/box2d/build/src/libbox2d.a
+    -define:LIBTESS2_LIB=../../../vendor/libtess2/build/libtess2.a
+    -define:RAYLIB_LIB=../../vendor/raylib/build-native/libraylib.a
+    -define:BYTECODE_PACKAGING=true
+    -collection:lib=lib
+    -vet-packages:engine,mrb,rove,libtess,box2d
+    -vet-style -vet-semicolon -vet-cast -vet
+  ]
+  if target == "debug"
+    flags += %w[
+      -debug
+      -define:SAFE_DISPATCH=true
+      -define:CHECK_MRUBY_DATA_TYPES=true
+      -define:ENGINE_DEBUG=true
+      -define:USE_TRACKING_ALLOCATOR=true
+    ]
+  else
+    flags += %w[
+      -no-bounds-check
+      -o:speed
+      -define:ENGINE_DEBUG=false
+    ]
+  end
+
+  puts "  Building native binary..."
+  sh!("odin", "build", "source/main_native", *flags)
+  FileUtils.rm_f(File.join(out_dir, "macros.o"))
+  puts "  Build created in #{out_dir}"
+end
+
+def compile(target)
+  maybe_build_tools
+
+  puts "Linting source..."
+  die "lint failed" unless system("bin/__lint__generated", "source")
+
+  puts "Preparing '#{target}'..."
+  FileUtils.rm_rf(File.join(ROOT, "build", target))
+
+  generate(target)
+
+  puts "Building '#{target}'..."
+  build_web(target)
+  build_native(target)
+  puts "Build complete."
+end
+
+def cmd_compile(target, argv)
+  web = false
+  OptionParser.new do |o|
+    o.on("--web") { web = true }
+  end.parse!(argv)
+  game = argv.shift
+  die "unexpected args: #{argv.join(" ")}" unless argv.empty?
+  die "--web requires GAME path" if web && game.nil?
+
+  cmd_setup([])
+  compile(target)
+
+  if web
+    serve_web(game)
+  elsif game
+    exec(File.join(ROOT, "build", target, "mini9"), game)
+  end
+end
+
+# ============================================================================
+# DEV WEB — package game + serve packaged web build
+# Static files only: index.html, index.js, index.wasm, odin.js, cart.m9.
+# COOP/COEP required for SharedArrayBuffer in emscripten output.
+# ============================================================================
+
+WEB_MIME = {
+  ".html" => "text/html; charset=utf-8",
+  ".js"   => "application/javascript",
+  ".wasm" => "application/wasm",
+  ".m9"   => "application/octet-stream",
+}.freeze
+
+WEB_HEADERS = {
+  "Cross-Origin-Opener-Policy"   => "same-origin",
+  "Cross-Origin-Embedder-Policy" => "require-corp",
+  "Access-Control-Allow-Origin"  => "*",
+  "Cache-Control"                => "no-store, no-cache, must-revalidate",
+}.freeze
+
+def serve_web(game)
+  require "socket"
+
+  sh!("build/debug/mini9", "package", "--web", "--source", game, "--output", "build/carts/")
+  Dir.chdir("build/carts/#{File.basename(game)}")
+  root = Dir.pwd
+
+  server = TCPServer.new(8888)
+  server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
+  trap("INT") { puts "\nShutting down..."; exit 0 }
+
+  Thread.new { sleep 1; system("open", "http://localhost:8888") }
+  puts "Serving at http://localhost:8888 (Ctrl+C to stop)"
+
+  loop do
+    Thread.new(server.accept) do |sock|
+      begin
+        req = sock.gets or next
+        method, path, _ = req.split
+        while (h = sock.gets) && h.strip != ""; end
+        path = (path || "/").split("?", 2).first
+        path = "/index.html" if path == "/"
+        full = File.expand_path(File.join(root, path))
+
+        respond = ->(code, body, ctype = "text/plain") {
+          reason = { 200 => "OK", 204 => "No Content", 403 => "Forbidden",
+                     404 => "Not Found", 405 => "Method Not Allowed" }[code]
+          sock.write("HTTP/1.1 #{code} #{reason}\r\n")
+          sock.write("Content-Type: #{ctype}\r\nContent-Length: #{body.bytesize}\r\n")
+          WEB_HEADERS.each { |k, v| sock.write("#{k}: #{v}\r\n") }
+          sock.write("\r\n#{body}")
+        }
+
+        next respond.(405, "") if method != "GET" && method != "OPTIONS"
+        next respond.(204, "") if method == "OPTIONS"
+        next respond.(403, "forbidden") unless full == root || full.start_with?(root + "/")
+        next respond.(404, "not found") unless File.file?(full)
+
+        body  = File.binread(full)
+        ctype = WEB_MIME[File.extname(full).downcase] || "application/octet-stream"
+        respond.(200, body, ctype)
+      rescue => e
+        warn "serve: #{e}"
+      ensure
+        sock.close rescue nil
+      end
+    end
+  end
+end
+
+# ============================================================================
+# TEST
+# ============================================================================
+
+TEST_PACKAGES = %w[lib/rove/tests].freeze
+
+def cmd_test(argv)
+  packages = argv.empty? ? TEST_PACKAGES : argv
+  failed = false
+  packages.each do |pkg|
+    unless File.directory?(pkg)
+      puts "skip: #{pkg} (not a directory)"
+      next
+    end
+    puts "==> #{pkg}"
+    ok = system(
+      "odin", "test", pkg,
+      "-collection:lib=#{File.join(ROOT, "lib")}",
+      "-define:LIBTESS2_LIB=../../../vendor/libtess2/build/libtess2.a"
+    )
+    failed = true unless ok
+  end
+  exit 1 if failed
+end
+
+# ============================================================================
+# PUBLISH — sanity check + release build + signed tag + push
+# Tag push triggers .github/workflows/release.yml which cuts the GH release.
+# ============================================================================
+
+def cmd_publish(argv)
+  raw = argv.shift or die "missing <version>"
+  die "unexpected args: #{argv.join(" ")}" unless argv.empty?
+
+  version = raw.sub(/\Av/, "")
+  die "version must look like X.Y.Z (got #{raw.inspect})" unless version =~ /\A\d+\.\d+\.\d+\z/
+  tag = "v#{version}"
+  remote = "origin"
+
+  branch = `git rev-parse --abbrev-ref HEAD`.strip
+  die "must be on main (on #{branch})" unless branch == "main"
+
+  status = `git status --porcelain`.strip
+  die "working tree not clean:\n#{status}" unless status.empty?
+
+  sh!("git", "fetch", "--tags", remote)
+
+  local    = `git rev-parse HEAD`.strip
+  upstream = `git rev-parse #{remote}/main`.strip
+  die "local main #{local[0,7]} != #{remote}/main #{upstream[0,7]} — push/pull first" unless local == upstream
+
+  _, exists_local = sh("git", "rev-parse", "-q", "--verify", "refs/tags/#{tag}")
+  die "tag #{tag} already exists locally" if exists_local
+  ls, _ = sh("git", "ls-remote", "--tags", remote, "refs/tags/#{tag}")
+  die "tag #{tag} already exists on #{remote}" unless ls.strip.empty?
+
+  if system("command -v gh >/dev/null 2>&1")
+    out, ok = sh("gh", "release", "view", tag)
+    die "release #{tag} already exists on GitHub" if ok && !out.empty?
+  end
+
+  puts "Sanity: release build..."
+  cmd_setup([])
+  compile("release")
+
+  puts "Tag #{tag} at #{local[0,7]} (#{branch})"
+  puts "Push → #{remote} (triggers release workflow)"
+  print "Proceed? [y/N] "
+  ans = $stdin.gets.to_s.strip.downcase
+  die "aborted" unless %w[y yes].include?(ans)
+
+  sh!("git", "tag", "-s", tag, "-m", tag)
+  sh!("git", "push", remote, tag)
+  puts "Pushed #{tag}. Watch: gh run watch"
+end
+
+# ============================================================================
+# DISPATCH
+# ============================================================================
+
+SUBCOMMANDS = %w[setup debug release test publish help -h --help].freeze
+
+cmd = ARGV.shift
+# bare path arg → shorthand for `debug <path>`
+if cmd && !SUBCOMMANDS.include?(cmd) && (cmd.include?("/") || cmd.start_with?(".", "~"))
+  ARGV.unshift(cmd)
+  cmd = "debug"
+end
+
+case cmd
+when nil                then cmd_compile("debug", ARGV)
+when "setup"            then cmd_setup(ARGV)
+when "debug", "release" then cmd_compile(cmd, ARGV)
+when "test"             then cmd_test(ARGV)
+when "publish"          then cmd_publish(ARGV)
+when "help", "-h", "--help"
+  puts USAGE
+else
+  warn "unknown command: #{cmd}"
+  warn USAGE
   exit 1
 end
-
-puts "Preparing '#{TARGET}'..."
-FileUtils.rm_rf(File.absolute_path("./build/#{TARGET}"))
-
-generate
-
-puts "Building '#{TARGET}'..."
-result = system({ "TARGET" => TARGET }, "bin/_build.sh")
-
-unless result
-  puts "Build failed with exit code #{$?.exitstatus}"
-  exit $?.exitstatus
-end
-
-puts "Build complete."

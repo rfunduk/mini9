@@ -43,8 +43,11 @@ mini9 mygame.m9
 ### Package for web
 
 ```bash
+# builds ./mygame dir containing index.html, cart, etc
 mini9 package --web --source path/to/mygame --output .
-# ./mygame dir contains index.html, cart, etc
+
+# zip for itch.io or similar
+zip -r mygame.zip mygame
 ```
 
 
@@ -60,7 +63,7 @@ mini9 package --web --source path/to/mygame --output .
 ### Setup dependencies
 
 ```bash
-bin/setup
+bin/build setup
 ```
 
 ### Build (`debug` or `release`)
@@ -71,8 +74,6 @@ bin/build debug
 
 ### Try it in browser
 
-This handy little script packages up the game and starts an appropriate webserver:
-
 ```bash
-bin/dev_web path/to/mygame
+bin/build debug --web path/to/mygame
 ```
