@@ -98,6 +98,21 @@
         const dec = new TextDecoder()
         const ls = localStorage
         const canvas = document.getElementById('canvas')
+
+        // tag WebGL drawing buffer as display-p3 so explicit RGB values
+        // map to display primaries directly. without this, browser treats
+        // canvas as sRGB and color-manages to display gamut, dimming pure
+        // colors (e.g. (255,0,0) eyedrops as (234,51,35) on P3 monitors).
+        const _origGetContext = canvas.getContext.bind(canvas)
+        canvas.getContext = (type, attrs) => {
+            const ctx = _origGetContext(type, attrs)
+            if (ctx && (type === 'webgl2' || type === 'webgl')) {
+                try { ctx.drawingBufferColorSpace = 'display-p3' } catch (_) {}
+                try { ctx.unpackColorSpace = 'display-p3' } catch (_) {}
+            }
+            return ctx
+        }
+
         const odinMem = new odin.WasmMemoryInterface()
         odinMem.setIntSize(4)
         const odinImp = odin.setupDefaultImports(odinMem)
