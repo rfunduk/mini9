@@ -15,43 +15,108 @@ cached_keys_frame: u32
 @(private = "file")
 cached_keys: [10]rl.KeyboardKey
 
-// shared with engine.odin (cleared per render frame in the main loop)
-pressed_this_frame: map[i32]bool
-released_this_frame: map[i32]bool
+// Per-key edge queue. Wall-frame sweep appends PRESS/RELEASE events into
+// `bits` (bit 0 = oldest, 0 = PRESS, 1 = RELEASE). Each scaled tick pops
+// the front via advance_input_edges() into `input_current_edges`. Caps at
+// 32 events per key; overflow drops the newest. Keys are mini9 keycodes
+// (raylib KeyboardKey i32, mouse +10000, gamepad button +20000+pad*100).
+Edge_Kind :: enum u8 {
+	NONE,
+	PRESS,
+	RELEASE,
+}
+
+Key_Edges :: struct {
+	bits:  u32,
+	count: u8,
+}
+
+input_edge_queue: map[i32]Key_Edges
+input_current_edges: map[i32]Edge_Kind
+
+@(private = "file")
+append_edge :: proc(keycode: i32, is_release: bool) {
+	e := input_edge_queue[keycode]
+	if e.count >= 32 { return }
+	if is_release { e.bits |= (u32(1) << e.count) }
+	e.count += 1
+	input_edge_queue[keycode] = e
+}
+
+advance_input_edges :: proc() {
+	clear(&input_current_edges)
+	for k, &e in input_edge_queue {
+		if e.count == 0 { continue }
+		is_release := (e.bits & 1) == 1
+		input_current_edges[k] = is_release ? .RELEASE : .PRESS
+		e.bits >>= 1
+		e.count -= 1
+	}
+}
+
+sweep_input_edges :: proc() {
+	for k in rl.KeyboardKey {
+		if k == .KEY_NULL { continue }
+		code := i32(k)
+		if rl.IsKeyPressed(k) { append_edge(code, false) }
+		if rl.IsKeyReleased(k) { append_edge(code, true) }
+	}
+	for b in rl.MouseButton {
+		code := i32(b) + 10000
+		if rl.IsMouseButtonPressed(b) { append_edge(code, false) }
+		if rl.IsMouseButtonReleased(b) { append_edge(code, true) }
+	}
+	for pad in i32(0) ..< 4 {
+		if !rl.IsGamepadAvailable(pad) { continue }
+		for btn in rl.GamepadButton {
+			if btn == .UNKNOWN { continue }
+			code := i32(btn) + 20000 + pad * 100
+			if rl.IsGamepadButtonPressed(pad, btn) { append_edge(code, false) }
+			if rl.IsGamepadButtonReleased(pad, btn) { append_edge(code, true) }
+		}
+	}
+}
+
+// Map a Ruby-facing keycode + gamepad id into the i32 queue key used by
+// input_edge_queue / input_current_edges. Gamepad button codes embed the
+// pad id so different pads sharing the same button get distinct queues.
+@(private = "file")
+queue_key :: proc(keycode: i32, gamepad_id: i32) -> i32 {
+	if keycode >= 20000 && keycode < 30000 { return keycode + gamepad_id * 100 }
+	return keycode
+}
 
 // RUBY FUNCTION: _key_down_impl(keycode, gamepad=nil) -> bool
 // @engine_method: name="_key_down_impl", aspec=ARGS_ARG(1,1)
 ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
-	gamepad_id: mrb.Value
-	argc := mrb.get_args(state, "i|o", &keycode, &gamepad_id)
+	gamepad_id_val: mrb.Value
+	argc := mrb.get_args(state, "i|o", &keycode, &gamepad_id_val)
 
 	if keycode >= 30000 {
-		// gamepad axis - requires gamepad parameter
-		if argc < 2 || gamepad_id == mrb.NIL { return mrb.FALSE }
-		gamepad := i32(mrb.integer(gamepad_id))
+		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
+		gamepad := i32(mrb.integer(gamepad_id_val))
 		axis := rl.GamepadAxis(keycode - 30000)
 		axis_value := rl.GetGamepadAxisMovement(gamepad, axis)
-		// consider axis "down" if absolute value > deadzone (0.1)
 		return (axis_value > 0.1 || axis_value < -0.1) ? mrb.TRUE : mrb.FALSE
-	} else if keycode >= 20000 {
-		// gamepad button - requires gamepad parameter
-		if argc < 2 || gamepad_id == mrb.NIL {
-			return mrb.FALSE
-		}
-		gamepad := i32(mrb.integer(gamepad_id))
-		button := rl.GamepadButton(keycode - 20000)
-		return rl.IsGamepadButtonDown(gamepad, button) ? mrb.TRUE : mrb.FALSE
-	} else if keycode >= 10000 {
-		// mouse input - subtract offset to get MouseButton enum value
-		mouse_button := rl.MouseButton(keycode - 10000)
-		return rl.IsMouseButtonDown(mouse_button) ? mrb.TRUE : mrb.FALSE
-	} else {
-		// keyboard input
-		is_down := rl.IsKeyDown(rl.KeyboardKey(keycode))
-		return is_down ? mrb.TRUE : mrb.FALSE
 	}
+
+	gamepad: i32 = 0
+	raw_down := false
+	if keycode >= 20000 {
+		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
+		gamepad = i32(mrb.integer(gamepad_id_val))
+		raw_down = rl.IsGamepadButtonDown(gamepad, rl.GamepadButton(keycode - 20000))
+	} else if keycode >= 10000 {
+		raw_down = rl.IsMouseButtonDown(rl.MouseButton(keycode - 10000))
+	} else {
+		raw_down = rl.IsKeyDown(rl.KeyboardKey(keycode))
+	}
+
+	if raw_down { return mrb.TRUE }
+	if input_current_edges[queue_key(keycode, gamepad)] == .PRESS { return mrb.TRUE }
+	return mrb.FALSE
 }
 
 // RUBY FUNCTION: _key_pressed_impl(keycode, gamepad=nil) -> bool
@@ -59,40 +124,18 @@ ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
-	gamepad_id: mrb.Value
-	argc := mrb.get_args(state, "i|o", &keycode, &gamepad_id)
+	gamepad_id_val: mrb.Value
+	argc := mrb.get_args(state, "i|o", &keycode, &gamepad_id_val)
 
-	// if we already saw pressed recorded this render frame,
-	// we dont want to report it as pressed again
-	if keycode in pressed_this_frame { return mrb.FALSE }
+	if keycode >= 30000 { return mrb.FALSE }
 
-	pressed := false
-
-	if keycode >= 30000 {
-		// gamepad axis - no "pressed" state for axes, always false
-		pressed = false
-	} else if keycode >= 20000 {
-		// gamepad button - requires gamepad parameter
-		if argc < 2 || gamepad_id == mrb.NIL {
-			pressed = false
-		} else {
-			gamepad := i32(mrb.integer(gamepad_id))
-			button := rl.GamepadButton(keycode - 20000)
-			pressed = rl.IsGamepadButtonPressed(gamepad, button)
-		}
-	} else if keycode >= 10000 {
-		// mouse input - subtract offset to get MouseButton enum value
-		mouse_button := rl.MouseButton(keycode - 10000)
-		pressed = rl.IsMouseButtonPressed(mouse_button)
-	} else {
-		// keyboard input
-		pressed = rl.IsKeyPressed(rl.KeyboardKey(keycode))
+	gamepad: i32 = 0
+	if keycode >= 20000 {
+		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
+		gamepad = i32(mrb.integer(gamepad_id_val))
 	}
 
-	// record that we saw pressed this render frame
-	if pressed { pressed_this_frame[keycode] = true }
-
-	return pressed ? mrb.TRUE : mrb.FALSE
+	return input_current_edges[queue_key(keycode, gamepad)] == .PRESS ? mrb.TRUE : mrb.FALSE
 }
 
 // RUBY FUNCTION: _key_released_impl(keycode, gamepad=nil) -> bool
@@ -100,40 +143,18 @@ ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 ruby_key_released_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	keycode: i32
-	gamepad_id: mrb.Value
-	argc := mrb.get_args(state, "i|o", &keycode, &gamepad_id)
+	gamepad_id_val: mrb.Value
+	argc := mrb.get_args(state, "i|o", &keycode, &gamepad_id_val)
 
-	// if we already saw released recorded this render frame,
-	// we dont want to report it as released again
-	if keycode in released_this_frame { return mrb.FALSE }
+	if keycode >= 30000 { return mrb.FALSE }
 
-	released := false
-
-	if keycode >= 30000 {
-		// gamepad axis - no "released" state for axes, always false
-		released = false
-	} else if keycode >= 20000 {
-		// gamepad button - requires gamepad parameter
-		if argc < 2 || gamepad_id == mrb.NIL {
-			released = false
-		} else {
-			gamepad := i32(mrb.integer(gamepad_id))
-			button := rl.GamepadButton(keycode - 20000)
-			released = rl.IsGamepadButtonReleased(gamepad, button)
-		}
-	} else if keycode >= 10000 {
-		// mouse input - subtract offset to get MouseButton enum value
-		mouse_button := rl.MouseButton(keycode - 10000)
-		released = rl.IsMouseButtonReleased(mouse_button)
-	} else {
-		// keyboard input
-		released = rl.IsKeyReleased(rl.KeyboardKey(keycode))
+	gamepad: i32 = 0
+	if keycode >= 20000 {
+		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
+		gamepad = i32(mrb.integer(gamepad_id_val))
 	}
 
-	// record that we saw released this render frame
-	if released { released_this_frame[keycode] = true }
-
-	return released ? mrb.TRUE : mrb.FALSE
+	return input_current_edges[queue_key(keycode, gamepad)] == .RELEASE ? mrb.TRUE : mrb.FALSE
 }
 
 // RUBY FUNCTION: _keys_impl() -> [keys...]
@@ -274,6 +295,6 @@ ruby_get_gamepad_axis_value :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 }
 
 cleanup_input :: proc() {
-	delete(pressed_this_frame)
-	delete(released_this_frame)
+	delete(input_edge_queue)
+	delete(input_current_edges)
 }

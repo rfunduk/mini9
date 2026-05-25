@@ -38,6 +38,8 @@ Engine_Memory :: struct {
 	run:               bool,
 	phase:             Game_Phase,
 	cursor:            bool,
+	timescale:         f32,
+	game_time:         f64,
 	audio_initialized: bool,
 	dest_rect:         rl.Rectangle,
 	batch:             rlgl.RenderBatch,

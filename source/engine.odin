@@ -26,10 +26,11 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 		flux        = ease.flux_init(f32, 128),
 		phase       = .INIT,
 		cursor      = true,
+		timescale   = 1.0,
 	}
 
-	pressed_this_frame = make(map[i32]bool)
-	released_this_frame = make(map[i32]bool)
+	input_edge_queue = make(map[i32]Key_Edges)
+	input_current_edges = make(map[i32]Edge_Kind)
 
 	rl.SetTraceLogLevel(.ERROR)
 
@@ -110,17 +111,30 @@ _engine_update :: proc() {
 		frame_time = MAX_FRAME_TIME
 	}
 
-	accumulator += frame_time
-
-	clear(&pressed_this_frame)
-	clear(&released_this_frame)
+	accumulator += frame_time * g.timescale
 
 	g.phase = .UPDATE
+
+	// sweep raylib input edges into per-key queues every wall-frame —
+	// edges are wall-frame-edge-triggered, so polling them from the scaled
+	// loop would drop edges under low timescale or high refresh rates
+	sweep_input_edges()
+
+	// audio + music pump must run at wall-cadence — UpdateMusicStream
+	// keeps raylib's decode buffer fed; under timescale=0 the scaled loop
+	// stops entirely and music would starve and cut out. Fades use real
+	// frame time so audio effects measured in seconds stay wall-time.
+	if g.audio_initialized {
+		update_audio_system(frame_time)
+		update_music_system(frame_time)
+	}
 
 	// run fixed timestep updates until we've consumed all accumulated time
 	for accumulator >= FIXED_DT {
 		g.frame_count += 1
+		g.game_time += f64(FIXED_DT)
 
+		advance_input_edges()
 		reset_camera_system()
 
 		// Bound the mruby GC arena for the whole tick. Engine-internal
@@ -146,12 +160,6 @@ _engine_update :: proc() {
 
 		// user update gets consistent fixed timestep
 		call_user_update()
-
-		// only update audio systems if audio is initialized
-		if g.audio_initialized {
-			update_audio_system()
-			update_music_system()
-		}
 
 		update_shake_system()
 		step_physics()

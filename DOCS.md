@@ -33,6 +33,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Shapes](#shapes)
 - [Textures & Sprites](#textures--sprites)
 - [Input](#input)
+- [Timescale](#timescale)
 - [Sound](#sound)
 - [Music](#music)
 - [Animation](#animation)
@@ -126,14 +127,14 @@ Define any of these top-level methods and the engine will call them each frame. 
 
 | Method | When called | Notes |
 |---|---|---|
-| `update` | Each frame, before draw | |
+| `update` | Each fixed tick (60 Hz × `timescale`) | Game logic. Scaled by [`timescale`](#timescale) |
 | `draw` | Each frame, inside camera transform | Render the world |
 | `ui` | Each frame, outside camera transform | Render HUD/menus (no zoom, no camera offset) |
 | `event(e)` | Once per dispatched custom event | `e` is a `CustomEvent` with `.message` and `.data` |
 
 ```ruby
 def update
-  PLAYER.move
+  PLAYER.update
 end
 
 def draw
@@ -162,8 +163,9 @@ Call during load (before the first frame). Most setup functions can only be chan
 | `fps(target)` | Integer | Target framerate. Minimum 5. INIT phase only |
 | `fullscreen(yn=nil)` | bool | No args → current state. Not available on web |
 | `cursor(yn=nil)` | bool | Show/hide OS cursor |
-| `time` | Float | Seconds since game started |
-| `dt` | Float | Delta time |
+| `time` | Float | Seconds since game started (accounting for `timescale`) |
+| `walltime` | Float | Real-time seconds since game started |
+| `dt` | Float | Delta time since last frame |
 | `quit` | nil | Exit the game |
 | `web?` | bool | True if running in browser |
 | `assert(yn, message=nil)` | nil | Raises `RuntimeError` if `yn` is falsy |
@@ -514,9 +516,9 @@ All input is unified under symbols. Keyboard, mouse, and gamepad share the same 
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `down?(sym, gamepad: nil)` | bool | Held this frame |
-| `pressed?(sym, gamepad: nil)` | bool | Just pressed this frame |
-| `released?(sym, gamepad: nil)` | bool | Just released this frame |
+| `pressed?(sym, gamepad: nil)` | bool | Pressed this tick |
+| `down?(sym, gamepad: nil)` | bool | Held OR pressed this tick |
+| `released?(sym, gamepad: nil)` | bool | Released this tick |
 | `keys` | Array[Symbol] | Keys pressed this frame (text entry) |
 | `get_axis(h, v, gamepad: nil)` | Vector2 | Normalized from 2 pairs of keys |
 | `get_axis(horizontal:, vertical:, gamepad: nil)` | Vector2 | Kwarg form |
@@ -534,6 +536,40 @@ if pressed?(:left_mouse)
   shoot_at(mouse)
 end
 ```
+
+---
+
+## Timescale
+
+Scales the engine's game-time clock for slow-mo, speed-up, or freeze. Default `1.0`.
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `timescale(n)` | Float | Set new scale (`>= 0`). Clamps below zero with `ArgumentError` |
+| `timescale` | Float | Current value |
+
+```ruby
+timescale 0.3   # slow-mo
+timescale 2.0   # double speed
+timescale 1.0   # normal
+timescale 0     # effectively freeze
+```
+
+**What scales:**
+
+- `update` callback cadence (fires more/less often per real second)
+- Physics, particles, tweens, timers, animations
+- `time` (the in-game clock)
+
+**What does NOT scale:**
+
+- `dt` always returns the fixed timestep — but `update` fires at the scaled rate, so the perceived velocity over wall-time changes
+- `draw`, `ui` callbacks — always at wall-frame rate
+- `walltime` — real-time clock for UI animations, perf timing, anything that should ignore game time
+- Audio playback (sample-rate driven), use sound `pitch:` if desired
+- Screen shake (uses wall-clock for the effect itself)
+
+For a true pause, the idiomatic approach is to gate your own `update` flow — `timescale(0)` works but is heavy-handed.
 
 ---
 

@@ -48,9 +48,16 @@ ruby_assert :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
-// RUBY FUNCTION: time() -> time in seconds since the game started
+// RUBY FUNCTION: time() -> game time in seconds (scaled by timescale)
 // @engine_method: name="time", aspec=ARGS_NONE
 ruby_time :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	return mrb.word_boxing_float_value(state, g.game_time)
+}
+
+// RUBY FUNCTION: walltime() -> wall-clock time in seconds since the game started
+// @engine_method: name="walltime", aspec=ARGS_NONE
+ruby_walltime :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return mrb.word_boxing_float_value(state, rl.GetTime())
 }
@@ -60,6 +67,24 @@ ruby_time :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 ruby_dt :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	return mrb.word_boxing_float_value(state, f64(FIXED_DT))
+}
+
+// RUBY FUNCTION: timescale(n=nil) -> sets game timescale (>=0), returns current
+// @engine_method: name="timescale", aspec=ARGS_OPT(1)
+ruby_timescale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+
+	n: f64
+	argc := mrb.get_args(state, "|f", &n)
+
+	if argc == 0 { return mrb.word_boxing_float_value(state, f64(g.timescale)) }
+
+	if n < 0 {
+		return mrb.raise_error(state, "ArgumentError", "timescale must be >= 0")
+	}
+
+	g.timescale = f32(n)
+	return mrb.word_boxing_float_value(state, f64(g.timescale))
 }
 
 // RUBY FUNCTION: quit() -> exits the game
