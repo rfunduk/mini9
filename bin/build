@@ -18,7 +18,7 @@ USAGE = <<~TXT
     debug [--web] [GAME]        build debug; with GAME, run it (native or --web)
     release [GAME]              build release; with GAME, run it
     test [PACKAGE...]           run odin unit tests
-    publish vX.Y.Z              release build → sanity checks → tag -s → push
+    bump major|minor|patch      release build → bump VERSION → commit → tag -s → push
 
     help                        show this
 TXT
@@ -694,16 +694,34 @@ def cmd_test(argv)
 end
 
 # ============================================================================
-# PUBLISH — sanity check + release build + signed tag + push
+# BUMP — release build + bump VERSION + commit + signed tag + push
 # Tag push triggers .github/workflows/release.yml which cuts the GH release.
 # ============================================================================
 
-def cmd_publish(argv)
-  raw = argv.shift or die "missing <version>"
+VERSION_FILE = File.join(ROOT, "VERSION")
+
+def read_version
+  raw = File.read(VERSION_FILE).strip
+  die "VERSION must look like X.Y.Z (got #{raw.inspect})" unless raw =~ /\A\d+\.\d+\.\d+\z/
+  raw
+end
+
+def bump_version(current, level)
+  major, minor, patch = current.split(".").map(&:to_i)
+  case level
+  when "major" then "#{major + 1}.0.0"
+  when "minor" then "#{major}.#{minor + 1}.0"
+  when "patch" then "#{major}.#{minor}.#{patch + 1}"
+  else die "level must be major|minor|patch (got #{level.inspect})"
+  end
+end
+
+def cmd_bump(argv)
+  level = argv.shift or die "missing <major|minor|patch>"
   die "unexpected args: #{argv.join(" ")}" unless argv.empty?
 
-  version = raw.sub(/\Av/, "")
-  die "version must look like X.Y.Z (got #{raw.inspect})" unless version =~ /\A\d+\.\d+\.\d+\z/
+  current = read_version
+  version = bump_version(current, level)
   tag = "v#{version}"
   remote = "origin"
 
@@ -729,17 +747,28 @@ def cmd_publish(argv)
     die "release #{tag} already exists on GitHub" if ok && !out.empty?
   end
 
-  puts "Sanity: release build..."
-  cmd_setup([])
-  compile("release")
+  puts "Sanity: release build (with new VERSION embedded)..."
+  File.write(VERSION_FILE, "#{version}\n")
+  begin
+    cmd_setup([])
+    compile("release")
+  rescue
+    File.write(VERSION_FILE, "#{current}\n")
+    raise
+  end
 
-  puts "Tag #{tag} at #{local[0,7]} (#{branch})"
-  puts "Push → #{remote} (triggers release workflow)"
+  puts "Bump #{current} → #{version}"
+  puts "Commit VERSION, tag #{tag}, push main + tag → #{remote}"
   print "Proceed? [y/N] "
   ans = $stdin.gets.to_s.strip.downcase
-  die "aborted" unless %w[y yes].include?(ans)
+  unless %w[y yes].include?(ans)
+    File.write(VERSION_FILE, "#{current}\n")
+    die "aborted"
+  end
 
+  sh!("git", "commit", "-m", tag, "--", "VERSION")
   sh!("git", "tag", "-s", tag, "-m", tag)
+  sh!("git", "push", remote, "main")
   sh!("git", "push", remote, tag)
   puts "Pushed #{tag}. Watch: gh run watch"
 end
@@ -748,7 +777,7 @@ end
 # DISPATCH
 # ============================================================================
 
-SUBCOMMANDS = %w[setup debug release test publish help -h --help].freeze
+SUBCOMMANDS = %w[setup debug release test bump help -h --help].freeze
 
 cmd = ARGV.shift
 # bare path arg → shorthand for `debug <path>`
@@ -762,7 +791,7 @@ when nil                then cmd_compile("debug", ARGV)
 when "setup"            then cmd_setup(ARGV)
 when "debug", "release" then cmd_compile(cmd, ARGV)
 when "test"             then cmd_test(ARGV)
-when "publish"          then cmd_publish(ARGV)
+when "bump"             then cmd_bump(ARGV)
 when "help", "-h", "--help"
   puts USAGE
 else

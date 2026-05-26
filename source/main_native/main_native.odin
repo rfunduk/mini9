@@ -5,10 +5,13 @@ import "core:fmt"
 import "core:log"
 import "core:mem"
 import "core:os"
+import "core:strings"
 
 import engine ".."
 
 USE_TRACKING_ALLOCATOR :: #config(USE_TRACKING_ALLOCATOR, false)
+
+VERSION :: #load("../../VERSION", string)
 
 Args :: struct {
 	command:     string `args:"pos=0" usage:"command (package), or game file path"`,
@@ -17,6 +20,7 @@ Args :: struct {
 	no_compress: bool `args:"name=no-compress" usage:"disable cart compression"`,
 	web:         bool `args:"name=web" usage:"create web build with embedded assets"`,
 	log_level:   string `args:"name=log-level" usage:"engine log level: debug, info, warn, error (default: warn release / debug debug-build)"`,
+	version:     bool `args:"name=version" usage:"print version and exit"`,
 }
 
 main :: proc() {
@@ -44,6 +48,11 @@ main :: proc() {
 	if parse_error != nil {
 		flags.print_errors(Args, parse_error, os.args[0], .Unix)
 		os.exit(1)
+	}
+
+	if args.version {
+		fmt.println(strings.trim_space(VERSION))
+		os.exit(0)
 	}
 
 	level, level_ok := engine.resolve_log_level(args.log_level)
