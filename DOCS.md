@@ -47,6 +47,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [State Machines](#state-machines)
 - [Collision/Physics](#collisionphysics)
 - [Events](#events)
+- [Cooperative Tasks](#cooperative-tasks)
 - [Numeric Helpers](#numeric-helpers)
 - [Global Store](#global-store)
 - [File Data](#file-data)
@@ -1365,6 +1366,49 @@ subscribe(:coin_collected, ->(e) { g.score += e.data[:value] })
 def update
   dispatch(:coin_collected, value: 100) if PLAYER.overlaps?(COIN)
 end
+```
+
+---
+
+## Cooperative Tasks
+
+Sometimes there's heavy work that takes more than 1 frame - AI search, procedural generation, etc. `task { }` runs the block a slice at a time across frames so rendering stays smooth. It's co-operative - the task pauses where you mark it with `coop`.
+
+```ruby
+g.search = task do
+  best = nil
+  candidates.each do |c|
+    best = better(best, evaluate(c))
+    coop # safe checkpoint. may pause here until next frame
+  end
+  best
+end
+
+def update
+  return unless g.search&.done?
+  g.search.result # => the final return value of the task
+end
+```
+
+Put `coop` where the task's state is consistent (between loop iterations, top of a recursion). Each frame the engine gives all tasks a small time budget; when it's spent, the next `coop` yields. Work *between* `coop` calls always runs to completion, so keep the gaps cheap.
+
+| Call | Returns | Notes |
+|---|---|---|
+| `task { ... }` | Task | Starts a task; the block's value becomes `result` |
+| `task(check_every: N) { }` | Task | Test the deadline only every Nth `coop` (default 1). Raise it only if `coop` sits in a tight, cheap inner loop |
+| `coop` | — | Checkpoint inside a task block; no-op outside one |
+| `t.done?` / `t.result` | bool / value | `result` is `nil` until done |
+| `t.on_done { \|r\| ... }` | Task | Fires once, the frame it finishes |
+| `t.cancel` / `t.cancelled?` | Task / bool | Stops it; the fiber is abandoned (no `ensure`/unwind) and `result`/`on_done` never fire |
+
+Tasks run at wall cadence, independent of `timescale`. To keep a partial result when you cancel — "best answer found so far" — have the block write progress into your own variable and read it back after:
+
+```ruby
+best = [nil]
+t = task { deepen(best) }   # writes best[0] as it improves
+# ...when time's up:
+t.cancel
+use(best[0])
 ```
 
 ---

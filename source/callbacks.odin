@@ -56,6 +56,15 @@ call_user_events :: proc() {
 	dispatch_funcall(event_queue, "process_events", 0, nil, .EVENT)
 }
 
+call_user_tasks :: proc() {
+	if g.mrb_state == nil { return }
+	tasks := mrb.gv_get(g.mrb_state, mrb.intern_cstr(g.mrb_state, "$tasks"))
+	if tasks == mrb.NIL { return }
+	deadline := rl.GetTime() + TASK_BUDGET_SECONDS
+	args := [1]mrb.Value{mrb.word_boxing_float_value(g.mrb_state, deadline)}
+	dispatch_funcall(tasks, "tick", 1, raw_data(args[:]), .TASK)
+}
+
 call_user_update :: proc() {
 	if g.mrb_state == nil || g.update_proc == mrb.NIL { return }
 	dispatch_funcall(g.update_proc, "call", 0, nil, .UPDATE)

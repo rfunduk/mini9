@@ -23,10 +23,10 @@ MRuby::Build.new do |conf|
   conf.gem core: 'mruby-compiler'
   conf.gem core: 'mruby-proc-ext'
   conf.gem core: 'mruby-method'
+  conf.gem core: 'mruby-fiber'
 
   # dont think we need these
   # conf.gem core: 'mruby-catch'
-  # conf.gem core: 'mruby-fiber'
   # conf.gem core: 'mruby-enum-lazy'
   # conf.gem core: 'mruby-time'
   # conf.gem core: 'mruby-bigint'
@@ -67,6 +67,7 @@ MRuby::CrossBuild.new('emscripten') do |conf|
   conf.gem core: 'mruby-compiler'
   conf.gem core: 'mruby-proc-ext'
   conf.gem core: 'mruby-method'
+  conf.gem core: 'mruby-fiber'
 
   # compiler settings for emscripten
   # exception flags come from the emscripten toolchain (`-fwasm-exceptions`).

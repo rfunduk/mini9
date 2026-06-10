@@ -110,6 +110,7 @@ Ruby_Call_Context :: enum {
 	TIMER_CALLBACK,
 	FSM_CALLBACK,
 	SENSOR_EVENT,
+	TASK,
 }
 
 // Top-level Ruby callback dispatch with engine policy applied:

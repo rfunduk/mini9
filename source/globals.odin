@@ -17,6 +17,9 @@ FIXED_DT: f32 = 1.0 / 60.0
 // cap at 250ms (prevents spiral of death)
 MAX_FRAME_TIME: f32 = 0.25
 
+// Per-frame time slice handed to cooperative tasks.
+TASK_BUDGET_SECONDS :: 0.005
+
 Game_Phase :: enum {
 	INIT,
 	UPDATE,

@@ -129,6 +129,17 @@ _engine_update :: proc() {
 		update_music_system(frame_time)
 	}
 
+	// Advance cooperative tasks at wall cadence (outside the fixed loop) so an
+	// AI/gen task still progresses when timescale=0 pauses the scaled loop.
+	// Own arena bound: resuming fibers allocates ruby values that must not pin
+	// live objects into the draw phase. The fiber's suspended stack is marked
+	// via $tasks, so arena restore only drops this tick's temporaries.
+	{
+		task_arena := mrb.gc_arena_save(g.mrb_state)
+		defer mrb.gc_arena_restore(g.mrb_state, task_arena)
+		call_user_tasks()
+	}
+
 	// run fixed timestep updates until we've consumed all accumulated time
 	for accumulator >= FIXED_DT {
 		g.frame_count += 1
