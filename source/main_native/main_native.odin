@@ -17,7 +17,6 @@ Args :: struct {
 	command:     string `args:"pos=0" usage:"command (package), or game file path"`,
 	source:      string `args:"name=source,name=s" usage:"source directory for packaging"`,
 	output:      string `args:"name=output,name=o" usage:"output file path for packaging"`,
-	no_compress: bool `args:"name=no-compress" usage:"disable cart compression"`,
 	web:         bool `args:"name=web" usage:"create web build with embedded assets"`,
 	log_level:   string `args:"name=log-level" usage:"engine log level: debug, info, warn, error (default: warn)"`,
 	hot_reload:  bool `args:"name=hot-reload" usage:"watch & reload on save"`,

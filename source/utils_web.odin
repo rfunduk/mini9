@@ -2,7 +2,9 @@
 
 package engine
 
+import "core:bytes"
 import "core:c"
+import "core:compress/zlib"
 import "core:log"
 import "core:strings"
 import rl "lib:raylib"
@@ -154,14 +156,36 @@ set_cursor_visible :: proc(visible: bool) {
 }
 
 _compress_data :: proc(data: []u8) -> (compressed: []u8, ok: bool) {
-	// no compression in web builds
+	// web builds never pack carts; compression happens in the native packager
 	return nil, false
 }
 
 _decompress_data :: proc(compressed_data: []u8, expected_size: int) -> []u8 {
-	// no decompression needed in web builds since carts are uncompressed
-	log.error("Attempted to decompress data in web build - cart should be uncompressed")
-	return nil
+	if len(compressed_data) == 0 || expected_size <= 0 {
+		log.errorf("invalid size(s) %v %v", len(compressed_data), expected_size)
+		return nil
+	}
+
+	// pure-Odin inflate (vendor:zlib's C lib isn't linked in wasm builds).
+	// raw=false: the native packager emits a zlib-wrapped stream.
+	buf: bytes.Buffer
+	if err := zlib.inflate(compressed_data, &buf, false, expected_size); err != nil {
+		log.errorf("zlib inflate failed %v", err)
+		bytes.buffer_destroy(&buf)
+		return nil
+	}
+	defer bytes.buffer_destroy(&buf)
+
+	decompressed := bytes.buffer_to_bytes(&buf)
+	if len(decompressed) != expected_size {
+		log.errorf("decompress size mismatch %v != %v", len(decompressed), expected_size)
+		return nil
+	}
+
+	// caller owns + deletes the returned slice, so copy out of the buffer
+	output_buffer := make([]u8, expected_size)
+	copy(output_buffer, decompressed)
+	return output_buffer
 }
 
 get_rom_data :: proc(_: cstring) -> ^Rom_Data {

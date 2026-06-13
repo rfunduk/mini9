@@ -97,8 +97,9 @@ packager :: proc(args: ^Args) {
 		}
 	}
 
-	// dump cart data to binary format
-	rom_binary := engine.rom_data_dump(rom_data, !args.web && !args.no_compress)
+	// dump cart data to binary format; compression is savings-gated and the
+	// engine inflates on both native and web, so always allow it
+	rom_binary := engine.rom_data_dump(rom_data)
 	if rom_binary == nil {
 		fmt.eprintfln("ERROR: Failed to serialize cart data")
 		os.exit(1)
