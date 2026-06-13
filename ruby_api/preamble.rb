@@ -15,8 +15,6 @@ class Object
   end
 end
 
-# `puts` and `p` route to mini9's `log` — same channel, prefixed timestamp.
-# Lets gamedevs use familiar Ruby idioms without thinking about it.
 module Kernel
   alias_method :puts, :log
   alias_method :p, :log

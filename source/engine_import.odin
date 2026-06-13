@@ -19,6 +19,13 @@ ruby_import :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		return mrb.raise_error(state, "ArgumentError", "import() requires at least one argument")
 	}
 
+	// import() is a setup-phase operation: it runs at boot (INIT) and again when
+	// game code is re-loaded (RELOAD). Calling it during gameplay (UPDATE/DRAW/
+	// FLUX) is always a bug -- module files are not meant to be pulled in mid-frame.
+	if g.phase != .INIT && g.phase != .RELOAD {
+		return mrb.raise_error(state, "RuntimeError", "import() can only be called during setup, not gameplay")
+	}
+
 	args := (cast([^]mrb.Value)argv)[:argc]
 
 	// path_parts and everything derived from it is purely intermediate state

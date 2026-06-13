@@ -37,6 +37,9 @@ determine_game_callbacks :: proc() {
 		slot: ^mrb.Value,
 	}{{"update", &g.update_proc}, {"draw", &g.draw_proc}, {"ui", &g.ui_proc}}
 	for c in captures {
+		// on hot reload this runs a second time — drop the previously captured
+		// Method's root before overwriting it, or each reload leaks one.
+		if c.slot^ != mrb.NIL { mrb.gc_unregister(g.mrb_state, c.slot^) }
 		c.slot^ = mrb.NIL
 		nsym := mrb.symbol_value(mrb.intern_cstr(g.mrb_state, c.name))
 		if !mrb.respond_to(g.mrb_state, top, mrb.symbol(nsym)) { continue }

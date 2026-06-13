@@ -133,6 +133,109 @@ _file_exists :: proc(name: string) -> bool {
 	return os.exists(name)
 }
 
+// Minimal glob matcher (`*`, `**`, `?`). Shared by the cart packager
+// (metadata `exclude` patterns) and the hot-reload watcher so the two agree on
+// what counts as a game file. `**` spans directory separators, `*` does not.
+glob_match :: proc(pat, str: string) -> bool {
+	pi, si := 0, 0
+	for pi < len(pat) {
+		switch pat[pi] {
+		case '*':
+			if pi + 1 < len(pat) && pat[pi + 1] == '*' {
+				for pi < len(pat) && pat[pi] == '*' { pi += 1 }
+				rest := pat[pi:]
+				if len(rest) == 0 { return true }
+				// `**/x` should also match `x` with zero dirs
+				if rest[0] == '/' && glob_match(rest[1:], str[si:]) { return true }
+				for k := si; k <= len(str); k += 1 {
+					if glob_match(rest, str[k:]) { return true }
+				}
+				return false
+			}
+			pi += 1
+			rest := pat[pi:]
+			for k := si;; k += 1 {
+				if glob_match(rest, str[k:]) { return true }
+				if k >= len(str) || str[k] == '/' { return false }
+			}
+		case '?':
+			if si >= len(str) || str[si] == '/' { return false }
+			pi += 1; si += 1
+		case:
+			if si >= len(str) || str[si] != pat[pi] { return false }
+			pi += 1; si += 1
+		}
+	}
+	return si == len(str)
+}
+
+// Whether a game-root-relative path is excluded from being treated as a game
+// file. `.m9s` (the save file) is ALWAYS excluded — implicitly part of the
+// exclude set in every case — so a game writing its save mid-play can never
+// look like a source edit. The cart output (`.m9`) is likewise always skipped.
+// Beyond those, the metadata `exclude` patterns apply.
+game_file_excluded :: proc(rel_path: string, exclude_patterns: []string) -> bool {
+	if strings.has_suffix(rel_path, ".m9s") { return true }
+	if strings.has_suffix(rel_path, ".m9") { return true }
+	for pattern in exclude_patterns {
+		if glob_match(pattern, rel_path) { return true }
+	}
+	return false
+}
+
+// --- hot reload: native file-mtime watcher (loose-directory dev mode) ---
+
+@(private = "file")
+hot_reload_last_mtime: i64
+@(private = "file")
+hot_reload_primed: bool
+
+// True when any watched file under the cwd has a newer mtime than the last scan
+_hot_reload_dirty :: proc() -> bool {
+	// Re-read each scan so editing `metadata`'s exclude list takes effect live.
+	// Tiny file; temp_allocator output is freed at end of frame.
+	md, _ := parse_metadata(context.temp_allocator)
+
+	max_mtime: i64
+
+	w := os.walker_create(".")
+	defer os.walker_destroy(&w)
+
+	for info in os.walker_walk(&w) {
+		if _, err := os.walker_error(&w); err != nil { continue }
+
+		if info.type == .Directory {
+			// skip hidden trees (.git, etc.)
+			if strings.has_prefix(info.name, ".") { os.walker_skip_dir(&w) }
+			continue
+		}
+
+		if strings.has_prefix(info.name, ".") { continue }
+
+		// walker rooted at "." → fullpath is already game-root-relative; strip
+		// any leading "./" so it lines up with how exclude patterns are written.
+		rel := strings.trim_prefix(info.fullpath, "./")
+		if game_file_excluded(rel, md.exclude_patterns) { continue }
+
+		if info.modification_time._nsec > max_mtime {
+			max_mtime = info.modification_time._nsec
+		}
+	}
+
+	if !hot_reload_primed {
+		hot_reload_primed = true
+		hot_reload_last_mtime = max_mtime
+		return false
+	}
+
+	if max_mtime > hot_reload_last_mtime {
+		hot_reload_last_mtime = max_mtime
+		return true
+	}
+
+	return false
+}
+
 ensure_audio_initialized :: proc() {  }
 
 calculate_screen_layout :: proc() {

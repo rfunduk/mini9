@@ -144,6 +144,9 @@ ruby_fullscreen :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	current := rl.IsWindowFullscreen()
 	if argc == 0 { return current ? mrb.TRUE : mrb.FALSE }
 
+	// destructive setup: silently ignore on reload so re-running main.rb doesn't re-toggle.
+	if g.phase == .RELOAD { return current ? mrb.TRUE : mrb.FALSE }
+
 	if (current && !yn) || (!current && yn) {
 		rl.ToggleFullscreen()
 		calculate_screen_layout()
@@ -162,6 +165,9 @@ ruby_fps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 0 { return mrb.boxing_int_value(state, rl.GetFPS()) }
 
+	// destructive setup: silently ignore on reload so re-running main.rb is a no-op.
+	if g.phase == .RELOAD { return mrb.boxing_int_value(state, g.fps) }
+
 	if g.phase != .INIT {
 		return mrb.raise_error(state, "RuntimeError", "fps() can only be set during INIT phase")
 	}
@@ -177,4 +183,11 @@ ruby_fps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 // @engine_method: name="web?", aspec=ARGS_NONE
 ruby_web :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	when ODIN_OS == .JS { return mrb.TRUE } else { return mrb.FALSE }
+}
+
+// RUBY FUNCTION: reloading?() -> true while game code is being re-run by a hot reload
+// @engine_method: name="reloading?", aspec=ARGS_NONE
+ruby_reloading :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	return g.phase == .RELOAD ? mrb.TRUE : mrb.FALSE
 }

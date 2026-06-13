@@ -111,6 +111,7 @@ Ruby_Call_Context :: enum {
 	FSM_CALLBACK,
 	SENSOR_EVENT,
 	TASK,
+	RELOAD,
 }
 
 // Top-level Ruby callback dispatch with engine policy applied:
@@ -183,15 +184,19 @@ load_engine_bytecode :: proc(name: string, bytecode: []u8) {
 
 // load and execute main.rb. when the target directory has no main.rb, fall
 // back to the embedded welcome screen (assets/welcome.rb baked in)
-load_main_rb :: proc() {
+// Loads and executes main.rb (or the bundled welcome). Returns false if loading
+// raised a Ruby exception. At boot (panic_on_error) a bad main.rb is fatal; on
+// hot reload it is recoverable — the caller keeps the old world and retries on
+// the next save.
+load_main_rb :: proc(panic_on_error := true) -> (ok: bool) {
 	contents: []byte
 	filename: cstring = "main.rb"
 	owns_contents := false
 
 	if file_exists("main.rb") {
-		ok: bool
-		contents, ok = read_entire_file("main.rb")
-		if !ok { return }
+		read_ok: bool
+		contents, read_ok = read_entire_file("main.rb")
+		if !read_ok { return false }
 		owns_contents = true
 	} else {
 		contents = welcome_rb
@@ -220,7 +225,16 @@ load_main_rb :: proc() {
 	}
 
 	if mrb.has_exception(g.mrb_state) {
-		handle_ruby_exception(g.mrb_state, mrb.current_exception(g.mrb_state), .INIT)
-		panic("[ENGINE] main.rb execution failed with exception")
+		err_ctx: Ruby_Call_Context = panic_on_error ? .INIT : .RELOAD
+		handle_ruby_exception(g.mrb_state, mrb.current_exception(g.mrb_state), err_ctx)
+		if panic_on_error {
+			panic("[ENGINE] main.rb execution failed with exception")
+		}
+		// Reload path: clear the pending exception so subsequent frames (and the
+		// next reload attempt) run against a clean VM instead of inheriting it.
+		mrb.swap_exception(g.mrb_state, mrb.NIL)
+		return false
 	}
+
+	return true
 }

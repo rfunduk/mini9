@@ -111,8 +111,10 @@ create_texture :: proc(path: string) -> mrb.Value {
 	texture_ptr := mrb.alloc(g.mrb_state, Texture{})
 	mrb.data_init(ruby_obj, texture_ptr, NATIVE_TO_MRUBY_TYPE[Texture])
 
-	if g.phase == .UPDATE {
-		// post-init lazy load -> standalone (atlas already built)
+	if g.phase != .INIT {
+		// any post-init creation (lazy load during UPDATE, or re-created during a
+		// hot RELOAD) goes standalone — the atlas is built once at init and is not
+		// repacked, so the deferred queue would never be flushed otherwise.
 		cpath := strings.clone_to_cstring(path, context.temp_allocator)
 		load_texture_standalone(cpath, ruby_obj)
 	} else {

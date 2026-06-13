@@ -8,7 +8,9 @@ import rl "lib:raylib"
 engine_update :: proc() { _engine_update() }
 
 @(export)
-engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") { _engine_init(rom_data, rom_path) }
+engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "", hot_reload := false) {
+	_engine_init(rom_data, rom_path, hot_reload)
+}
 
 @(export)
 engine_shutdown :: proc() { _engine_shutdown() }

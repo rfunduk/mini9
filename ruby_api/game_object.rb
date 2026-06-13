@@ -7,15 +7,11 @@ class GameObject
     @_attach_keys = []
     @_keys = []
     @_proc_keys = []
+    @_procs = {}
 
     args.entries.each do |key, val|
       if val.is_a?(Proc)
-        @_proc_keys << key
-        arity = val.parameters.length
-        case arity
-        when 0 then define_singleton_method(key.to_sym) { val.call }
-        else define_singleton_method(key.to_sym) { |*args| val.call(*args.unshift(self)[0..arity-1]) }
-        end
+        _define_handler(key, val)
       else
         @_keys << key.to_sym
         @_attach_keys << key if val.respond_to?(:_attach)
@@ -26,6 +22,20 @@ class GameObject
     end
 
     @_attach_keys.each { |k| self.send(k)._attach(self) }
+  end
+
+  # Install a handler proc as a singleton method, retaining the raw proc in
+  # @_procs so hot reload can re-install (swap) it onto a surviving instance.
+  # arity 0 -> bare call; otherwise `self` is threaded in as the first arg.
+  def _define_handler(key, val)
+    key = key.to_sym
+    @_proc_keys << key unless @_proc_keys.include?(key)
+    @_procs[key] = val
+    arity = val.parameters.length
+    case arity
+    when 0 then define_singleton_method(key) { val.call }
+    else define_singleton_method(key) { |*args| val.call(*args.unshift(self)[0..arity-1]) }
+    end
   end
 
   def []=(key, value)
@@ -65,4 +75,34 @@ class GameObject
   end
 
   def init(*); end
+
+  # --- hot reload support ---
+
+  # The raw handler procs, keyed by name. Read by the reload merge.
+  def _proc_table = @_procs
+
+  # Snapshot of current value fields, keyed by name. Used by the reload merge
+  # to discover brand-new fields (existing ones keep their live value).
+  def _value_table
+    t = {}
+    @_keys.uniq.each { |k| t[k] = instance_variable_get("@#{k}") }
+    t
+  end
+
+  # Merge a freshly-reloaded definition onto this (surviving) instance:
+  #   - every handler proc is swapped to the new code (behavior updates live)
+  #   - brand-new value fields are added
+  #   - existing value fields keep their current value (runtime state survives)
+  def _reload_merge!(fresh)
+    fresh._proc_table.each { |key, prc| _define_handler(key, prc) }
+
+    fresh._value_table.each do |key, val|
+      next if @_keys.include?(key)
+      @_keys << key
+      instance_variable_set("@#{key}", val)
+      define_singleton_method(key) { instance_variable_get("@#{key}") }
+      define_singleton_method("#{key}=") { |v| instance_variable_set("@#{key}", v) }
+      val._attach(self) if val.respond_to?(:_attach)
+    end
+  end
 end

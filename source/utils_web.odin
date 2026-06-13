@@ -125,6 +125,9 @@ _file_exists :: proc(name: string) -> bool {
 	return false
 }
 
+// Web has no watchable filesystem — hot reload is a native dev-mode feature.
+_hot_reload_dirty :: proc() -> bool { return false }
+
 ensure_audio_initialized :: proc() {
 	audio_device_was_initialized := rl.IsAudioDeviceReady()
 	if !g.audio_initialized {

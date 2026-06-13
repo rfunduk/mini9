@@ -25,6 +25,7 @@ Game_Phase :: enum {
 	UPDATE,
 	DRAW,
 	FLUX,
+	RELOAD,
 }
 
 Engine_Memory :: struct {
@@ -51,6 +52,7 @@ Engine_Memory :: struct {
 	draw_proc:         mrb.Value,
 	ui_proc:           mrb.Value,
 	frame_count:       u32,
+	hot_reload:        bool,
 
 	// mruby vm
 	mrb_state:         mrb.State,

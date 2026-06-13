@@ -10,7 +10,7 @@ import rlgl "lib:raylib/rlgl"
 @(private = "file")
 accumulator: f32
 
-_engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
+_engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "", hot_reload := false) {
 	global_context = context
 	g = new(Engine_Memory)
 
@@ -27,6 +27,7 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 		phase       = .INIT,
 		cursor      = true,
 		timescale   = 1.0,
+		hot_reload  = hot_reload,
 	}
 
 	input_edge_queue = make(map[i32]Key_Edges)
@@ -41,6 +42,17 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "") {
 		// native builds: initialize audio immediately
 		rl.InitAudioDevice()
 		g.audio_initialized = true
+	}
+
+	// hot reload is a dev-only, loose-directory feature; it's a no-op against a
+	// packed cart. Surface that rather than silently ignoring the flag.
+	if g.hot_reload {
+		if g.rom_data != nil {
+			log.warn("[hot-reload] --hot-reload ignored: cart mode is read-only")
+			g.hot_reload = false
+		} else {
+			log.info("[hot-reload] watching for changes")
+		}
 	}
 
 	// default camera
@@ -247,6 +259,11 @@ _engine_update :: proc() {
 
 	mrb.incremental_gc(g.mrb_state)
 	free_all(context.temp_allocator)
+
+	// Hot reload - poll mtimes and reload between frames
+	when ODIN_OS != .JS {
+		if g.hot_reload && should_hot_reload(rl.GetFrameTime()) { perform_hot_reload() }
+	}
 }
 
 _engine_shutdown :: proc() {

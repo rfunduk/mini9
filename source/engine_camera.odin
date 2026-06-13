@@ -28,6 +28,9 @@ create_camera :: proc(target: rl.Vector2, zoom: f32, offset: rl.Vector2) -> mrb.
 		offset = offset,
 	}
 
+	// newly created camera becomes the active one
+	for cam in g.cameras { cam.active = false }
+
 	camera_ptr := mrb.alloc(
 		g.mrb_state,
 		Camera_Instance{active = true, rl_camera = initial_camera, original_camera = initial_camera},

@@ -19,7 +19,8 @@ Args :: struct {
 	output:      string `args:"name=output,name=o" usage:"output file path for packaging"`,
 	no_compress: bool `args:"name=no-compress" usage:"disable cart compression"`,
 	web:         bool `args:"name=web" usage:"create web build with embedded assets"`,
-	log_level:   string `args:"name=log-level" usage:"engine log level: debug, info, warn, error (default: warn release / debug debug-build)"`,
+	log_level:   string `args:"name=log-level" usage:"engine log level: debug, info, warn, error (default: warn)"`,
+	hot_reload:  bool `args:"name=hot-reload" usage:"watch & reload on save"`,
 	version:     bool `args:"name=version" usage:"print version and exit"`,
 }
 
@@ -82,7 +83,7 @@ main :: proc() {
 			rom_data = engine.get_rom_data(args.command)
 		}
 	}
-	engine.engine_init(rom_data, args.command)
+	engine.engine_init(rom_data, args.command, args.hot_reload)
 
 	for engine.engine_is_running() {
 		engine.engine_update()

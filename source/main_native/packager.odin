@@ -277,38 +277,6 @@ prepare_output_path :: proc(args: ^Args) -> string {
 //   ?       one char, not `/`
 //   *       any run, not `/`
 //   **      any run, including `/` (and zero dirs when written as `**/`)
-glob_match :: proc(pat, str: string) -> bool {
-	pi, si := 0, 0
-	for pi < len(pat) {
-		switch pat[pi] {
-		case '*':
-			if pi + 1 < len(pat) && pat[pi + 1] == '*' {
-				for pi < len(pat) && pat[pi] == '*' { pi += 1 }
-				rest := pat[pi:]
-				if len(rest) == 0 { return true }
-				// `**/x` should also match `x` with zero dirs
-				if rest[0] == '/' && glob_match(rest[1:], str[si:]) { return true }
-				for k := si; k <= len(str); k += 1 {
-					if glob_match(rest, str[k:]) { return true }
-				}
-				return false
-			}
-			pi += 1
-			rest := pat[pi:]
-			for k := si;; k += 1 {
-				if glob_match(rest, str[k:]) { return true }
-				if k >= len(str) || str[k] == '/' { return false }
-			}
-		case '?':
-			if si >= len(str) || str[si] == '/' { return false }
-			pi += 1; si += 1
-		case:
-			if si >= len(str) || str[si] != pat[pi] { return false }
-			pi += 1; si += 1
-		}
-	}
-	return si == len(str)
-}
 
 find_files_to_include :: proc(args: ^Args, exclude_patterns: []string) -> [dynamic]string {
 	// recursively list all files and filter by exclude patterns
@@ -335,20 +303,13 @@ find_files_to_include :: proc(args: ^Args, exclude_patterns: []string) -> [dynam
 		rel_path, rel_err := filepath.rel(args.source, file_path, context.temp_allocator)
 		if rel_err != .None { continue }
 
-		// check if file matches any exclude pattern
-		excluded := false
-		for pattern in exclude_patterns {
-			if glob_match(pattern, rel_path) {
-				fmt.printfln("Excluding %s (matches pattern %s)", rel_path, pattern)
-				excluded = true
-				break
-			}
-		}
-
-		if !excluded {
-			// file doesn't match any exclude pattern, keep it
+		// drop the save file (.m9s, always implicit) + cart output + any
+		// metadata exclude pattern. Shared with the hot-reload watcher so the
+		// bundled set and the watched set agree on what's a game file.
+		if engine.game_file_excluded(rel_path, exclude_patterns) {
+			fmt.printfln("Excluding %s", rel_path)
+		} else {
 			append(&filtered_files, file_path)
-			// fmt.printfln("Including %s", rel_path)
 		}
 	}
 

@@ -54,6 +54,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Save & Load](#save--load)
 - [Debug & System](#debug--system)
 - [Importing Code](#importing-code)
+- [Hot Reload](#hot-reload)
 - [Cookbook](#cookbook)
 
 ---
@@ -107,8 +108,9 @@ exclude = ["**/*.aseprite", ".DS_Store", "notes.txt"]
 ### Running
 
 ```
-mini9 path/to/my_game/        # run from a directory
-mini9 path/to/my_game.m9      # run a packaged cart
+mini9 path/to/my_game/                 # run from a directory
+mini9 --hot-reload path/to/my_game/    # dev: live-reload on save (see Hot Reload)
+mini9 path/to/my_game.m9               # run a packaged cart
 ```
 
 ### Packaging
@@ -169,6 +171,7 @@ Call during load (before the first frame). Most setup functions can only be chan
 | `dt` | Float | Delta time since last frame |
 | `quit` | nil | Exit the game |
 | `web?` | bool | True if running in browser |
+| `reloading?` | bool | True only during a hot reload re-run. See [Hot Reload](#hot-reload) |
 | `assert(yn, message=nil)` | nil | Raises `RuntimeError` if `yn` is falsy |
 
 ---
@@ -1554,6 +1557,37 @@ import(:states, :idle)      # same as above
 ```
 
 `import` executes the target file at the top level of `Object`, so constants defined inside become global. Returns the result of the imported file.
+
+---
+
+## Hot Reload
+
+Run with `--hot-reload` to watch your game files and reload on change. Everything is watched except for your [metadata `exclude`](#metadata) patterns.
+
+What survives a reload depends on *where a value lives*:
+
+| Where the value lives | On reload |
+|---|---|
+| Game callback (`update`/`draw`/`ui`/`event`) | new code runs immediately |
+| Handler proc on a game object (`update:`, etc.) | swapped to new code, live |
+| Top-level constant (`SPEED = 5`) | re-assigned (new value) |
+| `g.scalar` / `g.array` set at top level | re-assigned (new value) |
+| Game objects created during init | identity + field values **preserved**, procs swapped |
+
+### `reloading?` — guard one-time setup
+
+If you have state at the top level (`g.score = 0`, `g.enemies = []`), these will re-run on every reload. Wrap that setup in `unless reloading?` so it runs on first boot but is skipped on reload — the existing values then carry through untouched:
+
+```ruby
+unless reloading?
+  g.score = 0
+  g.lives = 3
+  g.enemies = []
+  g.timer = every { ... }
+  g.camera = camera()
+  spawn_level
+end
+```
 
 ---
 

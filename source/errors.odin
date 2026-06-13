@@ -67,6 +67,11 @@ handle_ruby_exception :: proc(state: mrb.State, exception: mrb.Value, ctx: Ruby_
 	// the overlay — game debugging works in both debug and release builds.
 	if ctx == .TWEEN_CALLBACK {
 		log.infof("(tween continues...)")
+	} else if ctx == .RELOAD {
+		// A bad save must not freeze the game behind the modal overlay — that
+		// would defeat the point of hot reload. Log and keep the old world
+		// running; the next good save retries.
+		log.infof("(hot reload failed — keeping previous game state)")
 	} else if !rl.IsWindowReady() {
 		// raise during INIT: window/fonts/render-texture not yet created.
 		// rendering an overlay would deref uninitialized GL state. log + bail.
