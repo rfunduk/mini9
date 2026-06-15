@@ -159,7 +159,7 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 		for i in 0 ..< length {
 			state_val := mrb.ary_entry(states_array, i32(i))
-			state_native := extract_native(State, state_val)
+			state_native := extract_or_nil(State, state_val)
 			if state_native != nil { state_native.fsm = ruby_obj }
 		}
 	}
@@ -191,7 +191,7 @@ find_state_by_name :: proc(state: mrb.State, states_array: mrb.Value, name: mrb.
 
 	for i in 0 ..< length {
 		state_val := mrb.ary_entry(states_array, i32(i))
-		state_native := extract_native(State, state_val)
+		state_native := extract_or_nil(State, state_val)
 		if state_native == nil { continue }
 		if state_native.name.w == name.w { return state_val }
 	}

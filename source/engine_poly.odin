@@ -79,8 +79,8 @@ ruby_poly_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	pt_val: mrb.Value
 	mrb.get_args(state, "o", &pt_val)
 	p := extract_native(Poly, self)
-	pt := extract_native(rl.Vector2, pt_val)
-	if p == nil || pt == nil { return mrb.FALSE }
+	pt := extract_or_nil(rl.Vector2, pt_val)
+	if pt == nil { return mrb.FALSE }
 	return point_in_polygon(pt^, p.verts[:]) ? mrb.TRUE : mrb.FALSE
 }
 
@@ -126,9 +126,7 @@ ruby_poly_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	p := extract_native(Poly, self)
-	v := extract_native(rl.Vector2, other)
-	if p == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Poly#+ expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Poly#+ expects a Vector2")
 	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
 	for vert in p.verts { append(&tmp, vert + v^) }
 	return create_poly(tmp[:])
@@ -139,9 +137,7 @@ ruby_poly_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	p := extract_native(Poly, self)
-	v := extract_native(rl.Vector2, other)
-	if p == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Poly#- expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Poly#- expects a Vector2")
 	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
 	for vert in p.verts { append(&tmp, vert - v^) }
 	return create_poly(tmp[:])

@@ -29,7 +29,7 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	atlas_val, kwargs: mrb.Value
 	argc := mrb.get_args(state, "o|H", &atlas_val, &kwargs)
 
-	atlas := extract_native(Texture, atlas_val)
+	atlas := extract_or_nil(Texture, atlas_val)
 	found_atlas: bool = atlas != nil && atlas.status != .UNLOADED
 
 	size := rl.Vector2{-1, -1}
@@ -44,7 +44,7 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if argc == 2 {
 		val: mrb.Value
 		val = mrb.kwarg(state, kwargs, sym.size)
-		if val != mrb.NIL { size = extract_native(rl.Vector2, val)^ }
+		if val != mrb.NIL { size = extract_or_raise(rl.Vector2, val, "sprite: size must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.frame)
 		if val != mrb.NIL { frame = uint(mrb.integer(val)) }
 		val = mrb.kwarg(state, kwargs, sym.frames)
@@ -56,13 +56,13 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		val = mrb.kwarg(state, kwargs, sym.rotation)
 		if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) }
 		val = mrb.kwarg(state, kwargs, sym.offset)
-		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
+		if val != mrb.NIL { offset = extract_or_raise(rl.Vector2, val, "sprite: offset must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.scale)
-		if val != mrb.NIL { scale = extract_native(rl.Vector2, val)^ }
+		if val != mrb.NIL { scale = extract_or_raise(rl.Vector2, val, "sprite: scale must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.atlas)
-		if val != mrb.NIL {
-			atlas = extract_native(Texture, val)
-			if atlas != nil { found_atlas = true }
+		if a := extract_or_nil(Texture, val); a != nil {
+			atlas = a
+			found_atlas = true
 		}
 	}
 

@@ -64,9 +64,9 @@ ruby_camera :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	{
 		val: mrb.Value
 		val = mrb.kwarg(state, kwargs, sym.target)
-		if val != mrb.NIL { target = extract_native(rl.Vector2, val)^ }
+		if val != mrb.NIL { target = extract_or_raise(rl.Vector2, val, "camera: target must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.offset)
-		if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
+		if val != mrb.NIL { offset = extract_or_raise(rl.Vector2, val, "camera: offset must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.zoom)
 		if val != mrb.NIL { zoom = mrb.to_f64(val) }
 	}
@@ -116,12 +116,7 @@ ruby_camera_set_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	if camera == nil { return mrb.NIL }
 
 	if target_val != mrb.NIL {
-		target_vec := extract_native(rl.Vector2, target_val)
-		if target_vec != nil {
-			camera.rl_camera.target = target_vec^
-		} else {
-			camera.rl_camera.target = g.resolution / 2
-		}
+		camera.rl_camera.target = extract_or_raise(rl.Vector2, target_val, "camera.target= expects a Vector2")^
 	} else {
 		camera.rl_camera.target = g.resolution / 2
 	}
@@ -182,12 +177,7 @@ ruby_camera_set_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	if camera == nil { return mrb.NIL }
 
 	if offset_val != mrb.NIL {
-		offset_vec := extract_native(rl.Vector2, offset_val)
-		if offset_vec != nil {
-			camera.rl_camera.offset = offset_vec^
-		} else {
-			camera.rl_camera.offset = g.resolution / 2
-		}
+		camera.rl_camera.offset = extract_or_raise(rl.Vector2, offset_val, "camera.offset= expects a Vector2")^
 	} else {
 		camera.rl_camera.offset = g.resolution / 2
 	}

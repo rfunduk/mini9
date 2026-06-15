@@ -140,9 +140,7 @@ ruby_oval_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	o := extract_native(Oval, self)
-	v := extract_native(rl.Vector2, other)
-	if o == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Oval#+ expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Oval#+ expects a Vector2")
 	return create_oval({o.pos + v^, o.size})
 }
 
@@ -151,9 +149,7 @@ ruby_oval_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	o := extract_native(Oval, self)
-	v := extract_native(rl.Vector2, other)
-	if o == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Oval#- expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Oval#- expects a Vector2")
 	return create_oval({o.pos - v^, o.size})
 }
 

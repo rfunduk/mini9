@@ -162,8 +162,8 @@ ruby_arc_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	a := extract_native(Arc, self)
-	p := extract_native(rl.Vector2, p_val)
-	if a == nil || p == nil { return mrb.FALSE }
+	p := extract_or_nil(rl.Vector2, p_val)
+	if p == nil { return mrb.FALSE }
 	dx := p.x - a.center.x
 	dy := p.y - a.center.y
 	if dx * dx + dy * dy > a.r * a.r { return mrb.FALSE }
@@ -215,9 +215,7 @@ ruby_arc_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	a := extract_native(Arc, self)
-	v := extract_native(rl.Vector2, other)
-	if a == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Arc#+ expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Arc#+ expects a Vector2")
 	return create_arc({a.center + v^, a.r, a.start, a.sweep})
 }
 
@@ -226,9 +224,7 @@ ruby_arc_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	a := extract_native(Arc, self)
-	v := extract_native(rl.Vector2, other)
-	if a == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Arc#- expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Arc#- expects a Vector2")
 	return create_arc({a.center - v^, a.r, a.start, a.sweep})
 }
 

@@ -108,14 +108,12 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 		val = mrb.kwarg(state, kwargs, sym.shape)
 		if val != mrb.NIL {
-			if is_native(Circ, val) {
-				c := extract_native(Circ, val)
+			if c := extract_or_nil(Circ, val); c != nil {
 				spec.shape_kind = .CIRCLE
 				spec.radius = c.r
 				spec.half_size = {c.r, c.r}
 				spec.body_center_offset = c.center
-			} else if is_native(rl.Rectangle, val) {
-				r := extract_native(rl.Rectangle, val)
+			} else if r := extract_or_nil(rl.Rectangle, val); r != nil {
 				spec.shape_kind = .BOX
 				spec.half_size = {r.width / 2, r.height / 2}
 				spec.body_center_offset = {r.x + r.width / 2, r.y + r.height / 2}
@@ -659,14 +657,12 @@ ruby_body_set_shape :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	half: rl.Vector2
 	radius: f32
 	offset: rl.Vector2
-	if is_native(Circ, v) {
-		c := extract_native(Circ, v)
+	if c := extract_or_nil(Circ, v); c != nil {
 		new_kind = .CIRCLE
 		radius = c.r
 		half = {c.r, c.r}
 		offset = c.center
-	} else if is_native(rl.Rectangle, v) {
-		r := extract_native(rl.Rectangle, v)
+	} else if r := extract_or_nil(rl.Rectangle, v); r != nil {
 		new_kind = .BOX
 		half = {r.width / 2, r.height / 2}
 		offset = {r.x + r.width / 2, r.y + r.height / 2}

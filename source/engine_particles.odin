@@ -143,9 +143,9 @@ particles_alloc_storage :: proc(p: ^Particles_Instance) {
 parse_prop :: proc(val: mrb.Value, allow_shapes: bool = false) -> Prop {
 	if val == mrb.NIL { return {ref = mrb.NIL} }
 
-	if is_native(Sampler, val) {
+	if s := extract_or_nil(Sampler, val); s != nil {
 		mrb.gc_register(g.mrb_state, val)
-		return {spec = extract_native(Sampler, val), ref = val}
+		return {spec = s, ref = val}
 	}
 	if mrb.array_p(val) {
 		n := i32(mrb.ary_len(val))
@@ -163,22 +163,18 @@ parse_prop :: proc(val: mrb.Value, allow_shapes: bool = false) -> Prop {
 			return {spec = Curve{arr = val, len = n, elem = elem}, ref = val}
 		}
 	}
-	if allow_shapes && is_native(rl.Rectangle, val) {
-		mrb.gc_register(g.mrb_state, val)
-		return {spec = extract_native(rl.Rectangle, val), ref = val}
+	if allow_shapes {
+		if r := extract_or_nil(rl.Rectangle, val); r != nil {
+			mrb.gc_register(g.mrb_state, val)
+			return {spec = r, ref = val}
+		}
+		if c := extract_or_nil(Circ, val); c != nil {
+			mrb.gc_register(g.mrb_state, val)
+			return {spec = c, ref = val}
+		}
 	}
-	if allow_shapes && is_native(Circ, val) {
-		mrb.gc_register(g.mrb_state, val)
-		return {spec = extract_native(Circ, val), ref = val}
-	}
-	if is_native(rl.Color, val) {
-		cp := extract_native(rl.Color, val)
-		if cp != nil { return {spec = cp^, ref = mrb.NIL} }
-	}
-	if is_native(rl.Vector2, val) {
-		vp := extract_native(rl.Vector2, val)
-		if vp != nil { return {spec = vp^, ref = mrb.NIL} }
-	}
+	if cp := extract_or_nil(rl.Color, val); cp != nil { return {spec = cp^, ref = mrb.NIL} }
+	if vp := extract_or_nil(rl.Vector2, val); vp != nil { return {spec = vp^, ref = mrb.NIL} }
 	// numeric fallback
 	return {spec = f32(mrb.to_f64(val)), ref = mrb.NIL}
 }

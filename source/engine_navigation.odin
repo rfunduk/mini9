@@ -157,24 +157,20 @@ shape_to_verts :: proc(state: mrb.State, val: mrb.Value, dst: ^[dynamic]rl.Vecto
 		reserve(dst, len(dst) + n)
 		for i in 0 ..< n {
 			v := mrb.ary_entry(val, i32(i))
-			vp := extract_native(rl.Vector2, v)
+			vp := extract_or_nil(rl.Vector2, v)
 			if vp == nil { return false }
 			append(dst, vp^)
 		}
 		return true
 	}
-	if is_native(rl.Rectangle, val) {
-		r := extract_native(rl.Rectangle, val)
-		if r == nil { return false }
+	if r := extract_or_nil(rl.Rectangle, val); r != nil {
 		append(dst, rl.Vector2{r.x, r.y})
 		append(dst, rl.Vector2{r.x + r.width, r.y})
 		append(dst, rl.Vector2{r.x + r.width, r.y + r.height})
 		append(dst, rl.Vector2{r.x, r.y + r.height})
 		return true
 	}
-	if is_native(Circ, val) {
-		c := extract_native(Circ, val)
-		if c == nil { return false }
+	if c := extract_or_nil(Circ, val); c != nil {
 		reserve(dst, len(dst) + NAV_CIRC_SEGMENTS)
 		for i in 0 ..< NAV_CIRC_SEGMENTS {
 			theta := f32(i) * 2 * math.PI / NAV_CIRC_SEGMENTS
@@ -182,9 +178,7 @@ shape_to_verts :: proc(state: mrb.State, val: mrb.Value, dst: ^[dynamic]rl.Vecto
 		}
 		return true
 	}
-	if is_native(Poly, val) {
-		p := extract_native(Poly, val)
-		if p == nil { return false }
+	if p := extract_or_nil(Poly, val); p != nil {
 		reserve(dst, len(dst) + len(p.verts))
 		for v in p.verts { append(dst, v) }
 		return true

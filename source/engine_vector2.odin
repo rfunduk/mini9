@@ -142,8 +142,7 @@ ruby_v2_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-	if self_vec == nil || other_vec == nil { return mrb.NIL }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#+ expects a Vector2")
 
 	return create_vector2(self_vec^ + other_vec^)
 }
@@ -155,8 +154,7 @@ ruby_v2_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-	if self_vec == nil || other_vec == nil { return mrb.NIL }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#- expects a Vector2")
 
 	return create_vector2(self_vec^ - other_vec^)
 }
@@ -175,8 +173,7 @@ ruby_v2_multiply :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-	if self_vec == nil || other_vec == nil { return mrb.NIL }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#* expects a Vector2")
 
 	return create_vector2(self_vec^ * other_vec^)
 }
@@ -199,8 +196,7 @@ ruby_v2_divide :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-	if self_vec == nil || other_vec == nil { return mrb.NIL }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#/ expects a Vector2")
 
 	return create_vector2(self_vec^ / other_vec^)
 }
@@ -266,9 +262,8 @@ ruby_v2_equal_approx :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-
-	if self_vec == nil || other_vec == nil { return mrb.FALSE }
+	other_vec := extract_or_nil(rl.Vector2, other)
+	if other_vec == nil { return mrb.FALSE }
 
 	epsilon: f32 = 0.00001
 	equal := abs(self_vec.x - other_vec.x) < epsilon && abs(self_vec.y - other_vec.y) < epsilon
@@ -335,8 +330,7 @@ ruby_v2_distance_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-	if self_vec == nil || other_vec == nil { return mrb.word_boxing_float_value(state, 0) }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#distance_to expects a Vector2")
 
 	return mrb.word_boxing_float_value(state, f64(lin.distance(self_vec^, other_vec^)))
 }
@@ -347,8 +341,7 @@ ruby_v2_direction_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Valu
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-	if self_vec == nil || other_vec == nil { return mrb.NIL }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#direction_to expects a Vector2")
 
 	return create_vector2(lin.normalize0(other_vec^ - self_vec^))
 }
@@ -360,12 +353,8 @@ ruby_v2_move_toward :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	mrb.get_args(state, "of", &to_val, &delta64)
 
 	self_vec := extract_native(rl.Vector2, self)
-	to_vec := extract_native(rl.Vector2, to_val)
+	to_vec := extract_or_raise(rl.Vector2, to_val, "Vector2#move_toward expects a Vector2")
 	delta := f32(delta64)
-
-	if self_vec == nil || to_vec == nil {
-		return mrb.raise_error(state, "TypeError", "move_toward: argument must be a Vector2")
-	}
 
 	len := lin.length(to_vec^ - self_vec^)
 	epsilon: f32 = 0.00001
@@ -392,8 +381,7 @@ ruby_v2_lerp :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "of", &to_val, &weight)
 
 	self_vec := extract_native(rl.Vector2, self)
-	to_vec := extract_native(rl.Vector2, to_val)
-	if self_vec == nil || to_vec == nil { return mrb.NIL }
+	to_vec := extract_or_raise(rl.Vector2, to_val, "Vector2#lerp expects a Vector2")
 
 	w := clamp(f32(weight), 0, 1)
 	return create_vector2(lin.lerp(self_vec^, to_vec^, rl.Vector2{w, w}))
@@ -422,9 +410,7 @@ ruby_v2_angle_to :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-
-	if self_vec == nil || other_vec == nil { return mrb.word_boxing_float_value(state, 0) }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#angle_to expects a Vector2")
 
 	angle_self := math.atan2(self_vec.y, self_vec.x)
 	angle_other := math.atan2(other_vec.y, other_vec.x)
@@ -443,9 +429,7 @@ ruby_v2_dot :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &other)
 
 	self_vec := extract_native(rl.Vector2, self)
-	other_vec := extract_native(rl.Vector2, other)
-
-	if self_vec == nil || other_vec == nil { return mrb.word_boxing_float_value(state, 0) }
+	other_vec := extract_or_raise(rl.Vector2, other, "Vector2#dot expects a Vector2")
 
 	dot_product := self_vec.x * other_vec.x + self_vec.y * other_vec.y
 	return mrb.word_boxing_float_value(state, f64(dot_product))

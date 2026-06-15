@@ -112,8 +112,8 @@ ruby_circ_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	c := extract_native(Circ, self)
-	p := extract_native(rl.Vector2, p_val)
-	if c == nil || p == nil { return mrb.FALSE }
+	p := extract_or_nil(rl.Vector2, p_val)
+	if p == nil { return mrb.FALSE }
 	dx := p.x - c.center.x
 	dy := p.y - c.center.y
 	return (dx * dx + dy * dy <= c.r * c.r) ? mrb.TRUE : mrb.FALSE
@@ -124,8 +124,8 @@ ruby_circ_distance :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	c := extract_native(Circ, self)
-	p := extract_native(rl.Vector2, p_val)
-	if c == nil || p == nil { return mrb.word_boxing_float_value(state, 0) }
+	p := extract_or_nil(rl.Vector2, p_val)
+	if p == nil { return mrb.word_boxing_float_value(state, 0) }
 	dx := p.x - c.center.x
 	dy := p.y - c.center.y
 	return mrb.word_boxing_float_value(state, f64(math.sqrt(dx * dx + dy * dy)))
@@ -138,15 +138,13 @@ ruby_circ_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	c := extract_native(Circ, self)
 	if c == nil { return mrb.FALSE }
 
-	if is_native(Circ, other) {
-		o := extract_native(Circ, other)
+	if o := extract_or_nil(Circ, other); o != nil {
 		dx := o.center.x - c.center.x
 		dy := o.center.y - c.center.y
 		sum := c.r + o.r
 		return (dx * dx + dy * dy <= sum * sum) ? mrb.TRUE : mrb.FALSE
 	}
-	if is_native(rl.Rectangle, other) {
-		r := extract_native(rl.Rectangle, other)
+	if r := extract_or_nil(rl.Rectangle, other); r != nil {
 		closest_x := clamp(c.center.x, r.x, r.x + r.width)
 		closest_y := clamp(c.center.y, r.y, r.y + r.height)
 		dx := c.center.x - closest_x
@@ -191,9 +189,7 @@ ruby_circ_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	c := extract_native(Circ, self)
-	v := extract_native(rl.Vector2, other)
-	if c == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Circ#+ expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Circ#+ expects a Vector2")
 	return create_circ({c.center + v^, c.r})
 }
 
@@ -202,9 +198,7 @@ ruby_circ_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	c := extract_native(Circ, self)
-	v := extract_native(rl.Vector2, other)
-	if c == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Circ#- expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Circ#- expects a Vector2")
 	return create_circ({c.center - v^, c.r})
 }
 

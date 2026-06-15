@@ -111,7 +111,8 @@ ruby_color_equal :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &other_val)
 
 	color := extract_native(rl.Color, self)
-	other := extract_native(rl.Color, other_val)
+	other := extract_or_nil(rl.Color, other_val)
+	if other == nil { return mrb.FALSE }
 
 	return color^ == other^ ? mrb.TRUE : mrb.FALSE
 }

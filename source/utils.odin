@@ -43,19 +43,28 @@ resolve_log_level :: proc(flag: string) -> (level: log.Level, ok: bool) {
 	return default_level, false
 }
 
+// Extract the `^T` backing a Ruby data object. Raises a TypeError on mismatch
+// (data_get_ptr longjmps) instead of returning nil, so the result is safe to deref.
 extract_native :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
-	when #config(CHECK_MRUBY_DATA_TYPES, false) {
-		return cast(^T)mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
-	} else {
-		return cast(^T)mrb.data_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
+	return cast(^T)mrb.data_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
+}
+
+// Extract the `^T` from an untrusted value (kwarg/operand). Raises a TypeError
+// carrying `msg` on mismatch; the returned pointer is always non-nil.
+extract_or_raise :: proc($T: typeid, val: mrb.Value, msg: string) -> ^T {
+	ptr := cast(^T)mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
+	if ptr == nil {
+		_ = mrb.raise_error(g.mrb_state, "TypeError", msg)
 	}
+	return ptr
+}
+
+// Extract the `^T` from `val`, or nil if `val` isn't a T
+extract_or_nil :: #force_inline proc($T: typeid, val: mrb.Value) -> ^T {
+	return cast(^T)mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T])
 }
 
 // Type-sniff a Ruby value: true iff `val` is a native data object of type T.
-// Always uses the safe, no-raise check (independent of CHECK_MRUBY_DATA_TYPES)
-// because the only point of calling this is to *branch* on the type — e.g. a
-// shape-argument that accepts either a Rect or a Circ. Use it to discriminate,
-// then call `extract_native` once you know which form it is.
 is_native :: #force_inline proc($T: typeid, val: mrb.Value) -> bool {
 	return mrb.data_check_get_ptr(g.mrb_state, val, NATIVE_TO_MRUBY_TYPE[T]) != nil
 }

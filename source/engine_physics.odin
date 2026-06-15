@@ -551,8 +551,7 @@ ruby_gravity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	gravity_val: mrb.Value
 	mrb.get_args(state, "o", &gravity_val)
 
-	grav := extract_native(rl.Vector2, gravity_val)
-	if grav != nil {
+	if grav := extract_or_nil(rl.Vector2, gravity_val); grav != nil {
 		b2.World_SetGravity(physics_world, {grav.x, grav.y})
 	} else if mrb.float_p(gravity_val) || mrb.integer_p(gravity_val) {
 		b2.World_SetGravity(physics_world, {0, f32(mrb.to_f64(gravity_val))})
@@ -613,19 +612,13 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	origin_val := mrb.kwarg(state, kwargs, sym.origin)
 	if origin_val == mrb.NIL { origin_val = create_vector2({}) }
-	origin := extract_native(rl.Vector2, origin_val)
-	if origin == nil {
-		return mrb.raise_error(state, "TypeError", "raycast: `origin:` must be a Vector2")
-	}
+	origin := extract_or_raise(rl.Vector2, origin_val, "raycast: `origin:` must be a Vector2")
 
 	dir_val := mrb.kwarg(state, kwargs, sym.direction)
 	if dir_val == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "raycast: missing `direction:`")
 	}
-	dir := extract_native(rl.Vector2, dir_val)
-	if dir == nil {
-		return mrb.raise_error(state, "TypeError", "raycast: `direction:` must be a Vector2")
-	}
+	dir := extract_or_raise(rl.Vector2, dir_val, "raycast: `direction:` must be a Vector2")
 
 	mask: u64 = 0xFFFFFFFFFFFFFFFF
 	if v := mrb.kwarg(state, kwargs, sym.mask); v != mrb.NIL {
@@ -668,8 +661,7 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if shape_val == mrb.NIL {
 		_ = b2.World_CastRay(physics_world, origin^, dir^, filter, raycast_callback, &ctx)
-	} else if is_native(Circ, shape_val) {
-		c := extract_native(Circ, shape_val)
+	} else if c := extract_or_nil(Circ, shape_val); c != nil {
 		if c.center.x != 0 || c.center.y != 0 {
 			log.warnf(
 				"raycast: Circ shape position (%v, %v) ignored — cast happens at `origin:`",

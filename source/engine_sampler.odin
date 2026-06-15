@@ -55,9 +55,9 @@ ruby_sampler :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	lo, hi: mrb.Value
 	mrb.get_args(state, "oo", &lo, &hi)
 
-	if is_native(rl.Vector2, lo) && is_native(rl.Vector2, hi) {
-		v_lo := extract_native(rl.Vector2, lo)
-		v_hi := extract_native(rl.Vector2, hi)
+	v_lo := extract_or_nil(rl.Vector2, lo)
+	v_hi := extract_or_nil(rl.Vector2, hi)
+	if v_lo != nil && v_hi != nil {
 		return create_sampler({kind = .V2, v_lo = v_lo^, v_hi = v_hi^})
 	}
 

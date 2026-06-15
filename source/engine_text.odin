@@ -119,7 +119,7 @@ ruby_text_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	val: mrb.Value
 	val = mrb.kwarg(state, kwargs, sym.offset)
-	if val != mrb.NIL { offset = extract_native(rl.Vector2, val)^ }
+	if val != mrb.NIL { offset = extract_or_raise(rl.Vector2, val, "text: offset must be a Vector2")^ }
 	val = mrb.kwarg(state, kwargs, sym.align)
 	if val != mrb.NIL { align = Text_Align(mrb.integer(val)) }
 	val = mrb.kwarg(state, kwargs, sym.rotation)
@@ -129,10 +129,10 @@ ruby_text_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	val = mrb.kwarg(state, kwargs, sym.scale)
 	if val != mrb.NIL { scale = f32(mrb.to_f64(val)) }
 	val = mrb.kwarg(state, kwargs, sym.color)
-	if val != mrb.NIL { color = extract_native(rl.Color, val)^ }
+	if val != mrb.NIL { color = extract_or_raise(rl.Color, val, "text: color must be a Color")^ }
 	val = mrb.kwarg(state, kwargs, sym.outline)
 	if val != mrb.NIL {
-		outline = val == mrb.TRUE ? {0, 0, 0, 255} : extract_native(rl.Color, val)^
+		outline = val == mrb.TRUE ? {0, 0, 0, 255} : extract_or_raise(rl.Color, val, "text: outline must be a Color or true")^
 	}
 
 	draw_offset := rl.Vector2{0, 0}

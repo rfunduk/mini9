@@ -109,9 +109,7 @@ ruby_line_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	l := extract_native(Line, self)
-	v := extract_native(rl.Vector2, other)
-	if l == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Line#+ expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Line#+ expects a Vector2")
 	return create_line({l.a + v^, l.b + v^})
 }
 
@@ -120,9 +118,7 @@ ruby_line_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	l := extract_native(Line, self)
-	v := extract_native(rl.Vector2, other)
-	if l == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Line#- expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Line#- expects a Vector2")
 	return create_line({l.a - v^, l.b - v^})
 }
 

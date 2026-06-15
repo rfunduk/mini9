@@ -194,8 +194,7 @@ ruby_inflate_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	switch argc {
 	case 1:
 		v := args[0]
-		if is_native(rl.Vector2, v) {
-			vec := extract_native(rl.Vector2, v)
+		if vec := extract_or_nil(rl.Vector2, v); vec != nil {
 			return create_rect(inflate_rect(rect^, [4]f32{vec.y, vec.x, vec.y, vec.x}))
 		}
 		if mrb.integer_p(v) || mrb.float_p(v) {
@@ -228,9 +227,7 @@ ruby_rect_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	r := extract_native(rl.Rectangle, self)
-	v := extract_native(rl.Vector2, other)
-	if r == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Rect#+ expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Rect#+ expects a Vector2")
 	return create_rect({r.x + v.x, r.y + v.y, r.width, r.height})
 }
 
@@ -239,9 +236,7 @@ ruby_rect_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	r := extract_native(rl.Rectangle, self)
-	v := extract_native(rl.Vector2, other)
-	if r == nil { return mrb.NIL }
-	if v == nil { return mrb.raise_error(state, "ArgumentError", "Rect#- expects a Vector2") }
+	v := extract_or_raise(rl.Vector2, other, "Rect#- expects a Vector2")
 	return create_rect({r.x - v.x, r.y - v.y, r.width, r.height})
 }
 
@@ -250,8 +245,8 @@ ruby_rect_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	r := extract_native(rl.Rectangle, self)
-	p := extract_native(rl.Vector2, p_val)
-	if r == nil || p == nil { return mrb.FALSE }
+	p := extract_or_nil(rl.Vector2, p_val)
+	if p == nil { return mrb.FALSE }
 	if p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height {
 		return mrb.TRUE
 	}

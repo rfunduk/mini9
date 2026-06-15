@@ -83,11 +83,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 		val = mrb.kwarg(state, kwargs, sym.pos)
 		if val != mrb.NIL {
-			pos_ptr := extract_native(rl.Vector2, val)
-			if pos_ptr == nil {
-				return mrb.raise_error(state, "TypeError", "obj: pos must be a Vector2")
-			}
-			pos_vec = pos_ptr^
+			pos_vec = extract_or_raise(rl.Vector2, val, "obj: pos must be a Vector2")^
 			mrb.hash_delete_key(state, kwargs, sym.pos)
 		}
 		val = mrb.kwarg(state, kwargs, sym.rotation)
@@ -102,19 +98,12 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 		val = mrb.kwarg(state, kwargs, sym.scale)
 		if val != mrb.NIL {
-			scale_ptr := extract_native(rl.Vector2, val)
-			if scale_ptr == nil {
-				return mrb.raise_error(state, "TypeError", "obj: scale must be a Vector2")
-			}
-			scale_vec = scale_ptr^
+			scale_vec = extract_or_raise(rl.Vector2, val, "obj: scale must be a Vector2")^
 			mrb.hash_delete_key(state, kwargs, sym.scale)
 		}
 		val = mrb.kwarg(state, kwargs, sym.body)
 		if val != mrb.NIL {
-			if !is_native(Body_Spec, val) {
-				return mrb.raise_error(state, "TypeError", "obj: body: must come from body(...)")
-			}
-			spec = extract_native(Body_Spec, val)^
+			spec = extract_or_raise(Body_Spec, val, "obj: body: must come from body(...)")^
 			have_spec = true
 			mrb.hash_delete_key(state, kwargs, sym.body)
 		}
