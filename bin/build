@@ -285,16 +285,21 @@ def engine_methods
       # joined by | (no spaces).
       aspec_match = line.match(/aspec=([A-Z_][A-Z_0-9]*(?:\([^)]*\))?(?:\|[A-Z_][A-Z_0-9]*(?:\([^)]*\))?)*)/)
 
-      if name_match && aspec_match && i + 1 < lines.length
-        method_name = name_match[1]
-        aspec = aspec_match[1]
-        next_line = lines[i + 1]
+      loc = "#{odin_file}:#{i + 1}"
+      raise "#{loc}: @engine_method: missing name=\"...\"" unless name_match
+      raise "#{loc}: @engine_method: missing aspec=..." unless aspec_match
 
-        if next_line =~ /(\w+)\s*::\s*proc\s*"c"/
-          func_name = $1
-          $engine_methods << [method_name, func_name, aspec]
-        end
+      method_name = name_match[1]
+      aspec = aspec_match[1]
+      next_line = i + 1 < lines.length ? lines[i + 1] : ""
+
+      unless next_line =~ /(\w+)\s*::\s*proc\s*"c"/
+        raise "#{loc}: @engine_method: name=\"#{method_name}\" is not " \
+              "immediately followed by a `name :: proc \"c\"` line"
       end
+
+      func_name = $1
+      $engine_methods << [method_name, func_name, aspec]
     end
   end
 
