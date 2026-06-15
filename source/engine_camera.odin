@@ -43,7 +43,8 @@ create_camera :: proc(target: rl.Vector2, zoom: f32, offset: rl.Vector2) -> mrb.
 	ruby_obj := mrb.obj_new(g.mrb_state, camera_class, 0, nil)
 	mrb.data_init(ruby_obj, camera_ptr, NATIVE_TO_MRUBY_TYPE[Camera_Instance])
 
-	// cameras are not gc'd
+	// never gc'd: g.cameras keeps raw ptrs with no removal path, so collecting
+	// would free the ptr and dangle. bounded leak: one tiny struct per camera().
 	mrb.gc_register(g.mrb_state, ruby_obj)
 
 	return ruby_obj
