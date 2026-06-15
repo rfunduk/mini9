@@ -26,12 +26,13 @@ class EventQueue
   end
 
   def process_events
-    self.pop.tap do |e|
+    until self.empty?
+      e = self.pop
       @subs[e.message].each do |sub|
         sub[:arity] == 0 ? sub[:cb].call : sub[:cb].call(e)
       end
       event(e)
-    end until self.empty?
+    end
   end
 end
 
