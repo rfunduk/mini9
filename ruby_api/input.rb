@@ -15,10 +15,8 @@ def released?(input, gamepad: nil)
 end
 
 def keys
-  _keys_impl.map do
-    keycode = KEYCODE_MAP[_1] or return false
-    keycode.to_sym
-  end
+  # _keys_impl returns raw raylib keycodes -> filter to curated subset
+  _keys_impl.filter_map { |c| KEYCODE_MAP[c]&.to_sym }
 end
 
 def get_axis(h = nil, v = nil, horizontal: nil, vertical: nil, gamepad: nil)
