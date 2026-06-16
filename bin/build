@@ -731,6 +731,19 @@ def read_version
   raw
 end
 
+# Make a throwaway signed tag so a broken signer (gpg or ssh — whatever git is
+# configured for) surfaces before we commit, not after `git tag -s`. Exercises
+# the exact code path the real tag uses: format, key, agent, allowed signers.
+def can_sign?
+  test = "mini9-signtest-#{Process.pid}"
+  system("git", "tag", "-d", test, out: File::NULL, err: File::NULL)
+  out, ok = sh("git", "tag", "-s", "-m", "signing capability test", test, "HEAD")
+  warn out unless ok || out.strip.empty?
+  ok
+ensure
+  system("git", "tag", "-d", test, out: File::NULL, err: File::NULL)
+end
+
 def bump_version(current, level)
   major, minor, patch = current.split(".").map(&:to_i)
   case level
@@ -772,6 +785,10 @@ def cmd_bump(argv)
     die "release #{tag} already exists on GitHub" if ok && !out.empty?
   end
 
+  # Verify we can actually sign before doing any work — a failed `git tag -s`
+  # after the commit leaves main advanced with no tag.
+  die "cannot sign tags — check git signing config (gpg.format / user.signingkey / agent)" unless can_sign?
+
   puts "Sanity: release build (with new VERSION embedded)..."
   File.write(VERSION_FILE, "#{version}\n")
   begin
@@ -793,8 +810,9 @@ def cmd_bump(argv)
 
   sh!("git", "commit", "-m", tag, "--", "VERSION")
   sh!("git", "tag", "-s", tag, "-m", tag)
-  sh!("git", "push", remote, "main")
-  sh!("git", "push", remote, tag)
+  # Atomic: main and tag land together or not at all, so the release workflow
+  # never fires on a tagless main and a failed run is cleanly re-runnable.
+  sh!("git", "push", "--atomic", remote, "main", tag)
   puts "Pushed #{tag}. Watch: gh run watch"
 end
 
