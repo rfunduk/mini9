@@ -21,7 +21,8 @@ Tween_Instance :: struct {
 	from:           mrb.Value,
 	to:             mrb.Value,
 	easing:         ease.Ease,
-	value:          Tween_Type, // the thing being tweened
+	value:          Tween_Type, // the thing being tweened (also the type discriminator)
+	color_channels: [4]f32, // f32 backing for color tweens; flux can't operate on Color's u8 channels
 	finished_frame: u32, // tween finished this frame
 	duration:       f64, // original duration of the tween
 	delay:          f64, // delay before tween starts
@@ -71,18 +72,12 @@ detect_tween_type :: proc(value: mrb.Value) -> typeid {
 	vec_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
 	if vec_ptr != nil { return rl.Vector2 }
 
-	// Color tweens are not yet implemented; reject upfront so we never
-	// construct a Tween_Instance whose setup path would later panic from
-	// a non-dispatch context (e.g. start_pending_tweens between frames).
 	color_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[rl.Color])
-	if color_ptr != nil {
-		mrb.raise_error(g.mrb_state, "NotImplementedError", "Color tweens are not yet supported")
-		return f32 // unreachable: ruby_raise longjmps via mrb.raise
-	}
+	if color_ptr != nil { return rl.Color }
 
 	if mrb.integer_p(value) || mrb.float_p(value) { return f32 }
 
-	mrb.raise_error(g.mrb_state, "TypeError", "Only Vector2 and numbers can be tweened")
+	mrb.raise_error(g.mrb_state, "TypeError", "Only Vector2, Color and numbers can be tweened")
 	return f32 // unreachable: ruby_raise longjmps via mrb.raise
 }
 
@@ -160,11 +155,15 @@ start_or_queue_tween :: proc(tween: ^Tween_Instance) {
 			v = f32(from)
 			start_tween(tween, &v, f32(to), true)
 		case rl.Color:
-			// unreachable: detect_tween_type rejects Color upfront. If we
-			// somehow got here we're outside any dispatch (called from
-			// start_pending_tweens between frames), so log and skip rather
-			// than longjmp via ruby_raise.
-			log.error("internal: Color tween reached setup path despite type check; skipping")
+			from_col := extract_native(rl.Color, tween.from)
+			to_col := extract_native(rl.Color, tween.to)
+			// flux animates f32 channels in color_channels; value is rebuilt
+			// from them on read (see ruby_tween_value).
+			tween.color_channels = {f32(from_col.r), f32(from_col.g), f32(from_col.b), f32(from_col.a)}
+			start_tween(tween, &tween.color_channels[0], f32(to_col.r), true)
+			start_tween(tween, &tween.color_channels[1], f32(to_col.g))
+			start_tween(tween, &tween.color_channels[2], f32(to_col.b))
+			start_tween(tween, &tween.color_channels[3], f32(to_col.a))
 		}
 	}
 }
@@ -256,10 +255,7 @@ ruby_tween_value :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	case f32:
 		return mrb.word_boxing_float_value(state, f64(v))
 	case rl.Color:
-		// unreachable: detect_tween_type rejects Color upfront, so no
-		// Tween_Instance with rl.Color value can exist. Defensive raise
-		// in case the type-check is ever bypassed.
-		return mrb.raise_error(g.mrb_state, "NotImplementedError", "Color tweens are not yet supported")
+		return create_color(color_from_channels(tween.color_channels))
 	}
 
 	return mrb.NIL
@@ -316,10 +312,19 @@ tween_stop :: proc(t: ^Tween_Instance) {
 		_ = ease.flux_stop(&g.flux, &v.x) // x component
 		_ = ease.flux_stop(&g.flux, &v.y) // y component
 	case rl.Color:
-		_ = ease.flux_stop(&g.flux, cast(^f32)&v[0]) // r component
-		_ = ease.flux_stop(&g.flux, cast(^f32)&v[1]) // g component
-		_ = ease.flux_stop(&g.flux, cast(^f32)&v[2]) // b component
-		_ = ease.flux_stop(&g.flux, cast(^f32)&v[3]) // a component
+		_ = ease.flux_stop(&g.flux, &t.color_channels[0]) // r component
+		_ = ease.flux_stop(&g.flux, &t.color_channels[1]) // g component
+		_ = ease.flux_stop(&g.flux, &t.color_channels[2]) // b component
+		_ = ease.flux_stop(&g.flux, &t.color_channels[3]) // a component
+	}
+}
+
+color_from_channels :: proc(ch: [4]f32) -> rl.Color {
+	return rl.Color {
+		u8(clamp(ch[0], 0, 255)),
+		u8(clamp(ch[1], 0, 255)),
+		u8(clamp(ch[2], 0, 255)),
+		u8(clamp(ch[3], 0, 255)),
 	}
 }
 
@@ -346,7 +351,11 @@ tween_time_left :: proc(self: mrb.Value) -> f64 {
 		y_time := ease.flux_tween_time_left(g.flux, &v.y)
 		return max(x_time, y_time)
 	case rl.Color:
-		return ease.flux_tween_time_left(g.flux, cast(^f32)&v[0])
+		rt := ease.flux_tween_time_left(g.flux, &tween.color_channels[0])
+		gt := ease.flux_tween_time_left(g.flux, &tween.color_channels[1])
+		bt := ease.flux_tween_time_left(g.flux, &tween.color_channels[2])
+		at := ease.flux_tween_time_left(g.flux, &tween.color_channels[3])
+		return max(rt, gt, bt, at)
 	}
 
 	return 0

@@ -655,7 +655,7 @@ end
 
 ## Tweening
 
-Time-based interpolation from one value to another, with easing. Works on Numerics and Vector2s. Tweens auto-update each tick until finished.
+Time-based interpolation from one value to another, with easing. Works on Numeric, Vector2, and Color. Tweens auto-update each tick until finished.
 
 `tween(from, to, duration, delay: 0, easing: Easing::LINEAR) { |t| ... }` starts a tween. The block fires every frame with the tween object — read `t.value` to get the current interpolated value and assign it wherever it belongs.
 
