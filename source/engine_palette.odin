@@ -247,5 +247,11 @@ setup_palette :: proc() {
 	mrb.define_method(g.mrb_state, c, "__color_pairs", cast(rawptr)ruby_palette_color_pairs, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "__do_replace", cast(rawptr)ruby_palette_do_replace, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "dup", cast(rawptr)ruby_palette_dup, mrb.ARGS_NONE)
-	mrb.define_const(g.mrb_state, c, "DEFAULT", palette_from_filedata("default_palette.gpl", palette_data))
+
+	default := palette_from_filedata("default_palette.gpl", palette_data)
+	mrb.define_const(g.mrb_state, c, "DEFAULT", default)
+
+	// `P`: a top-level constant giving the simplest games `P.red` etc, with no setup
+	obj := mrb.class_get(g.mrb_state, "Object")
+	mrb.define_const(g.mrb_state, obj, "P", ruby_palette_dup(g.mrb_state, default))
 }
