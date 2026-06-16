@@ -72,11 +72,14 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	rotation: f32 = 0
 	scale_vec := rl.Vector2{1, 1}
 	visible := true
-	// Copied by value (not by pointer) — once `body:` is deleted from kwargs
-	// the Body_Spec is unrooted and any subsequent mrb allocation can finalize
-	// it. shape_val is kept alive across that by body()'s gc_register.
+	// Copied by value so we don't depend on the BodySpec's lifetime past the
+	// kwarg extraction. The BodySpec is bridged (gc_register below) only until
+	// the durable obj<->body<->shape chain is built; the shape rides its
+	// @__shape ivar across that window. body_spec_val carries the bridged
+	// BodySpec down to the matching gc_unregister.
 	spec: Body_Spec
 	have_spec := false
+	body_spec_val := mrb.NIL
 
 	if kwargs != mrb.NIL {
 		val: mrb.Value
@@ -105,6 +108,13 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		if val != mrb.NIL {
 			spec = extract_or_raise(Body_Spec, val, "obj: body: must come from body(...)")^
 			have_spec = true
+			// FRAGILE — half 1 of 2; paired with the gc_unregister in the
+			// durable-chain block below. Root the BodySpec across the window
+			// between deleting the `body:` kwarg (its only other root) and
+			// wiring the lasting chain. The shape rides the BodySpec's @__shape
+			// ivar, so rooting the spec keeps the shape reachable too.
+			mrb.gc_register(state, val)
+			body_spec_val = val
 			mrb.hash_delete_key(state, kwargs, sym.body)
 		}
 	}
@@ -182,12 +192,13 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 					track_user_driven_body(ptr)
 				}
 				ptr.body_val = create_body_wrapper(ptr)
-				// ┌─ FRAGILE: object<->body<->shape reachability ─────────────┐
-				// │ ORDER IS LOAD-BEARING. Build the durable chain FIRST,     │
-				// │ then drop body()'s bridge root. Reordering or skipping    │
-				// │ any line below reintroduces a use-after-free where shape  │
-				// │ (and Body.obj) come back as a recycled String/garbage.    │
-				// └───────────────────────────────────────────────────────────┘
+				// FRAGILE — half 2 of 2; paired with the gc_register above.
+				// ORDER IS LOAD-BEARING: build the durable chain FIRST, then
+				// drop the BodySpec bridge. Until the chain exists, the shape
+				// is only reachable via the bridged BodySpec; reordering or
+				// skipping any line below reintroduces a use-after-free where
+				// shape (and Body.obj) come back as a recycled String/garbage.
+				//
 				// 1. GameObject <-> Body co-reachable: holding either from
 				//    script keeps both valid; swept together once neither is
 				//    held. (Cycle is fine — mruby GC is mark-sweep.)
@@ -198,10 +209,8 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 				gc_retain(ptr.body_val, "@__shape", ptr.shape_val)
 				// 3. Durable chain exists and is rooted by the caller's
 				//    reference to obj_val — only now is it safe to drop the
-				//    temporary bridge root body() installed (half 2 of 2;
-				//    see ruby_body in engine_body.odin). Must run for EVERY
-				//    consumed BodySpec, else the bridge root leaks.
-				if ptr.shape_val != mrb.NIL { mrb.gc_unregister(state, ptr.shape_val) }
+				//    BodySpec bridge installed above.
+				if body_spec_val != mrb.NIL { mrb.gc_unregister(state, body_spec_val) }
 			}
 		}
 	}

@@ -24,11 +24,11 @@ Body_Spec :: struct {
 	spin:               bool,
 }
 
-// shape_val is kept alive by a temporary gc_register BRIDGE installed in
-// body() (see there), handed off to the Body wrapper's @__shape ivar in
-// ruby_obj, which then drops the bridge. A body() that is never consumed by
-// obj() leaks its shape's bridge root — acceptable: body() is only valid as
-// the `body:` kwarg of obj(), which always consumes it.
+// shape_val is held alive by the BodySpec's own @__shape ivar (set in body()).
+// While the BodySpec is reachable, so is the shape. obj() bridges the BodySpec
+// across the brief window where it would otherwise be unrooted, then hands the
+// shape to the Body wrapper's @__shape ivar. An unconsumed body() leaks
+// nothing — the BodySpec and its shape are collected normally.
 ruby_bodyspec_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
@@ -160,24 +160,12 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	class := mrb.class_get(g.mrb_state, "BodySpec")
 	val := mrb.obj_new(g.mrb_state, class, 0, nil)
 	mrb.data_init(val, ptr, NATIVE_TO_MRUBY_TYPE[Body_Spec])
-	// ┌─ FRAGILE: shape lifetime BRIDGE — half 1 of 2 ──────────────────────┐
-	// │ Pairs with the gc_unregister in ruby_obj (engine_game_object.odin). │
-	// │ Do not remove one half without the other.                           │
-	// └─────────────────────────────────────────────────────────────────────┘
-	// Why a gc_register and not just the @__shape ivar: the BodySpec is
-	// short-lived. mruby restores the GC arena after this C builtin returns,
-	// and ruby_obj deletes the `body:` kwarg (hash_delete_key) BEFORE it
-	// builds the lasting obj<->body->shape chain. In that window the BodySpec
-	// — and any @__shape ivar hung on it — is unreachable and can be swept,
-	// taking the only shape reference with it (observed: shape returned as a
-	// recycled String). A gc_register root is independent of the BodySpec and
-	// spans the gap. ruby_obj drops it once the durable chain exists.
-	//
-	// Invariant: every BodySpec that reaches ruby_obj MUST have its shape
-	// unregistered there exactly once. body() is only valid as obj()'s `body:`
-	// kwarg, so a BodySpec that is never consumed leaks this one root — an
-	// accepted, bounded cost (one misuse = one leaked Circ/Rect).
-	if spec.shape_val != mrb.NIL { mrb.gc_register(state, spec.shape_val) }
+	// Hang the shape on the BodySpec's own @__shape ivar so it stays reachable
+	// for exactly as long as the BodySpec is. The native shape_val field is
+	// invisible to the GC; this ivar is what lets obj()'s bridge — which roots
+	// the BodySpec across the construction window — also protect the shape.
+	// No standalone root here, so an unconsumed body() leaks nothing.
+	gc_retain(val, "@__shape", spec.shape_val)
 	return val
 }
 

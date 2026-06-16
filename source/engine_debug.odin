@@ -4,6 +4,17 @@ import "core:fmt"
 import "core:strings"
 import mrb "lib:mruby"
 
+// RUBY FUNCTION (debug builds only): gc -> forces a full GC and returns live obj count
+// @engine_method: name="gc", aspec=ARGS_NONE, debug=true
+ruby_gc :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	before := mrb.gc_live(state)
+	mrb.full_gc(state)
+	after := mrb.gc_live(state)
+	fmt.printf("[gc] live %v -> %v (reclaimed %v)\n", before, after, int(before) - int(after))
+	return mrb.fixnum_value(mrb.Int(after))
+}
+
 // RUBY FUNCTION: metrics(enabled) -> enables/disables metrics, gives current with no args
 // @engine_method: name="metrics", aspec=ARGS_OPT(1)
 ruby_metrics :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {

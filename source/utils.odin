@@ -80,13 +80,13 @@ is_native :: #force_inline proc($T: typeid, val: mrb.Value) -> bool {
 //
 // CRITICAL CAVEAT: gc_retain only protects `child` while `owner` is itself
 // reachable from a GC root. It does NOT bridge a window where the owner chain
-// has no live root yet — e.g. handing a value off from a short-lived wrapper
-// (a BodySpec) that gets swept before the durable owner is wired up. mruby
-// also restores the GC arena when a C builtin returns, so "it's still in the
-// arena" is not protection across a return. For those handoffs, span the gap
-// with a temporary gc_register bridge and only gc_unregister it AFTER the
-// retained chain is rooted by something the script holds. See ruby_body /
-// ruby_obj (the BodySpec -> Body shape handoff) for the canonical pattern.
+// has no live root yet — e.g. any short-lived wrapper that gets swept before
+// the durable owner is wired up. mruby also restores the GC arena when a C
+// builtin returns, so "it's still in the arena" is not protection across a
+// return. For those handoffs, gc_register the wrapper itself to span the gap
+// (the child rides its ivar, so rooting the wrapper roots the child), and
+// gc_unregister it AFTER the retained chain is rooted by something the script
+// holds. ruby_obj's BodySpec bridge is one instance of this pattern.
 gc_retain :: proc(owner: mrb.Value, key: cstring, child: mrb.Value) {
 	if child == mrb.NIL { return }
 	mrb.iv_set(g.mrb_state, owner, mrb.intern_cstr(g.mrb_state, key), child)
