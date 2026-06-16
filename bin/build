@@ -654,12 +654,20 @@ def serve_web(game)
   server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
   trap("INT") { puts "\nShutting down..."; exit 0 }
 
-  Thread.new { sleep 1; system("open", "http://localhost:8888") }
-  puts "Serving at http://localhost:8888 (Ctrl+C to stop)"
+  url = "http://localhost:8888"
+  opener =
+    case RUBY_PLATFORM
+    when /darwin/      then ["open", url]
+    when /mingw|mswin/ then ["cmd", "/c", "start", "", url]  # start is a cmd builtin
+    else                    ["xdg-open", url]                # linux/bsd
+    end
+  Thread.new { sleep 1; system(*opener) }
+  puts "Serving at #{url} (Ctrl+C to stop)"
 
   loop do
     Thread.new(server.accept) do |sock|
       begin
+        next unless IO.select([sock], nil, nil, 5)  # drop idle/hung connections
         req = sock.gets or next
         method, path, _ = req.split
         while (h = sock.gets) && h.strip != ""; end

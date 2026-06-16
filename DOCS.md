@@ -1093,7 +1093,19 @@ Used for per-entity state (player idle/run/jump) or game states (menu/play/pause
 | `s.data` | GameObject | Per-state scratch — assign anything: `state.data.timer = after(...) { ... }` |
 | `s.fsm` | FSM | Parent FSM |
 | `s.transition(name)` | nil | Shortcut for `state.fsm.transition(name)` |
-| `s == :symbol` | bool | Compares by name |
+| `s.is?(:symbol)` | bool | Single-state check by name — preferred |
+| `s == :symbol` | bool | Also compares by name (asymmetric: `:symbol == s` is false) |
+
+Branch on the current state with either idiom:
+
+```ruby
+puts "jumping!" if f.state.is?(:jump)
+
+case f.state          # case over the State works directly
+when :idle then ...
+when :run, :jump then ...
+end
+```
 
 State callback arities are detected automatically:
 

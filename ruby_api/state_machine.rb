@@ -9,6 +9,9 @@ end
 class State
   undef_method :dup, :clone
 
+  # check state by symbol `s.is?(:idle)`
+  def is?(other) = name == other
+
   def ==(other)
     return name == other if other.is_a?(Symbol)
     super
@@ -20,9 +23,7 @@ class State
   alias_method :inspect, :to_s
 end
 
-# `case state when :foo` invokes `:foo === state` — Symbol#=== checks
-# identity and fails. Delegate to State#== when the rhs is a State so
-# case/when matches the way gamedevs expect.
+# `case state when :foo` sugar
 class Symbol
   alias_method :__mini9_orig_eqq, :===
   def ===(other)
