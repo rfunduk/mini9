@@ -1,39 +1,37 @@
+CORE_GEMS = %w[
+  mruby-array-ext
+  mruby-hash-ext
+  mruby-string-ext
+  mruby-numeric-ext
+  mruby-range-ext
+  mruby-symbol-ext
+  mruby-object-ext
+  mruby-kernel-ext
+  mruby-enum-ext
+  mruby-toplevel-ext
+  mruby-set
+  mruby-math
+  mruby-random
+  mruby-metaprog
+  mruby-error
+  mruby-compiler
+  mruby-proc-ext
+  mruby-method
+  mruby-fiber
+].freeze
+
+# dont think we need these
+#   mruby-catch
+#   mruby-enum-lazy
+#   mruby-time
+#   mruby-bigint
+#   mruby-binding
+#   mruby-proc-binding
+
+
 MRuby::Build.new do |conf|
-  # load specific toolchain settings
   conf.toolchain
-
-  # do not include 'everything'
-  # conf.gembox 'full-core'
-
-  conf.gem core: 'mruby-array-ext'
-  conf.gem core: 'mruby-hash-ext'
-  conf.gem core: 'mruby-string-ext'
-  conf.gem core: 'mruby-numeric-ext'
-  conf.gem core: 'mruby-range-ext'
-  conf.gem core: 'mruby-symbol-ext'
-  conf.gem core: 'mruby-object-ext'
-  conf.gem core: 'mruby-kernel-ext'
-  conf.gem core: 'mruby-enum-ext'
-  conf.gem core: 'mruby-toplevel-ext'
-  conf.gem core: 'mruby-set'
-  conf.gem core: 'mruby-math'
-  conf.gem core: 'mruby-random'
-  conf.gem core: 'mruby-metaprog'
-  conf.gem core: 'mruby-error'
-  conf.gem core: 'mruby-compiler'
-  conf.gem core: 'mruby-proc-ext'
-  conf.gem core: 'mruby-method'
-  conf.gem core: 'mruby-fiber'
-
-  # dont think we need these
-  # conf.gem core: 'mruby-catch'
-  # conf.gem core: 'mruby-enum-lazy'
-  # conf.gem core: 'mruby-time'
-  # conf.gem core: 'mruby-bigint'
-  # conf.gem core: 'mruby-binding'
-  # conf.gem core: 'mruby-proc-binding'
-
-  # C compiler settings
+  CORE_GEMS.each { |g| conf.gem core: g }
   conf.cc do |cc|
     cc.flags << "-fPIC"
     cc.flags << "-DMRB_64BIT"
@@ -41,34 +39,9 @@ MRuby::Build.new do |conf|
   end
 end
 
-# emscripten/WASM cross-build
 MRuby::CrossBuild.new('emscripten') do |conf|
-  # use emscripten toolchain
   conf.toolchain :emscripten
-
-  # do not include 'everything'
-  # conf.gembox 'full-core'
-
-  conf.gem core: 'mruby-array-ext'
-  conf.gem core: 'mruby-hash-ext'
-  conf.gem core: 'mruby-string-ext'
-  conf.gem core: 'mruby-numeric-ext'
-  conf.gem core: 'mruby-range-ext'
-  conf.gem core: 'mruby-symbol-ext'
-  conf.gem core: 'mruby-object-ext'
-  conf.gem core: 'mruby-kernel-ext'
-  conf.gem core: 'mruby-enum-ext'
-  conf.gem core: 'mruby-toplevel-ext'
-  conf.gem core: 'mruby-set'
-  conf.gem core: 'mruby-math'
-  conf.gem core: 'mruby-random'
-  conf.gem core: 'mruby-metaprog'
-  conf.gem core: 'mruby-error'
-  conf.gem core: 'mruby-compiler'
-  conf.gem core: 'mruby-proc-ext'
-  conf.gem core: 'mruby-method'
-  conf.gem core: 'mruby-fiber'
-
+  CORE_GEMS.each { |g| conf.gem core: g }
   # compiler settings for emscripten
   # exception flags come from the emscripten toolchain (`-fwasm-exceptions`).
   # don't add `-fexceptions` here — conflicts with the wasm-native path.
