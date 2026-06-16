@@ -1,7 +1,7 @@
 # ENGINE native=Shake_Instance ruby=Shake
 
 class Shake
-  undef_method :dup, :clone
+  include NativeHandle
 
   # called when shake(duration, frequency, amplitude) is invoked
   # duration: time in seconds (float)
@@ -12,4 +12,6 @@ class Shake
   # returns the current shake offset as Vector2
   # automatically applies decay and interpolation
   def offset; end # this calls the native Odin implementation
+
+  def to_s = "Shake(offset: #{offset})"
 end

@@ -2,12 +2,12 @@
 # ENGINE native=State ruby=State
 
 class FSM
-  undef_method :dup, :clone
+  include NativeHandle
   def to_s = "FSM(current: #{state&.name || "<init>"})"
 end
 
 class State
-  undef_method :dup, :clone
+  include NativeHandle
 
   # check state by symbol `s.is?(:idle)`
   def is?(other) = name == other
@@ -20,7 +20,6 @@ class State
   alias_method :===, :==
 
   def to_s = "State(#{name})"
-  alias_method :inspect, :to_s
 end
 
 # `case state when :foo` sugar

@@ -1,7 +1,7 @@
 # ENGINE native=Camera_Instance ruby=Camera
 
 class Camera
-  undef_method :dup, :clone
+  include NativeHandle
 
   # camera properties are implemented in native code
   def active; end
@@ -19,5 +19,4 @@ class Camera
   def reset(target: true, zoom: true); end
 
   def to_s = "Camera(#{'in' unless active}active, target: #{target}, zoom: #{zoom}, offset: #{offset})"
-  alias_method :inspect, :to_s
 end

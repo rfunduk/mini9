@@ -1,7 +1,7 @@
 # ENGINE native=Anim ruby=Anim
 
 class Anim
-  undef_method :dup, :clone
+  include NativeHandle
 
   LOOP = 0
   ONCE = 1
@@ -14,6 +14,4 @@ class Anim
     dir = direction >= 0 ? "+#{direction}" : direction.to_s
     "#<Anim #{MODE_NAMES[mode] || mode} #{index}/#{count - 1}=#{current.inspect} @#{interval}s dir=#{dir}>"
   end
-
-  alias_method :inspect, :to_s
 end

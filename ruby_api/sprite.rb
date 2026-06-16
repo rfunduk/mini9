@@ -1,7 +1,7 @@
 # ENGINE native=Sprite ruby=Sprite
 
 class Sprite
-  undef_method :dup, :clone
+  include NativeHandle
 
   attr_reader :atlas
   def to_s = "Sprite(#{@atlas.path}, size: #{size}, frame: #{frame}, fliph: #{fliph}, flipv: #{flipv})"

@@ -1,9 +1,8 @@
 # ENGINE native=Line ruby=Line
 
 class Line
-  undef_method :clone
+  include ValueShape
   def dup = line(a, b)
 
   def to_s = "Line(#{a} → #{b})"
-  alias_method :inspect, :to_s
 end

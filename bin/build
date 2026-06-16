@@ -264,7 +264,8 @@ def ruby_api_files
     $ruby_api_files << [api_name, auto, type_mappings, has_cleanup]
   end
 
-  $ruby_api_files = $ruby_api_files.sort_by(&:first)
+  # load preamble first
+  $ruby_api_files = $ruby_api_files.sort_by { |name, *| [name == "preamble" ? 0 : 1, name] }
 end
 
 def engine_methods
@@ -282,7 +283,6 @@ def engine_methods
       # aspec is an mruby ARGS_* expression: ARGS_NONE, ARGS_ANY,
       # ARGS_REQ(2), ARGS_OPT(1), ARGS_ARG(2,1), or combinations like
       # ARGS_REQ(1)|ARGS_OPT(2). Match identifiers + optional (...) groups
-      # joined by | (no spaces).
       aspec_match = line.match(/aspec=([A-Z_][A-Z_0-9]*(?:\([^)]*\))?(?:\|[A-Z_][A-Z_0-9]*(?:\([^)]*\))?)*)/)
 
       loc = "#{odin_file}:#{i + 1}"
@@ -380,11 +380,6 @@ def maybe_build_tools
 end
 
 def generate(target)
-  File.write(
-    File.join(SRC_DIR, "../ruby_api/auto__generated.rb"),
-    "ENGINE_METHODS = [\n#{engine_methods.map { "\t\"#{_1[0]}\"" }.join(",\n")}\n]\n"
-  )
-
   ruby_api_files.each do |api_name, _, _|
     puts "  Generating bytecode for #{api_name}..."
 

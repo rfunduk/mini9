@@ -1,10 +1,9 @@
 # ENGINE native=Palette ruby=Palette
 
 class Palette
-  undef_method :clone
+  include ValueShape
 
   def to_s = "Palette(path: #{path}, count: #{count})"
-  alias_method :inspect, :to_s
 
   def replace(other)
     raise TypeError, "expected Palette" unless other.is_a?(Palette)

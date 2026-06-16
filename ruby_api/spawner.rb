@@ -10,7 +10,7 @@ def spawner(rate:, count: 1, start: true, &block)
 end
 
 class Spawner
-  undef_method :dup, :clone
+  include NativeHandle
 
   attr_accessor :rate, :count
   attr_reader :parent
@@ -54,7 +54,6 @@ class Spawner
   end
 
   def to_s = "Spawner(rate: #{@rate}, count: #{@count}, running: #{@running})"
-  alias_method :inspect, :to_s
 
   private
 

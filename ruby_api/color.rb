@@ -1,11 +1,10 @@
 # ENGINE native=rl.Color ruby=Color
 
 class Color
-  undef_method :clone
+  include ValueShape
   def dup = color(r, g, b, a)
 
   def to_s = "Color(#{r}, #{g}, #{b}, #{a})"
-  alias_method :inspect, :to_s
 end
 
 # intelligent color function that handles multiple formats:

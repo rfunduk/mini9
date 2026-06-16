@@ -1,7 +1,7 @@
 # ENGINE native=Tween_Instance ruby=Tween
 
 class Tween
-  undef_method :dup, :clone
+  include NativeHandle
 
   # easing constants live in `Easing` (e.g. Easing::LINEAR, Easing::CUBIC_IN_OUT)
 
@@ -30,5 +30,4 @@ class Tween
   def stop; end
 
   def to_s = "Tween(#{value}, running?: #{running?}, time_left: #{time_left}, progress: #{progress}, finished?: #{finished?}, just_finished?: #{just_finished?})"
-  alias_method :inspect, :to_s
 end

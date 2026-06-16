@@ -1,7 +1,8 @@
 # ENGINE native=Game_Object ruby=GameObject
 
 class GameObject
-  undef_method :dup, :clone
+  include NativeHandle
+  include DynamicAttributes
 
   def initialize(args={})
     @_attach_keys = []
@@ -13,15 +14,18 @@ class GameObject
       if val.is_a?(Proc)
         _define_handler(key, val)
       else
-        @_keys << key.to_sym
         @_attach_keys << key if val.respond_to?(:_attach)
-        instance_variable_set("@#{key}", val)
-        define_singleton_method(key) { instance_variable_get("@#{key}") }
-        define_singleton_method("#{key}=") { |v| instance_variable_set("@#{key}", v) }
+        _define_value_field(key, val)
       end
     end
 
     @_attach_keys.each { |k| self.send(k)._attach(self) }
+  end
+
+  # Track the key (for hot reload / to_s) before defining the accessor pair.
+  def _define_value_field(key, value)
+    @_keys << key.to_sym
+    super
   end
 
   # Install a handler proc as a singleton method, retaining the raw proc in
@@ -38,6 +42,8 @@ class GameObject
     end
   end
 
+  # NOTE: unlike a `foo=` assignment, []= only stores the ivar and tracks the
+  # key — it deliberately does not define accessor methods.
   def []=(key, value)
     if value.is_a?(Proc)
       @_proc_keys << key
@@ -58,20 +64,6 @@ class GameObject
       text << "#{k}: <fn>"
     end
     "GameObject(#{text.join(', ')})"
-  end
-  alias_method :inspect, :to_s
-
-  def method_missing(name, *args)
-    name_str = name.to_s
-    if name_str.end_with?('=')
-      key = name_str[0..-2]
-      @_keys << key.to_sym
-      instance_variable_set("@#{key}", args[0])
-      define_singleton_method(key.to_sym) { instance_variable_get("@#{key}") }
-      define_singleton_method(name_str.to_sym) { |v| instance_variable_set("@#{key}", v) }
-    else
-      super
-    end
   end
 
   def init(*); end
@@ -98,10 +90,7 @@ class GameObject
 
     fresh._value_table.each do |key, val|
       next if @_keys.include?(key)
-      @_keys << key
-      instance_variable_set("@#{key}", val)
-      define_singleton_method(key) { instance_variable_get("@#{key}") }
-      define_singleton_method("#{key}=") { |v| instance_variable_set("@#{key}", v) }
+      _define_value_field(key, val)
       val._attach(self) if val.respond_to?(:_attach)
     end
   end

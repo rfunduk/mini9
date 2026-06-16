@@ -1,8 +1,7 @@
 # ENGINE native=rl.Font ruby=Font
 
 class Font
-  undef_method :dup, :clone
+  include NativeHandle
 
   def to_s = "Font(#{name}, #{size})"
-  alias_method :inspect, :to_s
 end

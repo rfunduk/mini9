@@ -1,6 +1,38 @@
 # convenience storage to avoid ugly $globals
 def g = $g ||= GlobalStore.new
 
+# value-like and copyable (Circ, Rect, Vector2, Color, ...)
+# clone shallow copies the ruby wrapper -> broken -> remove it. `dup` only
+module ValueShape
+  def self.included(base) = base.undef_method(:clone)
+  def inspect = to_s
+end
+
+# a handle to a unique/native thing (Body, Camera, Sound, ...)
+# no meaningful copy. make a new one instead
+module NativeHandle
+  def self.included(base) = base.undef_method(:dup, :clone)
+  def inspect = to_s
+end
+
+# Mixin for "open" objects whose fields are created on demand: assigning an
+# unknown `foo=` defines a `foo`/`foo=` accessor pair backed by an `@foo` ivar.
+module DynamicAttributes
+  def method_missing(name, *args)
+    name_str = name.to_s
+    return super unless name_str.end_with?("=")
+    _define_value_field(name_str[0..-2], args[0])
+  end
+
+  # Define `key` (reader) and `key=` (writer) singleton methods backed by
+  # `@key`, and store `value`.
+  def _define_value_field(key, value)
+    instance_variable_set("@#{key}", value)
+    define_singleton_method(key) { instance_variable_get("@#{key}") }
+    define_singleton_method("#{key}=") { |v| instance_variable_set("@#{key}", v) }
+  end
+end
+
 # add try method to all objects for safe navigation
 class Object
   def try(method_name, *args, &block)

@@ -17,7 +17,7 @@ class Vector2
   CARDINALS = [N, E, S, W].freeze
   COMPASS = [N, NE, E, SE, S, SW, W, NW].freeze
 
-  undef_method :clone
+  include ValueShape
   def dup = v2(x, y)
 
   def xx = v2(x, x)
@@ -29,5 +29,4 @@ class Vector2
   def ==(other) = other.is_a?(self.class) ? x == other.x && y == other.y : false
 
   def to_s = "Vector2(#{x}, #{y})"
-  alias_method :inspect, :to_s
 end

@@ -1,7 +1,7 @@
 # ENGINE native=Music ruby=Music
 
 class Music
-  undef_method :dup, :clone
+  include NativeHandle
 
   attr_reader :path
 
@@ -16,5 +16,4 @@ class Music
   def fade_time; end
 
   def to_s = "Music(#{path})"
-  alias_method :inspect, :to_s
 end
