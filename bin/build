@@ -306,6 +306,27 @@ def engine_methods
   $engine_methods
 end
 
+# Tools build with -collection:lib=lib and link libmruby.a, so the cache key
+# folds in lib/ sources and libmruby.a, not just the tool's own source.
+def tool_digest(tool_path)
+  h = Digest::SHA256.new
+  h.update("tool\0")
+  h.update(Digest::SHA256.file(tool_path).hexdigest)
+
+  Dir.glob("lib/**/*").select { File.file?(_1) }.sort.each do |dep|
+    h.update("lib\0#{dep}\0")
+    h.update(Digest::SHA256.file(dep).hexdigest)
+  end
+
+  libmruby = "vendor/mruby/build/host/lib/libmruby.a"
+  if File.exist?(libmruby)
+    h.update("libmruby\0")
+    h.update(Digest::SHA256.file(libmruby).hexdigest)
+  end
+
+  h.hexdigest
+end
+
 def maybe_build_tools
   # macros.o is needed by rb2bin; bin/_build.sh also recompiles it, fine.
   macros_c = "lib/mruby/macros.c"
@@ -331,7 +352,7 @@ def maybe_build_tools
     name = tool.basename(".odin").to_s
     prev_digest_path = "bin/__#{name}__generated.digest"
     prev_digest = File.exist?(prev_digest_path) ? File.read(prev_digest_path) : nil
-    current_digest = Digest::SHA256.file(tool.to_s).hexdigest
+    current_digest = tool_digest(tool.to_s)
 
     next if prev_digest == current_digest
 
