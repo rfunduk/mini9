@@ -121,7 +121,7 @@ ruby_text_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	val = mrb.kwarg(state, kwargs, sym.offset)
 	if val != mrb.NIL { offset = extract_or_raise(rl.Vector2, val, "text: offset must be a Vector2")^ }
 	val = mrb.kwarg(state, kwargs, sym.align)
-	if val != mrb.NIL { align = Text_Align(mrb.integer(val)) }
+	if val != mrb.NIL { align = Text_Align(mrb.to_int(val)) }
 	val = mrb.kwarg(state, kwargs, sym.rotation)
 	if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) }
 	val = mrb.kwarg(state, kwargs, sym.spacing)

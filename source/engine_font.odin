@@ -188,7 +188,7 @@ ruby_font :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 				path,
 			)
 		}
-		size = i32(mrb.integer(size_val))
+		size = i32(mrb.to_int(size_val))
 	}
 
 	return create_font(path, size)

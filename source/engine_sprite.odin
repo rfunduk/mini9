@@ -46,9 +46,9 @@ ruby_sprite :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		val = mrb.kwarg(state, kwargs, sym.size)
 		if val != mrb.NIL { size = extract_or_raise(rl.Vector2, val, "sprite: size must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.frame)
-		if val != mrb.NIL { frame = uint(mrb.integer(val)) }
+		if val != mrb.NIL { frame = uint(mrb.to_int(val)) }
 		val = mrb.kwarg(state, kwargs, sym.frames)
-		if val != mrb.NIL { frames = uint(mrb.integer(val)) }
+		if val != mrb.NIL { frames = uint(mrb.to_int(val)) }
 		val = mrb.kwarg(state, kwargs, sym.fliph)
 		if val != mrb.NIL { fliph = mrb.boolean(val) }
 		val = mrb.kwarg(state, kwargs, sym.flipv)
@@ -206,7 +206,7 @@ ruby_sprite_set_frame :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	sprite := extract_native(Sprite, self)
 	if sprite == nil { return mrb.NIL }
 
-	new_frame := uint(mrb.integer(frame_val))
+	new_frame := uint(mrb.to_int(frame_val))
 
 	frames := get_sprite_frames(sprite)
 	if frames > 0 && new_frame >= frames {

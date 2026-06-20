@@ -108,7 +108,7 @@ ruby_tween :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		val = mrb.kwarg(state, kwargs, sym.delay)
 		if val != mrb.NIL { tween.delay = mrb.to_f64(val) }
 		val = mrb.kwarg(state, kwargs, sym.easing)
-		if val != mrb.NIL { tween.easing = ease.Ease(mrb.integer(val)) }
+		if val != mrb.NIL { tween.easing = ease.Ease(mrb.to_int(val)) }
 	}
 
 	// we're going to hold onto these for the life of the tween

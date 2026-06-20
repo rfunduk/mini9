@@ -43,6 +43,21 @@ to_f64 :: #force_inline proc(val: Value) -> f64 {
 	return 0
 }
 
+// Extract a numeric value as an Odin int, accepting both integers and floats
+// (float is truncated). Returns 0 for any other type.
+to_int :: #force_inline proc(val: Value) -> int {
+	if integer_p(val) { return int(integer(val)) }
+	if float_p(val) { return int(float(val)) }
+	return 0
+}
+
+// True iff `val` is an Integer or Float. The "is this a number at all" check,
+// decoupled from extraction: pair with to_f64/to_int at a call site that wants
+// to reject non-numerics instead of coercing them to 0.
+numeric_p :: #force_inline proc(val: Value) -> bool {
+	return integer_p(val) || float_p(val)
+}
+
 // True if `top_self` responds to a method named `name`.
 function_exists :: proc(state: State, name: cstring) -> bool {
 	if state == nil { return false }

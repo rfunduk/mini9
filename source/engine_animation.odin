@@ -86,12 +86,12 @@ ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	// optional: direction (default +1)
 	direction: i32 = 1
 	dir_val := mrb.kwarg(state, kwargs, sym.direction)
-	if dir_val != mrb.NIL { direction = i32(mrb.integer(dir_val)) }
+	if dir_val != mrb.NIL { direction = i32(mrb.to_int(dir_val)) }
 
 	// optional: mode (default LOOP = 0)
 	mode: Animation_Mode = .LOOP
 	mode_val := mrb.kwarg(state, kwargs, sym.mode)
-	if mode_val != mrb.NIL { mode = Animation_Mode(mrb.integer(mode_val)) }
+	if mode_val != mrb.NIL { mode = Animation_Mode(mrb.to_int(mode_val)) }
 
 	return create_anim(interval, direction, mode, values)
 }

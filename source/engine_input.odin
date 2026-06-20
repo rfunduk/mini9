@@ -96,7 +96,7 @@ ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 
 	if keycode >= 30000 {
 		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
-		gamepad := i32(mrb.integer(gamepad_id_val))
+		gamepad := i32(mrb.to_int(gamepad_id_val))
 		axis := rl.GamepadAxis(keycode - 30000)
 		axis_value := rl.GetGamepadAxisMovement(gamepad, axis)
 		return (axis_value > 0.1 || axis_value < -0.1) ? mrb.TRUE : mrb.FALSE
@@ -106,7 +106,7 @@ ruby_key_down_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	raw_down := false
 	if keycode >= 20000 {
 		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
-		gamepad = i32(mrb.integer(gamepad_id_val))
+		gamepad = i32(mrb.to_int(gamepad_id_val))
 		raw_down = rl.IsGamepadButtonDown(gamepad, rl.GamepadButton(keycode - 20000))
 	} else if keycode >= 10000 {
 		raw_down = rl.IsMouseButtonDown(rl.MouseButton(keycode - 10000))
@@ -132,7 +132,7 @@ ruby_key_pressed_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	gamepad: i32 = 0
 	if keycode >= 20000 {
 		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
-		gamepad = i32(mrb.integer(gamepad_id_val))
+		gamepad = i32(mrb.to_int(gamepad_id_val))
 	}
 
 	return input_current_edges[queue_key(keycode, gamepad)] == .PRESS ? mrb.TRUE : mrb.FALSE
@@ -151,7 +151,7 @@ ruby_key_released_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	gamepad: i32 = 0
 	if keycode >= 20000 {
 		if argc < 2 || gamepad_id_val == mrb.NIL { return mrb.FALSE }
-		gamepad = i32(mrb.integer(gamepad_id_val))
+		gamepad = i32(mrb.to_int(gamepad_id_val))
 	}
 
 	return input_current_edges[queue_key(keycode, gamepad)] == .RELEASE ? mrb.TRUE : mrb.FALSE
@@ -269,7 +269,7 @@ ruby_gamepad_available_impl :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 	mrb.get_args(state, "o", &gamepad_id_val)
 
 	if gamepad_id_val == mrb.NIL { return mrb.raise_error(state, "ArgumentError", "Specify gamepad ID") }
-	gamepad_id := i32(mrb.integer(gamepad_id_val))
+	gamepad_id := i32(mrb.to_int(gamepad_id_val))
 
 	return rl.IsGamepadAvailable(gamepad_id) ? mrb.TRUE : mrb.FALSE
 }
@@ -281,9 +281,9 @@ ruby_get_gamepad_axis_value :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 	xcode_val, ycode_val, gamepad_val: mrb.Value
 	mrb.get_args(state, "ooo", &xcode_val, &ycode_val, &gamepad_val)
 
-	xcode := i32(mrb.integer(xcode_val))
-	ycode := i32(mrb.integer(ycode_val))
-	gamepad_id := i32(mrb.integer(gamepad_val))
+	xcode := i32(mrb.to_int(xcode_val))
+	ycode := i32(mrb.to_int(ycode_val))
+	gamepad_id := i32(mrb.to_int(gamepad_val))
 
 	if xcode >= 30000 && ycode <= 30003 {
 		x_val := rl.GetGamepadAxisMovement(gamepad_id, rl.GamepadAxis(xcode - 30000))

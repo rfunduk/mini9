@@ -232,7 +232,7 @@ ruby_sound :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if argc == 2 {
 		val := mrb.kwarg(state, kwargs, sym.polyphony)
-		if val != mrb.NIL { polyphony = int(mrb.integer(val)) }
+		if val != mrb.NIL { polyphony = int(mrb.to_int(val)) }
 	}
 
 	result := create_sound(path, polyphony)
