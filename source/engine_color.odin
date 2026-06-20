@@ -1,5 +1,6 @@
 package engine
 
+import "core:math"
 import "core:strconv"
 import "core:strings"
 import mrb "lib:mruby"
@@ -177,6 +178,121 @@ ruby_color_set_a :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return val
 }
 
+// Adjust HSV saturation by `delta`, preserving the original alpha (ColorFromHSV
+// always returns alpha 255). delta > 0 saturates, < 0 desaturates.
+color_adjust_saturation :: proc(c: rl.Color, delta: f32) -> rl.Color {
+	hsv := rl.ColorToHSV(c)
+	out := rl.ColorFromHSV(hsv.x, clamp(hsv.y + delta, 0, 1), hsv.z)
+	out.a = c.a
+	return out
+}
+
+// RUBY METHOD: lighten(amount=0.1) -> new Color brightened toward white
+ruby_color_lighten :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	amount: f64 = 0.1
+	mrb.get_args(state, "|f", &amount)
+	color := extract_native(rl.Color, self)
+	return create_color(rl.ColorBrightness(color^, f32(amount)))
+}
+
+// RUBY METHOD: darken(amount=0.1) -> new Color darkened toward black
+ruby_color_darken :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	amount: f64 = 0.1
+	mrb.get_args(state, "|f", &amount)
+	color := extract_native(rl.Color, self)
+	return create_color(rl.ColorBrightness(color^, -f32(amount)))
+}
+
+// RUBY METHOD: saturate(amount=0.1) -> new Color with more HSV saturation
+ruby_color_saturate :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	amount: f64 = 0.1
+	mrb.get_args(state, "|f", &amount)
+	color := extract_native(rl.Color, self)
+	return create_color(color_adjust_saturation(color^, f32(amount)))
+}
+
+// RUBY METHOD: desaturate(amount=0.1) -> new Color with less HSV saturation
+ruby_color_desaturate :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	amount: f64 = 0.1
+	mrb.get_args(state, "|f", &amount)
+	color := extract_native(rl.Color, self)
+	return create_color(color_adjust_saturation(color^, -f32(amount)))
+}
+
+// RUBY METHOD: grayscale -> new Color fully desaturated (HSV saturation 0)
+ruby_color_grayscale :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	color := extract_native(rl.Color, self)
+	hsv := rl.ColorToHSV(color^)
+	out := rl.ColorFromHSV(hsv.x, 0, hsv.z)
+	out.a = color.a
+	return create_color(out)
+}
+
+// RUBY METHOD: contrast(amount) -> new Color with contrast correction (-1.0..1.0)
+ruby_color_contrast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	amount: f64
+	mrb.get_args(state, "f", &amount)
+	color := extract_native(rl.Color, self)
+	return create_color(rl.ColorContrast(color^, f32(amount)))
+}
+
+// RUBY METHOD: rotate_hue(degrees) -> new Color with hue rotated around the wheel
+ruby_color_rotate_hue :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	degrees: f64
+	mrb.get_args(state, "f", &degrees)
+	color := extract_native(rl.Color, self)
+	hsv := rl.ColorToHSV(color^)
+	hue := math.mod(hsv.x + f32(degrees), 360)
+	if hue < 0 { hue += 360 }
+	out := rl.ColorFromHSV(hue, hsv.y, hsv.z)
+	out.a = color.a
+	return create_color(out)
+}
+
+// RUBY METHOD: fade(alpha) -> new Color with alpha applied (0.0..1.0)
+ruby_color_fade :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	alpha: f64
+	mrb.get_args(state, "f", &alpha)
+	color := extract_native(rl.Color, self)
+	return create_color(rl.ColorAlpha(color^, f32(alpha)))
+}
+
+// RUBY METHOD: invert -> new Color with RGB channels inverted (alpha preserved)
+ruby_color_invert :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	color := extract_native(rl.Color, self)
+	return create_color({255 - color.r, 255 - color.g, 255 - color.b, color.a})
+}
+
+// RUBY METHOD: mix(other, t=0.5) -> new Color linearly interpolated toward other
+ruby_color_mix :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other_val: mrb.Value
+	t: f64 = 0.5
+	mrb.get_args(state, "o|f", &other_val, &t)
+	color := extract_native(rl.Color, self)
+	other := extract_or_raise(rl.Color, other_val, "Color#mix expects a Color")
+	return create_color(rl.ColorLerp(color^, other^, clamp(f32(t), 0, 1)))
+}
+
+// RUBY METHOD: tint(other) -> new Color multiplied channel-wise with other
+ruby_color_tint :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	other_val: mrb.Value
+	mrb.get_args(state, "o", &other_val)
+	color := extract_native(rl.Color, self)
+	other := extract_or_raise(rl.Color, other_val, "Color#tint expects a Color")
+	return create_color(rl.ColorTint(color^, other^))
+}
+
 setup_color :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Color")
 
@@ -189,4 +305,16 @@ setup_color :: proc() {
 	mrb.define_method(g.mrb_state, c, "b=", cast(rawptr)ruby_color_set_b, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "a=", cast(rawptr)ruby_color_set_a, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "==", cast(rawptr)ruby_color_equal, mrb.ARGS_REQ(1))
+
+	mrb.define_method(g.mrb_state, c, "lighten", cast(rawptr)ruby_color_lighten, mrb.ARGS_OPT(1))
+	mrb.define_method(g.mrb_state, c, "darken", cast(rawptr)ruby_color_darken, mrb.ARGS_OPT(1))
+	mrb.define_method(g.mrb_state, c, "saturate", cast(rawptr)ruby_color_saturate, mrb.ARGS_OPT(1))
+	mrb.define_method(g.mrb_state, c, "desaturate", cast(rawptr)ruby_color_desaturate, mrb.ARGS_OPT(1))
+	mrb.define_method(g.mrb_state, c, "grayscale", cast(rawptr)ruby_color_grayscale, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "contrast", cast(rawptr)ruby_color_contrast, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "rotate_hue", cast(rawptr)ruby_color_rotate_hue, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "fade", cast(rawptr)ruby_color_fade, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "invert", cast(rawptr)ruby_color_invert, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "mix", cast(rawptr)ruby_color_mix, mrb.ARGS_ARG(1, 1))
+	mrb.define_method(g.mrb_state, c, "tint", cast(rawptr)ruby_color_tint, mrb.ARGS_REQ(1))
 }

@@ -286,6 +286,23 @@ Auto-detects integer vs. normalized based on whether the first three args are Fl
 |---|---|---|
 | `c.r` / `c.r = v` | Integer (0-255) | Also `g`, `b`, `a` |
 | `c == other` | bool | |
+| `c.dup` | Color | Copy |
+
+**Manipulation** — all return a **new** Color (non-mutating), so they chain: `color("#3498db").darken.fade(0.5)`.
+
+| Signature | Returns | Notes |
+|---|---|---|
+| `c.lighten(amount=0.1)` | Color | Brighten toward white |
+| `c.darken(amount=0.1)` | Color | Darken toward black |
+| `c.saturate(amount=0.1)` | Color | More HSV saturation |
+| `c.desaturate(amount=0.1)` | Color | Less HSV saturation |
+| `c.grayscale` | Color | Fully desaturated |
+| `c.contrast(amount)` | Color | Contrast correction, `-1.0..1.0` |
+| `c.rotate_hue(degrees)` | Color | Spin hue around the wheel |
+| `c.fade(alpha)` | Color | Apply alpha, `0.0..1.0` |
+| `c.invert` | Color | Invert RGB (alpha preserved) |
+| `c.mix(other, t=0.5)` | Color | Interpolate toward another Color |
+| `c.tint(other)` | Color | Multiply channel-wise with another Color |
 
 ### `palette`
 
