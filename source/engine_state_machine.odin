@@ -11,9 +11,11 @@ State :: struct {
 	fsm:          mrb.Value, // Parent FSM reference
 	enter_proc:   mrb.Value,
 	update_proc:  mrb.Value,
+	draw_proc:    mrb.Value,
 	exit_proc:    mrb.Value,
 	enter_arity:  i32,
 	update_arity: i32,
+	draw_arity:   i32,
 	exit_arity:   i32,
 }
 
@@ -40,6 +42,41 @@ dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: []mrb.Value, c
 	return ok
 }
 
+// Raise ArgumentError if `kwargs` contains any key not in `allowed`.
+// Must be called with no active Odin defers (raise longjmps past them)
+@(private)
+reject_unknown_kwargs :: proc(state: mrb.State, kwargs: mrb.Value, fn_name: string, allowed: []mrb.Value) {
+	if kwargs == mrb.NIL || !mrb.hash_p(kwargs) { return }
+	keys := mrb.hash_keys(state, kwargs)
+	for i in 0 ..< mrb.ary_len(keys) {
+		key := mrb.ary_entry(keys, i32(i))
+		known := false
+		for a in allowed { if key.w == a.w { known = true; break } }
+		if !known {
+			mrb.raise_error(
+				state,
+				"ArgumentError",
+				"%s: unknown keyword %s",
+				fn_name,
+				mrb.inspect(state, key, context.temp_allocator),
+			)
+		}
+	}
+}
+
+// FSM requires a GameObject owner.
+// Must be called with no active Odin defers (raise longjmps past them)
+@(private)
+fsm_require_owner :: proc(state: mrb.State, fsm: ^FSM) {
+	if fsm.this_obj == mrb.NIL {
+		mrb.raise_error(
+			state,
+			"RuntimeError",
+			"FSM has no current state — an FSM must be a field on a game object: obj(fsm: fsm(default: ...))",
+		)
+	}
+}
+
 ruby_state_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
@@ -48,6 +85,7 @@ ruby_state_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 		if s.data != mrb.NIL { mrb.gc_unregister(state, s.data) }
 		if s.enter_proc != mrb.NIL { mrb.gc_unregister(state, s.enter_proc) }
 		if s.update_proc != mrb.NIL { mrb.gc_unregister(state, s.update_proc) }
+		if s.draw_proc != mrb.NIL { mrb.gc_unregister(state, s.draw_proc) }
 		if s.exit_proc != mrb.NIL { mrb.gc_unregister(state, s.exit_proc) }
 		mrb.free(state, ptr)
 	}
@@ -63,10 +101,17 @@ ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	}
 }
 
-// RUBY FUNCTION: state(:name, enter: nil, exit: nil, update: nil) -> returns State object
+// RUBY FUNCTION: state(:name, enter: nil, exit: nil, update: nil, draw: nil, data: nil) -> returns State object
 // @engine_method: name="state", aspec=ARGS_ARG(1,1)
 ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
+
+	name_val, kwargs: mrb.Value
+	argc := mrb.get_args(state, "o|H", &name_val, &kwargs)
+
+	if argc >= 2 {
+		reject_unknown_kwargs(state, kwargs, "state", {sym.enter, sym.exit, sym.update, sym.draw, sym.data})
+	}
 
 	// Arena-bound the whole call. create_game_object + mrb.alloc(s) + obj_new
 	// all allocate; without an outer scope, data_obj would lose arena
@@ -74,12 +119,11 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	arena_idx := mrb.gc_arena_save(g.mrb_state)
 	defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
 
-	name_val, kwargs: mrb.Value
-	argc := mrb.get_args(state, "o|H", &name_val, &kwargs)
-
 	enter_proc := mrb.NIL
 	exit_proc := mrb.NIL
 	update_proc := mrb.NIL
+	draw_proc := mrb.NIL
+	data_seed := mrb.NIL
 
 	if argc >= 2 {
 		val: mrb.Value
@@ -89,6 +133,10 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		if val != mrb.NIL { exit_proc = val }
 		val = mrb.kwarg(state, kwargs, sym.update)
 		if val != mrb.NIL { update_proc = val }
+		val = mrb.kwarg(state, kwargs, sym.draw)
+		if val != mrb.NIL { draw_proc = val }
+		val = mrb.kwarg(state, kwargs, sym.data)
+		if val != mrb.NIL { data_seed = val }
 	}
 
 	// Create the data obj for state-specific data
@@ -98,15 +146,26 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.gc_register(state, obj_scale)
 	data_obj := create_game_object(Game_Object{pos = pos, scale = obj_scale, visible = true}, 0, nil)
 
+	if data_seed != mrb.NIL && data_obj != mrb.NIL && mrb.hash_p(data_seed) {
+		keys := mrb.hash_keys(state, data_seed)
+		for i in 0 ..< mrb.ary_len(keys) {
+			k := mrb.ary_entry(keys, i32(i))
+			v := mrb.hash_get(state, data_seed, k)
+			mrb.funcall(state, data_obj, "_define_value_field", 2, k, v)
+		}
+	}
+
 	s := State {
 		name         = name_val,
 		data         = data_obj,
 		fsm          = mrb.NIL, // will be set when added to FSM
 		enter_proc   = enter_proc,
 		update_proc  = update_proc,
+		draw_proc    = draw_proc,
 		exit_proc    = exit_proc,
 		enter_arity  = mrb.safe_proc_arity(enter_proc),
 		update_arity = mrb.safe_proc_arity(update_proc),
+		draw_arity   = mrb.safe_proc_arity(draw_proc),
 		exit_arity   = mrb.safe_proc_arity(exit_proc),
 	}
 	state_ptr := mrb.alloc(g.mrb_state, s)
@@ -115,6 +174,7 @@ ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if data_obj != mrb.NIL { mrb.gc_register(state, data_obj) }
 	if enter_proc != mrb.NIL { mrb.gc_register(state, enter_proc) }
 	if update_proc != mrb.NIL { mrb.gc_register(state, update_proc) }
+	if draw_proc != mrb.NIL { mrb.gc_register(state, draw_proc) }
 	if exit_proc != mrb.NIL { mrb.gc_register(state, exit_proc) }
 
 	state_class := mrb.class_get(state, "State")
@@ -132,8 +192,14 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	kwargs: mrb.Value
 	mrb.get_args(state, "H", &kwargs)
 
+	reject_unknown_kwargs(state, kwargs, "fsm", {sym.default, sym.states})
+
 	default_name := mrb.kwarg(state, kwargs, sym.default)
 	states_array := mrb.kwarg(state, kwargs, sym.states)
+
+	if default_name == mrb.NIL {
+		mrb.raise_error(state, "ArgumentError", "fsm: missing required keyword :default")
+	}
 
 	if states_array == mrb.NIL { states_array = mrb.ary_new(state) }
 
@@ -182,6 +248,11 @@ ruby_fsm_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	fsm.this_obj = this_obj
 	if this_obj != mrb.NIL { mrb.gc_register(state, this_obj) }
+
+	// Enter the default state now that `this_obj` is wired
+	if fsm.current_state == mrb.NIL && fsm.default_name != mrb.NIL {
+		do_fsm_transition(state, fsm, fsm.default_name)
+	}
 
 	return self
 }
@@ -254,6 +325,7 @@ ruby_fsm_transition :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	fsm := extract_native(FSM, self)
 	if fsm == nil { return mrb.NIL }
 
+	fsm_require_owner(state, fsm)
 	do_fsm_transition(state, fsm, state_name)
 	return mrb.NIL
 }
@@ -264,8 +336,7 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	fsm := extract_native(FSM, self)
 	if fsm == nil { return mrb.NIL }
 
-	// Auto-transition to default on first update
-	if fsm.current_state == mrb.NIL { do_fsm_transition(state, fsm, fsm.default_name) }
+	fsm_require_owner(state, fsm)
 
 	current := extract_native(State, fsm.current_state)
 	if current == nil { return mrb.NIL }
@@ -274,6 +345,26 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		argv := [2]mrb.Value{fsm.this_obj, fsm.current_state}
 		msg := fmt.tprintf("%s update", mrb.inspect(state, current.name, context.temp_allocator))
 		dispatch_fsm_callback(current.update_proc, current.update_arity, argv[:], msg)
+	}
+
+	return mrb.NIL
+}
+
+ruby_fsm_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+
+	fsm := extract_native(FSM, self)
+	if fsm == nil { return mrb.NIL }
+
+	fsm_require_owner(state, fsm)
+
+	current := extract_native(State, fsm.current_state)
+	if current == nil { return mrb.NIL }
+
+	if current.draw_proc != mrb.NIL {
+		argv := [2]mrb.Value{fsm.this_obj, fsm.current_state}
+		msg := fmt.tprintf("%s draw", mrb.inspect(state, current.name, context.temp_allocator))
+		dispatch_fsm_callback(current.draw_proc, current.draw_arity, argv[:], msg)
 	}
 
 	return mrb.NIL
@@ -340,6 +431,7 @@ setup_state_machine :: proc() {
 	fc := mrb.get_data_class(g.mrb_state, "FSM")
 	mrb.define_method(g.mrb_state, fc, "_attach", cast(rawptr)ruby_fsm_attach, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, fc, "draw", cast(rawptr)ruby_fsm_draw, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, fc, "state", cast(rawptr)ruby_fsm_state, mrb.ARGS_NONE)
 }

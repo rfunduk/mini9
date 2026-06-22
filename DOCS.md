@@ -1101,13 +1101,14 @@ Used for per-entity state (player idle/run/jump) or game states (menu/play/pause
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `state(name, enter: nil, update: nil, exit: nil)` | State | Callbacks receive `(this, state, ...)` depending on arity |
-| `fsm(default:, states:)` | FSM | |
-| `f.update` | nil | Drives the current state |
-| `f.transition(name)` | nil | Force a transition |
+| `fsm(default:, states: [...])` | FSM | Create an FSM. Must be a field on a game object — `obj(fsm: fsm(...))`. `default:` is required. |
+| `state(name, enter:, update:, exit:, draw:, data:)` | State | All optional. Callbacks receive `this`, `state` + `prev|next` for `enter` and `exit` |
+| `f.update` | nil | Drives the current state's `update` |
+| `f.draw` | nil | Draws the current state's `draw` |
+| `f.transition(name)` | nil | Transition to a new state |
 | `f.state` | State | Current state |
 | `s.name` | Symbol | |
-| `s.data` | GameObject | Per-state scratch — assign anything: `state.data.timer = after(...) { ... }` |
+| `s.data` | GameObject | Per-state scratch |
 | `s.fsm` | FSM | Parent FSM |
 | `s.transition(name)` | nil | Shortcut for `state.fsm.transition(name)` |
 | `s.is?(:symbol)` | bool | Single-state check by name — preferred |
@@ -1118,40 +1119,44 @@ Branch on the current state with either idiom:
 ```ruby
 puts "jumping!" if f.state.is?(:jump)
 
-case f.state          # case over the State works directly
+case f.state
 when :idle then ...
 when :run, :jump then ...
 end
 ```
 
-State callback arities are detected automatically:
-
-- 0-arg: `->() { ... }`
-- 1-arg: `->(this) { ... }`
-- 2-arg: `->(this, state) { ... }`
+Example:
 
 ```ruby
 PLAYER = obj(
   pos: v2(100),
   sprite: sprite(PLAYER_TEX, size: v2(16)),
+  draw: ->(this, state) { this.sprite.draw(offset: this.pos); this.fsm.draw },
 
-  fsm: fsm(default: :idle, states: [
-    state(:idle,
-      enter: ->(this) { this.sprite.frame = 0 },
-      update: ->(this, state) {
-        state.transition(:run) if get_axis(%i{a d}, %i{w s}).length > 0
-      }
-    ),
-    state(:run,
-      update: ->(this, state) {
-        WALK_ANIM.update
-        this.sprite.frame = WALK_ANIM.frame
-      }
-    )
-  ])
+  fsm: fsm(
+    default: :idle,
+    states: [
+      state(:idle,
+        enter: ->(this) { this.sprite.frame = 0 },
+        update: ->(this, state) {
+          state.transition(:run) if get_axis(%i{a d}, %i{w s}).length > 0
+        },
+        draw: ->(this) {
+          text("idle", Font::SMALL).draw(this.pos)
+        }
+      ),
+      state(:run,
+        update: ->(this, state) {
+          WALK_ANIM.update
+          this.sprite.frame = WALK_ANIM.frame
+        },
+      )
+    ]
+  )
 )
 
 def update = PLAYER.fsm.update
+def draw   = PLAYER.draw
 ```
 
 ---
@@ -1189,15 +1194,11 @@ No `body:` kwarg → no physics.
 
 **Body center positioning:** the body's collision center is derived from the shape's natural origin. For `circ(r)` (no offset), `pos` is the center. For `rect(v2(w,h))` (no offset), `pos` is the top-left — matches how each shape draws.
 
-**Accessing the body:** `obj.body` returns the `Body` (or `nil` if no physics).
-
-**Body methods:**
-
 | Signature | Returns | Notes |
 |---|---|---|
-| `b.type` / `b.type = sym` | Symbol | `:static` / `:kinematic` / `:dynamic`. Setter live-converts the body |
-| `b.shape` / `b.shape = s` | `Circ` / `Rect` | Setter swaps the collider in place — body, velocity, joints survive; material/filter preserved |
-| `b.sensor?` / `b.sensor = yn` | bool | Setter rebuilds the shape (sensor flag is creation-time in box2d) |
+| `b.type` / `b.type = sym` | Symbol | `:static` / `:kinematic` / `:dynamic`. |
+| `b.shape` / `b.shape = s` | `Circ` / `Rect` | Setter swaps the collider in place |
+| `b.sensor?` / `b.sensor = yn` | bool | A sensor reports collissions |
 | `b.spin?` / `b.spin = yn` | bool | `spin = true` requires `:dynamic` (else `ArgumentError`) |
 | `b.layer` / `b.layer = n` | Integer | The 1..64 layer index. Setter accepts Int (Array/Range also accepted) |
 | `b.mask` / `b.mask = n` | Integer | Raw bitmask. Setter accepts Int / Array / Range |
