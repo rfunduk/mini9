@@ -337,19 +337,38 @@ nav_overlap_callback :: proc "c" (shape_id: b2.ShapeId, ctx_ptr: rawptr) -> bool
 		verts := make([]rv.Vec2, NAV_CIRC_SEGMENTS, c.allocator)
 		for i in 0 ..< NAV_CIRC_SEGMENTS {
 			theta := f32(i) * 2 * math.PI / NAV_CIRC_SEGMENTS
-			lp := b2.Vec2 {
-				circ.center.x + circ.radius * math.cos(theta),
-				circ.center.y + circ.radius * math.sin(theta),
-			}
+			lp := circ.center + b2.Vec2{math.cos(theta), math.sin(theta)} * circ.radius
 			verts[i] = b2.TransformPoint(tx, lp)
 		}
 		append(c.holes, verts)
-	case .capsuleShape, .segmentShape, .chainSegmentShape:
-	// TODO(nav): capsule bodies (often char controllers) don't contribute
-	// to the navmesh, so agents will path through them. Segments/chains
-	// are typically level geometry edges — usually already covered by
-	// static `holes:` bounds. Approximate capsule as two circles + box
-	// once we have a real game exercising this.
+	case .capsuleShape:
+		// Carve a rounded-rectangle hole: a semicircle cap around each
+		// local center, joined into one outline. Half the segment budget
+		// per cap, swept perpendicular-to-perpendicular along the axis.
+		cap := b2.Shape_GetCapsule(shape_id)
+		ang := math.atan2(cap.center2.y - cap.center1.y, cap.center2.x - cap.center1.x)
+		half := NAV_CIRC_SEGMENTS / 2
+		verts := make([]rv.Vec2, 2 * half, c.allocator)
+		// Far cap sweeps a half-turn from one perpendicular to the other; the
+		// near cap continues the sweep, closing the rounded-rect outline.
+		ends := [2]struct {
+			center: b2.Vec2,
+			base:   f32,
+		}{{cap.center2, ang - math.PI / 2}, {cap.center1, ang + math.PI / 2}}
+		idx := 0
+		for e in ends {
+			for i in 0 ..< half {
+				theta := e.base + f32(i) * math.PI / f32(half)
+				lp := e.center + b2.Vec2{math.cos(theta), math.sin(theta)} * cap.radius
+				verts[idx] = b2.TransformPoint(tx, lp)
+				idx += 1
+			}
+		}
+		append(c.holes, verts)
+	case .segmentShape, .chainSegmentShape:
+	// Intentionally skipped: segments/chains are 1D level-geometry edges,
+	// not 2D obstacles — no interior to carve. Their bounds are expected
+	// to be covered by the static `holes:` set.
 	}
 	return true
 }
