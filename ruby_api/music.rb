@@ -13,6 +13,8 @@ class Music
   def looping?; end
   def volume; end
   def volume=; end
+  def pitch; end
+  def pitch=; end
   def fade_time; end
 
   def to_s = "Music(#{path})"

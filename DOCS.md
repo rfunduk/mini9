@@ -587,7 +587,7 @@ timescale 0     # effectively freeze
 - `dt` always returns the fixed timestep — but `update` fires at the scaled rate, so the perceived velocity over wall-time changes
 - `draw`, `ui` callbacks — always at wall-frame rate
 - `walltime` — real-time clock for UI animations, perf timing, anything that should ignore game time
-- Audio playback (sample-rate driven), use sound `pitch:` if desired
+- Audio playback (sample-rate driven), use sound/music `pitch` if desired
 - Screen shake (uses wall-clock for the effect itself)
 
 For a true pause, the idiomatic approach is to gate your own `update` flow — `timescale(0)` works but is heavy-handed.
@@ -601,9 +601,9 @@ Short polyphonic sound effects — multiple instances can play simultaneously. L
 | Signature | Returns | Notes |
 |---|---|---|
 | `sound(path, polyphony: 8)` | Sound | `polyphony` = max simultaneous instances |
-| `s.play(volume: 1.0, pitch: 1.0)` | self | |
-| `s.stop(fade_out: 0)` | self | |
-| `s.pause(fade_out: 0)` | self | |
+| `s.play(volume: 1.0, pitch: 1.0)` | nil | Fires one voice; no per-voice handle (pool recycles) |
+| `s.stop(fade_out: 0)` | nil | |
+| `s.pause(fade_out: 0)` | nil | |
 | `s.path` | String | |
 
 ```ruby
@@ -627,6 +627,7 @@ Single streaming audio source. Designed for looping background tracks.
 | `m.playing?` | bool | |
 | `m.looping?` | bool | |
 | `m.volume` / `m.volume = v` | Float | |
+| `m.pitch` / `m.pitch = v` | Float | retunes the live stream |
 | `m.fade_time` | Float | Remaining fade time |
 | `m.path` | String | |
 

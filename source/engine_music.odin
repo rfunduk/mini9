@@ -14,17 +14,16 @@ Music_Load_Status :: enum {
 }
 
 Music :: struct {
-	path:        string,
-	file_data:   []u8, // stored because raylib streams from this buffer
-	music:       rl.Music,
-	active:      bool,
-	autoplay:    bool,
-	volume:      f32,
-	looping:     bool,
-	fade_time:   f32, // remaining fade time (0 = no fade)
-	fade_target: f32, // target volume for fade
-	fade_speed:  f32, // volume change per second during fade
-	status:      Music_Load_Status,
+	path:      string,
+	file_data: []u8, // stored because raylib streams from this buffer
+	music:     rl.Music,
+	active:    bool,
+	autoplay:  bool,
+	volume:    f32,
+	pitch:     f32,
+	looping:   bool,
+	fade:      Fade,
+	status:    Music_Load_Status,
 }
 
 ruby_music_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -59,7 +58,7 @@ ruby_music_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 create_music :: proc(path: string) -> mrb.Value {
 	music_ptr := mrb.alloc(
 		g.mrb_state,
-		Music{path = strings.clone(path), active = false, volume = 1.0, looping = true},
+		Music{path = strings.clone(path), active = false, volume = 1.0, pitch = 1.0, looping = true},
 	)
 
 	// add to global list for updates
@@ -161,7 +160,7 @@ ruby_music_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		val = mrb.kwarg(state, kwargs, sym.volume)
 		if val != mrb.NIL { music.volume = f32(mrb.to_f64(val)) }
 		val = mrb.kwarg(state, kwargs, sym.fade_in)
-		if val != mrb.NIL { music.fade_time = f32(mrb.to_f64(val)) }
+		if val != mrb.NIL { music.fade.time = f32(mrb.to_f64(val)) }
 		val = mrb.kwarg(state, kwargs, sym.loop)
 		if val != mrb.NIL { music.looping = mrb.boolean(val) }
 	}
@@ -180,12 +179,12 @@ music_play :: proc(music: ^Music) {
 	music.active = true
 	music.music.looping = music.looping
 
-	if music.fade_time > 0 {
+	if music.fade.time > 0 {
 		// start silent and fade in
 		// use 1.0 as default target if volume is 0 (from previous fade out)
 		target_volume := music.volume if music.volume > 0 else 1.0
-		music.fade_target = target_volume
-		music.fade_speed = target_volume / music.fade_time
+		music.fade.target = target_volume
+		music.fade.speed = target_volume / music.fade.time
 		music.volume = 0.0
 	} else {
 		// if no fade and volume is 0 (from previous fade out), reset to 1.0
@@ -195,6 +194,7 @@ music_play :: proc(music: ^Music) {
 	}
 
 	rl.SetMusicVolume(music.music, music.volume)
+	rl.SetMusicPitch(music.music, music.pitch)
 	rl.PlayMusicStream(music.music)
 }
 
@@ -228,10 +228,7 @@ ruby_music_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {
 		if fade_time > 0 {
-			// start fade out
-			music.fade_time = fade_time
-			music.fade_target = 0.0
-			music.fade_speed = music.volume / fade_time
+			begin_fade_out(&music.fade, fade_time, music.volume)
 		} else {
 			// stop immediately
 			rl.StopMusicStream(music.music)
@@ -260,10 +257,7 @@ ruby_music_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if music.active && rl.IsMusicStreamPlaying(music.music) {
 		if fade_time > 0 {
-			// start fade out to pause
-			music.fade_time = fade_time
-			music.fade_target = 0.0
-			music.fade_speed = music.volume / fade_time
+			begin_fade_out(&music.fade, fade_time, music.volume)
 		} else {
 			// pause immediately
 			rl.PauseMusicStream(music.music)
@@ -315,12 +309,37 @@ ruby_music_set_volume :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	return volume_val
 }
 
+// RUBY METHOD: music.pitch -> returns float
+ruby_music_pitch :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	music := extract_native(Music, self)
+	if music == nil { return mrb.word_boxing_float_value(state, 1.0) }
+	return mrb.word_boxing_float_value(state, f64(music.pitch))
+}
+
+// RUBY METHOD: music.pitch= -> sets pitch (retunes live stream)
+ruby_music_set_pitch :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	pitch_val: mrb.Value
+	mrb.get_args(state, "o", &pitch_val)
+
+	music := extract_native(Music, self)
+	if music == nil { return pitch_val }
+
+	new_pitch := f32(mrb.to_f64(pitch_val))
+	music.pitch = new_pitch
+
+	if music.active { rl.SetMusicPitch(music.music, new_pitch) }
+
+	return pitch_val
+}
+
 // RUBY METHOD: music.fade_time -> returns float (for debugging)
 ruby_music_fade_time :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	music := extract_native(Music, self)
 	if music == nil { return mrb.word_boxing_float_value(state, 0.0) }
-	return mrb.word_boxing_float_value(state, f64(music.fade_time))
+	return mrb.word_boxing_float_value(state, f64(music.fade.time))
 }
 
 // music system update - handles streaming, fades and cleanup
@@ -332,15 +351,8 @@ update_music_system :: proc(dt: f32) {
 		rl.UpdateMusicStream(music.music)
 
 		// handle fading
-		if music.fade_time > 0 {
-			result, new_fade_time, new_volume := apply_fade(
-				music.fade_time,
-				music.fade_target,
-				music.fade_speed,
-				music.volume,
-				dt,
-			)
-			music.fade_time = new_fade_time
+		if music.fade.time > 0 {
+			result, new_volume := apply_fade(&music.fade, music.volume, dt)
 			music.volume = new_volume
 			rl.SetMusicVolume(music.music, music.volume)
 
@@ -361,16 +373,15 @@ update_music_system :: proc(dt: f32) {
 setup_music :: proc() {
 	mus := mrb.get_data_class(g.mrb_state, "Music")
 	mrb.define_method(g.mrb_state, mus, "play", cast(rawptr)ruby_music_play, mrb.ARGS_OPT(1))
-
 	mrb.define_method(g.mrb_state, mus, "stop", cast(rawptr)ruby_music_stop, mrb.ARGS_OPT(1))
-
 	mrb.define_method(g.mrb_state, mus, "pause", cast(rawptr)ruby_music_pause, mrb.ARGS_OPT(1))
-
 	mrb.define_method(g.mrb_state, mus, "autoplay", cast(rawptr)ruby_music_autoplay, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, mus, "playing?", cast(rawptr)ruby_music_active, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, mus, "looping?", cast(rawptr)ruby_music_looping, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, mus, "volume", cast(rawptr)ruby_music_volume, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, mus, "volume=", cast(rawptr)ruby_music_set_volume, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, mus, "pitch", cast(rawptr)ruby_music_pitch, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, mus, "pitch=", cast(rawptr)ruby_music_set_pitch, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, mus, "fade_time", cast(rawptr)ruby_music_fade_time, mrb.ARGS_NONE)
 }
 

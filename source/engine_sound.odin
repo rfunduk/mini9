@@ -12,16 +12,21 @@ Sound_Load_Status :: enum {
 	UNLOADED,
 }
 
+// Fade holds in-progress volume-fade state, shared by Sound instances and Music
+Fade :: struct {
+	time:   f32, // remaining fade time (0 = no fade)
+	target: f32, // target volume for fade
+	speed:  f32, // volume change per second during fade
+}
+
 // sound instance for polyphony support
 Sound_Instance :: struct {
-	sound:       rl.Sound,
-	active:      bool,
-	volume:      f32,
-	pitch:       f32,
-	fade_time:   f32, // remaining fade time (0 = no fade)
-	fade_target: f32, // target volume for fade
-	fade_speed:  f32, // volume change per second during fade
-	play_time:   f32, // time when this instance was last played
+	sound:     rl.Sound,
+	active:    bool,
+	volume:    f32,
+	pitch:     f32,
+	fade:      Fade,
+	play_time: f32, // time when this instance was last played
 }
 
 // main sound object with instance pool
@@ -40,37 +45,39 @@ Fade_Result :: enum {
 	STOPPED, // fade finished with target 0 (should stop playback)
 }
 
-// apply_fade processes a single frame of fade logic, returning the result and new volume
-// Call this once per frame for any audio source that supports fading
-apply_fade :: proc(
-	fade_time, fade_target, fade_speed, volume, dt: f32,
-) -> (
-	result: Fade_Result,
-	new_fade_time, new_volume: f32,
-) {
-	new_fade_time = fade_time - dt
+// apply_fade advances a fade by one frame, mutating it in place, and returns
+// the result plus the new volume. Call once per frame for any fading source.
+apply_fade :: proc(fade: ^Fade, volume, dt: f32) -> (result: Fade_Result, new_volume: f32) {
+	fade.time -= dt
 	new_volume = volume
 
-	if new_fade_time <= 0 {
+	if fade.time <= 0 {
 		// fade complete
-		new_fade_time = 0
-		new_volume = fade_target
-		if fade_target == 0 {
-			return .STOPPED, new_fade_time, new_volume
+		fade.time = 0
+		new_volume = fade.target
+		if fade.target == 0 {
+			return .STOPPED, new_volume
 		}
-		return .COMPLETED, new_fade_time, new_volume
+		return .COMPLETED, new_volume
 	}
 
 	// continue fading - adjust volume based on direction
-	if fade_target > volume {
+	if fade.target > volume {
 		// fading in (up)
-		new_volume = min(volume + fade_speed * dt, fade_target)
+		new_volume = min(volume + fade.speed * dt, fade.target)
 	} else {
 		// fading out (down)
-		new_volume = max(volume - fade_speed * dt, fade_target)
+		new_volume = max(volume - fade.speed * dt, fade.target)
 	}
 
-	return .FADING, new_fade_time, new_volume
+	return .FADING, new_volume
+}
+
+// begin_fade_out starts a fade to silence over duration seconds
+begin_fade_out :: proc(fade: ^Fade, duration, current_volume: f32) {
+	fade.time = duration
+	fade.target = 0.0
+	fade.speed = current_volume / duration
 }
 
 ruby_sound_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -244,7 +251,7 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
 	// check if audio is initialized before playing (important for web builds)
-	if !g.audio_initialized { return self } 	// return self but don't actually play
+	if !g.audio_initialized { return mrb.NIL } 	// don't actually play
 
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "|H", &kwargs)
@@ -258,7 +265,7 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			load_sound_data(sound)
 		}
 		if sound.status != .LOADED {
-			return self // sound not ready, return silently
+			return mrb.NIL // sound not ready, return silently
 		}
 	}
 
@@ -280,7 +287,7 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	// configure instance
 	instance.pitch = pitch
 	instance.volume = volume
-	instance.fade_time = 0
+	instance.fade = Fade{}
 	instance.active = true
 	instance.play_time = f32(rl.GetTime())
 
@@ -288,7 +295,9 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	rl.SetSoundVolume(instance.sound, volume)
 	rl.PlaySound(instance.sound)
 
-	return self
+	// no per-voice handle exists (pool recycles) — return nil, not self, so games
+	// don't latch onto a fake handle. See jot: sound-voice-handles.
+	return mrb.NIL
 }
 
 // RUBY METHOD: sound.stop(fade_out: 0.0) -> stops all instances
@@ -310,10 +319,7 @@ ruby_sound_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	for &instance in sound.instances {
 		if instance.active && rl.IsSoundPlaying(instance.sound) {
 			if fade_time > 0 {
-				// start fade out
-				instance.fade_time = fade_time
-				instance.fade_target = 0.0
-				instance.fade_speed = instance.volume / fade_time
+				begin_fade_out(&instance.fade, fade_time, instance.volume)
 			} else {
 				// stop immediately
 				rl.StopSound(instance.sound)
@@ -322,7 +328,7 @@ ruby_sound_stop :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 	}
 
-	return self
+	return mrb.NIL
 }
 
 // RUBY METHOD: sound.pause(fade_out: 0.0) -> pauses all instances
@@ -344,10 +350,7 @@ ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	for &instance in sound.instances {
 		if instance.active && rl.IsSoundPlaying(instance.sound) {
 			if fade_time > 0 {
-				// start fade out to pause
-				instance.fade_time = fade_time
-				instance.fade_target = 0.0
-				instance.fade_speed = instance.volume / fade_time
+				begin_fade_out(&instance.fade, fade_time, instance.volume)
 			} else {
 				// pause immediately
 				rl.PauseSound(instance.sound)
@@ -355,7 +358,7 @@ ruby_sound_pause :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 	}
 
-	return self
+	return mrb.NIL
 }
 
 // audio system update - handles fades and cleanup
@@ -365,15 +368,8 @@ update_audio_system :: proc(dt: f32) {
 			if !instance.active { continue }
 
 			// handle fading
-			if instance.fade_time > 0 {
-				result, new_fade_time, new_volume := apply_fade(
-					instance.fade_time,
-					instance.fade_target,
-					instance.fade_speed,
-					instance.volume,
-					dt,
-				)
-				instance.fade_time = new_fade_time
+			if instance.fade.time > 0 {
+				result, new_volume := apply_fade(&instance.fade, instance.volume, dt)
 				instance.volume = new_volume
 				rl.SetSoundVolume(instance.sound, instance.volume)
 
@@ -394,11 +390,8 @@ update_audio_system :: proc(dt: f32) {
 setup_sound :: proc() {
 	snd := mrb.get_data_class(g.mrb_state, "Sound")
 	mrb.define_method(g.mrb_state, snd, "play", cast(rawptr)ruby_sound_play, mrb.ARGS_OPT(1))
-
 	mrb.define_method(g.mrb_state, snd, "stop", cast(rawptr)ruby_sound_stop, mrb.ARGS_OPT(1))
-
 	mrb.define_method(g.mrb_state, snd, "pause", cast(rawptr)ruby_sound_pause, mrb.ARGS_OPT(1))
-
 }
 
 cleanup_sound :: proc() {
