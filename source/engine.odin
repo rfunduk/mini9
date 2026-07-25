@@ -10,7 +10,7 @@ import rlgl "lib:raylib/rlgl"
 @(private = "file")
 accumulator: f32
 
-_engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "", hot_reload := false) {
+_engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "", hot_reload := false, benchmark := false) {
 	global_context = context
 	g = new(Engine_Memory)
 
@@ -28,6 +28,7 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "", hot_reload := f
 		cursor      = true,
 		timescale   = 1.0,
 		hot_reload  = hot_reload,
+		benchmark   = benchmark,
 	}
 
 	input_edge_queue = make(map[i32]Key_Edges)
@@ -77,13 +78,15 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "", hot_reload := f
 
 	// WINDOW_HIGHDPI only on macOS (retina). Browser owns DPI;
 	// Linux/Windows double-scale dest_rect under HIGHDPI w/ raylib 6.0.
-	flags: rl.ConfigFlags = {.VSYNC_HINT}
+	// benchmark mode runs unthrottled: no vsync, no fps cap.
+	flags: rl.ConfigFlags = {}
+	if !g.benchmark { flags += {.VSYNC_HINT} }
 	when ODIN_OS == .Darwin { flags += {.WINDOW_HIGHDPI} }
 	rl.SetConfigFlags(flags)
 
 	init_game_window()
 
-	rl.SetTargetFPS(g.fps)
+	rl.SetTargetFPS(g.benchmark ? 0 : g.fps)
 	rl.SetExitKey(nil)
 
 	g.render_texture = rl.LoadRenderTexture(i32(g.resolution.x), i32(g.resolution.y))

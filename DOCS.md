@@ -54,6 +54,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Save & Load](#save--load)
 - [Debug & System](#debug--system)
 - [Importing Code](#importing-code)
+- [Benchmarking](#benchmarking)
 - [Hot Reload](#hot-reload)
 - [Cookbook](#cookbook)
 
@@ -1588,6 +1589,12 @@ import(:states, :idle)      # same as above
 ```
 
 `import` executes the target file at the top level of `Object`, so constants defined inside become global. Returns the result of the imported file.
+
+---
+
+## Benchmarking
+
+If you're trying to benchmark your game, you'll find vsync/fps make that difficult. You can run with `--benchmark` to disable vsync and uncap the framerate.
 
 ---
 

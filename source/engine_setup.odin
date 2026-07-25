@@ -1,5 +1,6 @@
 package engine
 
+import "core:log"
 import mrb "lib:mruby"
 import rl "lib:raylib"
 
@@ -175,6 +176,9 @@ ruby_fps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		return mrb.raise_error(state, "ArgumentError", "FPS must be >= 5")
 	}
 
+	if g.benchmark {
+		log.warnf("[benchmark] fps(%d) ignored: running unthrottled", target_fps)
+	}
 	g.fps = target_fps
 	return mrb.boxing_int_value(state, g.fps)
 }

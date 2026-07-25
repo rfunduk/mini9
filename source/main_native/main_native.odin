@@ -20,6 +20,7 @@ Args :: struct {
 	web:         bool `args:"name=web" usage:"create web build with embedded assets"`,
 	log_level:   string `args:"name=log-level" usage:"engine log level: debug, info, warn, error (default: warn)"`,
 	hot_reload:  bool `args:"name=hot-reload" usage:"watch & reload on save"`,
+	benchmark:   bool `args:"name=benchmark" usage:"run unthrottled: no vsync, no fps cap"`,
 	version:     bool `args:"name=version" usage:"print version and exit"`,
 }
 
@@ -82,7 +83,7 @@ main :: proc() {
 			rom_data = engine.get_rom_data(args.command)
 		}
 	}
-	engine.engine_init(rom_data, args.command, args.hot_reload)
+	engine.engine_init(rom_data, args.command, args.hot_reload, args.benchmark)
 
 	for engine.engine_is_running() {
 		engine.engine_update()

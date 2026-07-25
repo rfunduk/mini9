@@ -53,6 +53,7 @@ Engine_Memory :: struct {
 	ui_proc:           mrb.Value,
 	frame_count:       u32,
 	hot_reload:        bool,
+	benchmark:         bool,
 
 	// mruby vm
 	mrb_state:         mrb.State,
