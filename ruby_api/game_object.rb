@@ -93,5 +93,8 @@ class GameObject
       _define_value_field(key, val)
       val._attach(self) if val.respond_to?(:_attach)
     end
+
+    # nuke duplicate physics body, if any
+    fresh.body&.destroy
   end
 end
