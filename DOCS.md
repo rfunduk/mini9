@@ -488,6 +488,7 @@ Filled fills the sector; unfilled draws a ring band of `thickness:`. Negative `s
 | `p.verts` | Array[Vector2] | |
 | `p.count` | Integer | |
 | `p.contains?(v2)` | bool | Ray-cast point-in-polygon |
+| `p.rotated(angle, [origin]) | Poly | The points rotated around `origin` (or 0, 0) |
 | `p.dup` | Poly | Fresh copy |
 
 ---

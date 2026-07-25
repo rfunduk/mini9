@@ -1,5 +1,6 @@
 package engine
 
+import "core:math"
 import lin "core:math/linalg"
 import mrb "lib:mruby"
 import rl "lib:raylib"
@@ -143,10 +144,29 @@ ruby_poly_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return create_poly(tmp[:])
 }
 
+// RUBY METHOD: poly.rotated(radians) — clockwise around origin (0,0).
+// Returns a new Poly. Same convention/direction as sprite rotation.
+ruby_poly_rotated :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+	context = global_context
+	angle_val: mrb.Value
+	mrb.get_args(state, "o", &angle_val)
+	p := extract_native(Poly, self)
+
+	angle := f32(mrb.to_f64(angle_val))
+	s, c := math.sin(angle), math.cos(angle)
+
+	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
+	for v in p.verts {
+		append(&tmp, rl.Vector2{v.x * c - v.y * s, v.x * s + v.y * c})
+	}
+	return create_poly(tmp[:])
+}
+
 setup_poly :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Poly")
 	mrb.define_method(g.mrb_state, c, "+", cast(rawptr)ruby_poly_add, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "-", cast(rawptr)ruby_poly_subtract, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "rotated", cast(rawptr)ruby_poly_rotated, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "verts", cast(rawptr)ruby_poly_verts, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "count", cast(rawptr)ruby_poly_count, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "contains?", cast(rawptr)ruby_poly_contains, mrb.ARGS_REQ(1))
