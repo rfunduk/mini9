@@ -460,8 +460,28 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 	query_filter.categoryBits = obj.layer
 	query_filter.maskBits = obj.mask
 
-	// cast mover to find safe travel fraction
-	fraction := b2.World_CastMover(physics_world, mover, translation, query_filter)
+	// cast mover to find safe travel fraction. box2d's World_CastMover has no
+	// per-shape callback, so it can't skip sensors — sensors must never block
+	// movement. Cast the mover capsule as a shape proxy and filter sensors out.
+	Cast_Frac_Ctx :: struct {
+		fraction: f32,
+	}
+	cast_ctx := Cast_Frac_Ctx{1.0}
+	mover_proxy := b2.MakeProxy({mover.center1, mover.center2}, mover.radius)
+	_ = b2.World_CastShape(
+		physics_world,
+		mover_proxy,
+		translation,
+		query_filter,
+		proc "c" (shape_id: b2.ShapeId, point: b2.Vec2, normal: b2.Vec2, fraction: f32, raw_ctx: rawptr) -> f32 {
+			c := cast(^Cast_Frac_Ctx)raw_ctx
+			if b2.Shape_IsSensor(shape_id) { return -1 } // filter: ignore, keep casting
+			if fraction < c.fraction { c.fraction = fraction }
+			return fraction // clip to closest solid
+		},
+		&cast_ctx,
+	)
+	fraction := cast_ctx.fraction
 
 	// move to safe position
 	safe_t := translation * fraction
@@ -492,6 +512,7 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 		query_filter,
 		proc "c" (shape_id: b2.ShapeId, result: ^b2.PlaneResult, raw_ctx: rawptr) -> bool {
 			c := cast(^Plane_Ctx)raw_ctx
+			if b2.Shape_IsSensor(shape_id) { return true } // sensors don't block sliding
 			if !result.hit { return true }
 			if c.count^ >= MAX_COLLISION_PLANES { return false }
 			c.planes[c.count^] = b2.CollisionPlane {
