@@ -6,7 +6,7 @@ import mrb "lib:mruby"
 import rl "lib:raylib"
 
 Poly :: struct {
-	verts: [dynamic]rl.Vector2,
+	verts: [dynamic]V2,
 }
 
 ruby_poly_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -17,7 +17,7 @@ ruby_poly_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	mrb.free(state, ptr)
 }
 
-create_poly :: proc(verts: []rl.Vector2) -> mrb.Value {
+create_poly :: proc(verts: []V2) -> mrb.Value {
 	p := Poly{}
 	reserve(&p.verts, len(verts))
 	for v in verts { append(&p.verts, v) }
@@ -46,10 +46,10 @@ ruby_poly :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		return mrb.raise_error(state, "ArgumentError", "poly(verts): need at least 3 vertices")
 	}
 
-	tmp := make([dynamic]rl.Vector2, 0, n, context.temp_allocator)
+	tmp := make([dynamic]V2, 0, n, context.temp_allocator)
 	for i in 0 ..< n {
 		v := mrb.ary_entry(arr, i32(i))
-		vp := extract_native(rl.Vector2, v)
+		vp := extract_native(V2, v)
 		if vp == nil {
 			return mrb.raise_error(state, "ArgumentError", "poly(verts): element is not a Vector2")
 		}
@@ -80,14 +80,14 @@ ruby_poly_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	pt_val: mrb.Value
 	mrb.get_args(state, "o", &pt_val)
 	p := extract_native(Poly, self)
-	pt := extract_or_nil(rl.Vector2, pt_val)
+	pt := extract_or_nil(V2, pt_val)
 	if pt == nil { return mrb.FALSE }
 	return point_in_polygon(pt^, p.verts[:]) ? mrb.TRUE : mrb.FALSE
 }
 
 // Ray-casting point-in-polygon (odd winding count -> inside).
 @(private = "file")
-point_in_polygon :: proc(pt: rl.Vector2, poly: []rl.Vector2) -> bool {
+point_in_polygon :: proc(pt: V2, poly: []V2) -> bool {
 	inside := false
 	n := len(poly)
 	j := n - 1
@@ -127,8 +127,8 @@ ruby_poly_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	p := extract_native(Poly, self)
-	v := extract_or_raise(rl.Vector2, other, "Poly#+ expects a Vector2")
-	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
+	v := extract_or_raise(V2, other, "Poly#+ expects a Vector2")
+	tmp := make([dynamic]V2, 0, len(p.verts), context.temp_allocator)
 	for vert in p.verts { append(&tmp, vert + v^) }
 	return create_poly(tmp[:])
 }
@@ -138,8 +138,8 @@ ruby_poly_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	p := extract_native(Poly, self)
-	v := extract_or_raise(rl.Vector2, other, "Poly#- expects a Vector2")
-	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
+	v := extract_or_raise(V2, other, "Poly#- expects a Vector2")
+	tmp := make([dynamic]V2, 0, len(p.verts), context.temp_allocator)
 	for vert in p.verts { append(&tmp, vert - v^) }
 	return create_poly(tmp[:])
 }
@@ -155,9 +155,9 @@ ruby_poly_rotate :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	angle := f32(mrb.to_f64(angle_val))
 	s, c := math.sin(angle), math.cos(angle)
 
-	tmp := make([dynamic]rl.Vector2, 0, len(p.verts), context.temp_allocator)
+	tmp := make([dynamic]V2, 0, len(p.verts), context.temp_allocator)
 	for v in p.verts {
-		append(&tmp, rl.Vector2{v.x * c - v.y * s, v.x * s + v.y * c})
+		append(&tmp, V2{v.x * c - v.y * s, v.x * s + v.y * c})
 	}
 	return create_poly(tmp[:])
 }
@@ -175,8 +175,8 @@ setup_poly :: proc() {
 }
 
 draw_polygon :: proc(
-	verts: []rl.Vector2,
-	offset: rl.Vector2 = {0, 0},
+	verts: []V2,
+	offset: V2 = {0, 0},
 	color: rl.Color = {255, 255, 255, 255},
 	thickness: f32 = 1,
 	filled: bool = false,
@@ -185,7 +185,7 @@ draw_polygon :: proc(
 	n := len(verts)
 	if n < 3 { return }
 
-	pts := make([]rl.Vector2, n, context.temp_allocator)
+	pts := make([]V2, n, context.temp_allocator)
 	for v, i in verts {
 		pts[i] = lin.floor(v + offset)
 	}
@@ -217,7 +217,7 @@ draw_polygon :: proc(
 // Shoelace area in screen coords (y-down). Screen-CCW polygons return
 // negative — that's the orientation Raylib's 2D backface culling keeps.
 @(private = "file")
-_screen_signed_area :: proc(verts: []rl.Vector2) -> f32 {
+_screen_signed_area :: proc(verts: []V2) -> f32 {
 	sum: f32 = 0
 	n := len(verts)
 	for i in 0 ..< n {
@@ -229,7 +229,7 @@ _screen_signed_area :: proc(verts: []rl.Vector2) -> f32 {
 }
 
 @(private = "file")
-_point_in_triangle :: proc(p, a, b, c: rl.Vector2) -> bool {
+_point_in_triangle :: proc(p, a, b, c: V2) -> bool {
 	d1 := (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y)
 	d2 := (p.x - c.x) * (b.y - c.y) - (b.x - c.x) * (p.y - c.y)
 	d3 := (p.x - a.x) * (c.y - a.y) - (c.x - a.x) * (p.y - a.y)
@@ -240,12 +240,12 @@ _point_in_triangle :: proc(p, a, b, c: rl.Vector2) -> bool {
 
 // Ear-clipping triangulation. O(n²). Handles any simple polygon.
 // Normalizes to screen-CCW so emitted triangles survive Raylib's culling.
-_triangulate_ear_clip :: proc(verts: []rl.Vector2, allocator := context.temp_allocator) -> [][3]rl.Vector2 {
+_triangulate_ear_clip :: proc(verts: []V2, allocator := context.temp_allocator) -> [][3]V2 {
 	context.allocator = allocator
 	n := len(verts)
 	if n < 3 { return nil }
 
-	pts := make([dynamic]rl.Vector2, 0, n)
+	pts := make([dynamic]V2, 0, n)
 	if _screen_signed_area(verts) > 0 {
 		// input is screen-CW; reverse to screen-CCW
 		for i := n - 1; i >= 0; i -= 1 { append(&pts, verts[i]) }
@@ -253,7 +253,7 @@ _triangulate_ear_clip :: proc(verts: []rl.Vector2, allocator := context.temp_all
 		for v in verts { append(&pts, v) }
 	}
 
-	tris := make([dynamic][3]rl.Vector2, 0, n - 2)
+	tris := make([dynamic][3]V2, 0, n - 2)
 
 	// Guard against pathological input (collinear/degenerate). Max iterations
 	// bounded by n - each successful clip removes one vertex.
@@ -281,7 +281,7 @@ _triangulate_ear_clip :: proc(verts: []rl.Vector2, allocator := context.temp_all
 			}
 			if !ok { continue }
 
-			append(&tris, [3]rl.Vector2{a, b, c})
+			append(&tris, [3]V2{a, b, c})
 			ordered_remove(&pts, i)
 			found = true
 			break
@@ -290,7 +290,7 @@ _triangulate_ear_clip :: proc(verts: []rl.Vector2, allocator := context.temp_all
 	}
 
 	if len(pts) == 3 {
-		append(&tris, [3]rl.Vector2{pts[0], pts[1], pts[2]})
+		append(&tris, [3]V2{pts[0], pts[1], pts[2]})
 	}
 
 	return tris[:]

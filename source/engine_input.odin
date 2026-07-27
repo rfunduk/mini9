@@ -6,9 +6,9 @@ import rl "lib:raylib"
 @(private = "file")
 cached_mouse_frame: u32
 @(private = "file")
-cached_mouse_world: rl.Vector2
+cached_mouse_world: V2
 @(private = "file")
-cached_mouse_ui: rl.Vector2
+cached_mouse_ui: V2
 
 @(private = "file")
 cached_keys_frame: u32
@@ -208,7 +208,7 @@ ruby_mouse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	screen_mouse_pos := rl.GetMousePosition()
 
 	// convert from screen coordinates to game texture coordinates
-	mouse_pos: rl.Vector2
+	mouse_pos: V2
 	when ODIN_OS != .JS {
 		// native builds: handle scaling and centering
 		screen_w, screen_h: f32

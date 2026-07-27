@@ -45,7 +45,7 @@ Curve :: struct {
 
 Prop_Spec :: union {
 	f32,
-	rl.Vector2,
+	V2,
 	rl.Color,
 	^Sampler,
 	^rl.Rectangle,
@@ -59,9 +59,9 @@ Prop :: struct {
 }
 
 Particle :: struct {
-	pos:       rl.Vector2,
-	vel:       rl.Vector2,
-	accel:     rl.Vector2,
+	pos:       V2,
+	vel:       V2,
+	accel:     V2,
 	rot:       f32,
 	ang_vel:   f32,
 	ang_accel: f32,
@@ -92,7 +92,6 @@ Particles_Instance :: struct {
 	color_spec:     Prop,
 	drag_spec:      Prop,
 	ang_drag_spec:  Prop,
-
 	particles:      #soa[]Particle,
 }
 
@@ -153,7 +152,7 @@ parse_prop :: proc(val: mrb.Value, allow_shapes: bool = false) -> Prop {
 			mrb.gc_register(g.mrb_state, val)
 			first := mrb.ary_entry(val, 0)
 			elem: Curve_Elem
-			if is_native(rl.Vector2, first) {
+			if is_native(V2, first) {
 				elem = .V2
 			} else if is_native(rl.Color, first) {
 				elem = .Color
@@ -174,7 +173,7 @@ parse_prop :: proc(val: mrb.Value, allow_shapes: bool = false) -> Prop {
 		}
 	}
 	if cp := extract_or_nil(rl.Color, val); cp != nil { return {spec = cp^, ref = mrb.NIL} }
-	if vp := extract_or_nil(rl.Vector2, val); vp != nil { return {spec = vp^, ref = mrb.NIL} }
+	if vp := extract_or_nil(V2, val); vp != nil { return {spec = vp^, ref = mrb.NIL} }
 	// numeric fallback
 	return {spec = f32(mrb.to_f64(val)), ref = mrb.NIL}
 }
@@ -189,7 +188,7 @@ sample_f :: #force_inline proc(p: Prop, default: f32) -> f32 {
 		return sampler_sample_f(v)
 	case Curve:
 		return f32(mrb.to_f64(mrb.ary_entry(v.arr, 0)))
-	case rl.Vector2, rl.Color, ^rl.Rectangle, ^Circ:
+	case V2, rl.Color, ^rl.Rectangle, ^Circ:
 		return default
 	}
 	return default
@@ -197,9 +196,9 @@ sample_f :: #force_inline proc(p: Prop, default: f32) -> f32 {
 
 // Sample a v2 at spawn time.
 @(private = "file")
-sample_v2 :: #force_inline proc(p: Prop, default: rl.Vector2) -> rl.Vector2 {
+sample_v2 :: #force_inline proc(p: Prop, default: V2) -> V2 {
 	switch v in p.spec {
-	case rl.Vector2:
+	case V2:
 		return v
 	case ^Sampler:
 		return sampler_sample_v2(v)
@@ -211,7 +210,7 @@ sample_v2 :: #force_inline proc(p: Prop, default: rl.Vector2) -> rl.Vector2 {
 		return {v.center.x + radius * math.cos(theta), v.center.y + radius * math.sin(theta)}
 	case Curve:
 		if v.elem == .V2 {
-			vp := extract_native(rl.Vector2, mrb.ary_entry(v.arr, 0))
+			vp := extract_native(V2, mrb.ary_entry(v.arr, 0))
 			if vp != nil { return vp^ }
 		}
 		return default
@@ -242,7 +241,7 @@ eval_f :: #force_inline proc(p: Prop, t: f32, default: f32) -> f32 {
 		a := f32(mrb.to_f64(mrb.ary_entry(v.arr, lo)))
 		b := f32(mrb.to_f64(mrb.ary_entry(v.arr, hi)))
 		return a + frac * (b - a)
-	case rl.Vector2, rl.Color, ^Sampler, ^rl.Rectangle, ^Circ:
+	case V2, rl.Color, ^Sampler, ^rl.Rectangle, ^Circ:
 		return default
 	}
 	return default
@@ -250,14 +249,14 @@ eval_f :: #force_inline proc(p: Prop, t: f32, default: f32) -> f32 {
 
 // Eval v2 curve at normalized time t (0..1).
 @(private = "file")
-eval_v2 :: #force_inline proc(p: Prop, t: f32, default: rl.Vector2) -> rl.Vector2 {
+eval_v2 :: #force_inline proc(p: Prop, t: f32, default: V2) -> V2 {
 	switch v in p.spec {
-	case rl.Vector2:
+	case V2:
 		return v
 	case Curve:
 		lo, hi, frac := curve_lookup(v, t)
-		a := extract_native(rl.Vector2, mrb.ary_entry(v.arr, lo))
-		b := extract_native(rl.Vector2, mrb.ary_entry(v.arr, hi))
+		a := extract_native(V2, mrb.ary_entry(v.arr, lo))
+		b := extract_native(V2, mrb.ary_entry(v.arr, hi))
 		if a == nil { return default }
 		if b == nil { return a^ }
 		return {a.x + frac * (b.x - a.x), a.y + frac * (b.y - a.y)}
@@ -285,7 +284,7 @@ eval_color :: #force_inline proc(p: Prop, t: f32, default: rl.Color) -> rl.Color
 			u8(f32(a.b) + frac * f32(i16(b.b) - i16(a.b))),
 			u8(f32(a.a) + frac * f32(i16(b.a) - i16(a.a))),
 		}
-	case f32, rl.Vector2, ^Sampler, ^rl.Rectangle, ^Circ:
+	case f32, V2, ^Sampler, ^rl.Rectangle, ^Circ:
 		return default
 	}
 	return default
@@ -293,9 +292,9 @@ eval_color :: #force_inline proc(p: Prop, t: f32, default: rl.Color) -> rl.Color
 
 // Eval size spec — dispatches to f or v2 based on curve elem type.
 @(private = "file")
-eval_size :: #force_inline proc(p: Prop, t: f32, default: rl.Vector2) -> rl.Vector2 {
+eval_size :: #force_inline proc(p: Prop, t: f32, default: V2) -> V2 {
 	switch v in p.spec {
-	case rl.Vector2:
+	case V2:
 		return v
 	case f32:
 		return {v, v}
@@ -479,7 +478,12 @@ ruby_particles_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 			t := 1 - parts[i].life / parts[i].max_life
 			s := eval_size(p.size_spec, t, {1, 1})
 			c := eval_color(p.color_spec, t, rl.WHITE)
-			rl.DrawRectanglePro({parts[i].pos.x, parts[i].pos.y, s.x, s.y}, s * 0.5, parts[i].rot * RAD_TO_DEG, c)
+			rl.DrawRectanglePro(
+				{parts[i].pos.x, parts[i].pos.y, s.x, s.y},
+				s * 0.5,
+				parts[i].rot * RAD_TO_DEG,
+				c,
+			)
 		}
 	case .Circle:
 		for i in 0 ..< p.max {
@@ -575,7 +579,7 @@ ruby_particles_get_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	if p == nil { return mrb.NIL }
 	if p.pos_spec.ref != mrb.NIL { return p.pos_spec.ref }
 	// scalar v2 spec — re-wrap into ruby v2
-	if v, ok := p.pos_spec.spec.(rl.Vector2); ok {
+	if v, ok := p.pos_spec.spec.(V2); ok {
 		return create_vector2(v)
 	}
 	return mrb.NIL

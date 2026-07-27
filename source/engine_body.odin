@@ -11,9 +11,9 @@ Body_Spec :: struct {
 	body_type:          Body_Type,
 	shape_kind:         Physics_Shape_Kind,
 	shape_val:          mrb.Value,
-	half_size:          rl.Vector2,
+	half_size:          V2,
 	radius:             f32,
-	body_center_offset: rl.Vector2,
+	body_center_offset: V2,
 	layer, mask:        u64,
 	density:            f32,
 	friction:           f32,
@@ -251,7 +251,7 @@ ruby_body_move :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	mrb.get_args(state, "o", &vel_val)
 	obj := body_obj(self)
 	if obj == nil || !b2.Body_IsValid(obj.body_id) { return create_vector2({0, 0}) }
-	vel := extract_native(rl.Vector2, vel_val)
+	vel := extract_native(V2, vel_val)
 	if vel == nil { return create_vector2({0, 0}) }
 	clipped := physics_move(obj, vel^, FIXED_DT)
 	return create_vector2(clipped)
@@ -264,7 +264,7 @@ ruby_body_apply_force :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	mrb.get_args(state, "o", &v)
 	obj := body_obj(self)
 	if obj == nil || !b2.Body_IsValid(obj.body_id) { return self }
-	f := extract_native(rl.Vector2, v)
+	f := extract_native(V2, v)
 	if f == nil { return self }
 	b2.Body_ApplyForceToCenter(obj.body_id, {f.x, f.y}, true)
 	return self
@@ -277,7 +277,7 @@ ruby_body_apply_impulse :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	mrb.get_args(state, "o", &v)
 	obj := body_obj(self)
 	if obj == nil || !b2.Body_IsValid(obj.body_id) { return self }
-	i := extract_native(rl.Vector2, v)
+	i := extract_native(V2, v)
 	if i == nil { return self }
 	b2.Body_ApplyLinearImpulseToCenter(obj.body_id, {i.x, i.y}, true)
 	return self
@@ -310,7 +310,7 @@ ruby_body_set_linear_vel :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	mrb.get_args(state, "o", &v)
 	obj := body_obj(self)
 	if obj == nil || !b2.Body_IsValid(obj.body_id) { return mrb.NIL }
-	vec := extract_native(rl.Vector2, v)
+	vec := extract_native(V2, v)
 	if vec == nil { return mrb.NIL }
 	b2.Body_SetLinearVelocity(obj.body_id, {vec.x, vec.y})
 	return v
@@ -642,9 +642,9 @@ ruby_body_set_shape :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	}
 
 	new_kind: Physics_Shape_Kind
-	half: rl.Vector2
+	half: V2
 	radius: f32
-	offset: rl.Vector2
+	offset: V2
 	if c := extract_or_nil(Circ, v); c != nil {
 		new_kind = .CIRCLE
 		radius = c.r

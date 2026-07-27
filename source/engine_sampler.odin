@@ -2,7 +2,6 @@ package engine
 
 import "core:math/rand"
 import mrb "lib:mruby"
-import rl "lib:raylib"
 
 Sampler_Kind :: enum {
 	Numeric,
@@ -13,8 +12,8 @@ Sampler :: struct {
 	kind: Sampler_Kind,
 	f_lo: f32,
 	f_hi: f32,
-	v_lo: rl.Vector2,
-	v_hi: rl.Vector2,
+	v_lo: V2,
+	v_hi: V2,
 }
 
 ruby_sampler_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -37,7 +36,7 @@ sampler_sample_f :: #force_inline proc(s: ^Sampler) -> f32 {
 	return 0
 }
 
-sampler_sample_v2 :: #force_inline proc(s: ^Sampler) -> rl.Vector2 {
+sampler_sample_v2 :: #force_inline proc(s: ^Sampler) -> V2 {
 	if s.kind == .V2 {
 		return {
 			s.v_lo.x + rand.float32() * (s.v_hi.x - s.v_lo.x),
@@ -55,8 +54,8 @@ ruby_sampler :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	lo, hi: mrb.Value
 	mrb.get_args(state, "oo", &lo, &hi)
 
-	v_lo := extract_or_nil(rl.Vector2, lo)
-	v_hi := extract_or_nil(rl.Vector2, hi)
+	v_lo := extract_or_nil(V2, lo)
+	v_hi := extract_or_nil(V2, hi)
 	if v_lo != nil && v_hi != nil {
 		return create_sampler({kind = .V2, v_lo = v_lo^, v_hi = v_hi^})
 	}

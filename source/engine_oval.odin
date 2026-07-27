@@ -5,8 +5,8 @@ import mrb "lib:mruby"
 import rl "lib:raylib"
 
 Oval :: struct {
-	pos:  rl.Vector2, // center
-	size: rl.Vector2, // half-axes (width/height radii)
+	pos:  V2, // center
+	size: V2, // half-axes (width/height radii)
 }
 
 ruby_oval_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -35,14 +35,14 @@ ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	switch argc {
 	case 1:
-		size := extract_native(rl.Vector2, args[0])
+		size := extract_native(V2, args[0])
 		if size == nil {
 			return mrb.raise_error(state, "ArgumentError", "oval(size): argument must be Vector2")
 		}
 		return create_oval({{0, 0}, size^})
 	case 2:
-		pos := extract_native(rl.Vector2, args[0])
-		size := extract_native(rl.Vector2, args[1])
+		pos := extract_native(V2, args[0])
+		size := extract_native(V2, args[1])
 		if pos == nil || size == nil {
 			return mrb.raise_error(state, "ArgumentError", "oval(pos, size): both args must be Vector2")
 		}
@@ -115,8 +115,8 @@ ruby_oval_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 }
 
 draw_oval :: proc(
-	pos: rl.Vector2,
-	size: rl.Vector2,
+	pos: V2,
+	size: V2,
 	color: rl.Color = {255, 255, 255, 255},
 	filled: bool = false,
 	clip: Maybe(rl.Rectangle) = nil,
@@ -140,7 +140,7 @@ ruby_oval_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	o := extract_native(Oval, self)
-	v := extract_or_raise(rl.Vector2, other, "Oval#+ expects a Vector2")
+	v := extract_or_raise(V2, other, "Oval#+ expects a Vector2")
 	return create_oval({o.pos + v^, o.size})
 }
 
@@ -149,7 +149,7 @@ ruby_oval_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	o := extract_native(Oval, self)
-	v := extract_or_raise(rl.Vector2, other, "Oval#- expects a Vector2")
+	v := extract_or_raise(V2, other, "Oval#- expects a Vector2")
 	return create_oval({o.pos - v^, o.size})
 }
 

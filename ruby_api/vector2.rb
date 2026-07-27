@@ -1,4 +1,4 @@
-# ENGINE native=rl.Vector2 ruby=Vector2
+# ENGINE native=V2 ruby=Vector2
 
 class Vector2
   ZERO = v2(0).freeze

@@ -32,7 +32,7 @@ Engine_Memory :: struct {
 	rom_data:          ^Rom_Data,
 	rom_path:          string,
 	title:             string,
-	resolution:        rl.Vector2,
+	resolution:        V2,
 	metrics:           bool,
 	fps:               i32,
 	camera:            rl.Camera2D,
@@ -75,7 +75,7 @@ Engine_Memory :: struct {
 }
 
 sym: struct {
-	accel, align, ang_accel, ang_drag, ang_vel: mrb.Value,
+	accel, ang_accel, ang_drag, ang_vel:        mrb.Value,
 	atlas, body, bounds, circle, clip:          mrb.Value,
 	color, data, default, delay, density:       mrb.Value,
 	direction, draw, drag, dynamic_:            mrb.Value,
@@ -101,7 +101,6 @@ cache_symbols :: proc() {
 	intern :: mrb.intern_cstr
 	sym = {
 		accel       = sv(intern(s, "accel")),
-		align       = sv(intern(s, "align")),
 		ang_accel   = sv(intern(s, "ang_accel")),
 		ang_drag    = sv(intern(s, "ang_drag")),
 		ang_vel     = sv(intern(s, "ang_vel")),

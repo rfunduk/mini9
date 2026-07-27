@@ -27,15 +27,15 @@ navigators: [dynamic]^Navigator
 
 Navigator :: struct {
 	parent:       mrb.Value,
-	bounds:       [dynamic]rl.Vector2,
-	holes_static: [dynamic][dynamic]rl.Vector2,
+	bounds:       [dynamic]V2,
+	holes_static: [dynamic][dynamic]V2,
 	mask:         u64,
 	margin:       f32,
 	mesh:         rv.Mesh,
 	has_mesh:     bool,
-	target:       rl.Vector2,
+	target:       V2,
 	has_target:   bool,
-	path:         [dynamic]rl.Vector2,
+	path:         [dynamic]V2,
 	cursor:       int,
 	path_dirty:   bool,
 	snap:         f32,
@@ -108,7 +108,7 @@ ruby_nav :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		hn := int(mrb.ary_len(holes_val))
 		for i in 0 ..< hn {
 			entry := mrb.ary_entry(holes_val, i32(i))
-			hole: [dynamic]rl.Vector2
+			hole: [dynamic]V2
 			if !shape_to_verts(state, entry, &hole) {
 				delete(hole)
 				cleanup_new_navigator(&n)
@@ -150,30 +150,30 @@ cleanup_new_navigator :: proc(n: ^Navigator) {
 }
 
 // Shape-to-verts dispatcher. Returns false on unsupported type (caller frees dst).
-shape_to_verts :: proc(state: mrb.State, val: mrb.Value, dst: ^[dynamic]rl.Vector2) -> bool {
+shape_to_verts :: proc(state: mrb.State, val: mrb.Value, dst: ^[dynamic]V2) -> bool {
 	if mrb.array_p(val) {
 		n := int(mrb.ary_len(val))
 		reserve(dst, len(dst) + n)
 		for i in 0 ..< n {
 			v := mrb.ary_entry(val, i32(i))
-			vp := extract_or_nil(rl.Vector2, v)
+			vp := extract_or_nil(V2, v)
 			if vp == nil { return false }
 			append(dst, vp^)
 		}
 		return true
 	}
 	if r := extract_or_nil(rl.Rectangle, val); r != nil {
-		append(dst, rl.Vector2{r.x, r.y})
-		append(dst, rl.Vector2{r.x + r.width, r.y})
-		append(dst, rl.Vector2{r.x + r.width, r.y + r.height})
-		append(dst, rl.Vector2{r.x, r.y + r.height})
+		append(dst, V2{r.x, r.y})
+		append(dst, V2{r.x + r.width, r.y})
+		append(dst, V2{r.x + r.width, r.y + r.height})
+		append(dst, V2{r.x, r.y + r.height})
 		return true
 	}
 	if c := extract_or_nil(Circ, val); c != nil {
 		reserve(dst, len(dst) + NAV_CIRC_SEGMENTS)
 		for i in 0 ..< NAV_CIRC_SEGMENTS {
 			theta := f32(i) * 2 * math.PI / NAV_CIRC_SEGMENTS
-			append(dst, rl.Vector2{c.center.x + c.r * math.cos(theta), c.center.y + c.r * math.sin(theta)})
+			append(dst, V2{c.center.x + c.r * math.cos(theta), c.center.y + c.r * math.sin(theta)})
 		}
 		return true
 	}
@@ -203,7 +203,7 @@ nav_rebuild_mesh :: proc(n: ^Navigator) -> bool {
 	// Apply agent margin:
 	//   holes grow outward (agent keeps clear of each obstacle)
 	//   bounds shrinks inward (agent keeps clear of outer walls)
-	bounds_inset := make([]rl.Vector2, len(n.bounds), context.temp_allocator)
+	bounds_inset := make([]V2, len(n.bounds), context.temp_allocator)
 	copy(bounds_inset, n.bounds[:])
 	if n.margin > 0 {
 		for &h in all_holes { inflate_polygon(h, n.margin) }
@@ -375,11 +375,11 @@ nav_overlap_callback :: proc "c" (shape_id: b2.ShapeId, ctx_ptr: rawptr) -> bool
 // ── methods ──────────────────────────────────────────────────────────────
 
 @(private = "file")
-get_parent_pos :: proc(n: ^Navigator) -> (rl.Vector2, bool) {
+get_parent_pos :: proc(n: ^Navigator) -> (V2, bool) {
 	if n.parent == mrb.NIL { return {}, false }
 	parent := extract_native(Game_Object, n.parent)
 	if parent == nil { return {}, false }
-	vp := extract_native(rl.Vector2, parent.pos)
+	vp := extract_native(V2, parent.pos)
 	if vp == nil { return {}, false }
 	return vp^, true
 }
@@ -417,7 +417,7 @@ ruby_nav_set_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	mrb.get_args(state, "o", &val)
 	n := extract_native(Navigator, self)
 	if n == nil { return val }
-	vp := extract_native(rl.Vector2, val)
+	vp := extract_native(V2, val)
 	if vp == nil {
 		return mrb.raise_error(state, "TypeError", "navigator.target= expects a Vector2")
 	}

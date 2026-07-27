@@ -179,7 +179,7 @@ pack_atlas :: proc() {
 			rl.ImageDraw(&composite, p.image, src_rect, dst_rect, rl.WHITE)
 			t := extract_native(Texture, p.ruby_obj)
 			if t != nil {
-				t.tex_origin = rl.Vector2{dst_x, dst_y}
+				t.tex_origin = V2{dst_x, dst_y}
 				t.w = f32(p.image.width)
 				t.h = f32(p.image.height)
 			}

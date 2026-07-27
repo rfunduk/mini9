@@ -35,7 +35,7 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	switch argc {
 	case 1:
 		// rect(size) - size is Vector2
-		size_ptr := extract_native(rl.Vector2, args[0])
+		size_ptr := extract_native(V2, args[0])
 		if size_ptr == nil {
 			return mrb.raise_error(state, "ArgumentError", "rect(size): argument must be a Vector2")
 		}
@@ -44,8 +44,8 @@ ruby_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	case 2:
 		// rect(pos, size) - both Vector2
-		pos_ptr := extract_native(rl.Vector2, args[0])
-		size_ptr := extract_native(rl.Vector2, args[1])
+		pos_ptr := extract_native(V2, args[0])
+		size_ptr := extract_native(V2, args[1])
 		if pos_ptr == nil {
 			return mrb.raise_error(
 				state,
@@ -194,7 +194,7 @@ ruby_inflate_rect :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	switch argc {
 	case 1:
 		v := args[0]
-		if vec := extract_or_nil(rl.Vector2, v); vec != nil {
+		if vec := extract_or_nil(V2, v); vec != nil {
 			return create_rect(inflate_rect(rect^, [4]f32{vec.y, vec.x, vec.y, vec.x}))
 		}
 		if mrb.integer_p(v) || mrb.float_p(v) {
@@ -227,7 +227,7 @@ ruby_rect_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	r := extract_native(rl.Rectangle, self)
-	v := extract_or_raise(rl.Vector2, other, "Rect#+ expects a Vector2")
+	v := extract_or_raise(V2, other, "Rect#+ expects a Vector2")
 	return create_rect({r.x + v.x, r.y + v.y, r.width, r.height})
 }
 
@@ -236,7 +236,7 @@ ruby_rect_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	r := extract_native(rl.Rectangle, self)
-	v := extract_or_raise(rl.Vector2, other, "Rect#- expects a Vector2")
+	v := extract_or_raise(V2, other, "Rect#- expects a Vector2")
 	return create_rect({r.x - v.x, r.y - v.y, r.width, r.height})
 }
 
@@ -245,7 +245,7 @@ ruby_rect_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	r := extract_native(rl.Rectangle, self)
-	p := extract_or_nil(rl.Vector2, p_val)
+	p := extract_or_nil(V2, p_val)
 	if p == nil { return mrb.FALSE }
 	if p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height {
 		return mrb.TRUE
@@ -328,8 +328,8 @@ setup_rect :: proc() {
 }
 
 draw_rectangle :: proc(
-	pos: rl.Vector2,
-	size: rl.Vector2,
+	pos: V2,
+	size: V2,
 	color: rl.Color = {255, 255, 255, 255},
 	thickness: f32 = 1,
 	rounded: f32 = 0, // 0..1 (fraction of shorter edge)

@@ -10,7 +10,7 @@ import rl "lib:raylib"
 // (same convention as Vector2#angle). No physics — an arc collider is
 // nonsensical; use circ/rect/poly for collision.
 Arc :: struct {
-	center: rl.Vector2,
+	center: V2,
 	r:      f32,
 	start:  f32, // radians
 	sweep:  f32, // radians, signed
@@ -45,7 +45,7 @@ ruby_arc :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 			{{0, 0}, f32(mrb.to_f64(args[0])), f32(mrb.to_f64(args[1])), f32(mrb.to_f64(args[2]))},
 		)
 	case 4:
-		center := extract_native(rl.Vector2, args[0])
+		center := extract_native(V2, args[0])
 		if center == nil {
 			return mrb.raise_error(
 				state,
@@ -162,7 +162,7 @@ ruby_arc_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	a := extract_native(Arc, self)
-	p := extract_or_nil(rl.Vector2, p_val)
+	p := extract_or_nil(V2, p_val)
 	if p == nil { return mrb.FALSE }
 	dx := p.x - a.center.x
 	dy := p.y - a.center.y
@@ -215,7 +215,7 @@ ruby_arc_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	a := extract_native(Arc, self)
-	v := extract_or_raise(rl.Vector2, other, "Arc#+ expects a Vector2")
+	v := extract_or_raise(V2, other, "Arc#+ expects a Vector2")
 	return create_arc({a.center + v^, a.r, a.start, a.sweep})
 }
 
@@ -224,7 +224,7 @@ ruby_arc_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	a := extract_native(Arc, self)
-	v := extract_or_raise(rl.Vector2, other, "Arc#- expects a Vector2")
+	v := extract_or_raise(V2, other, "Arc#- expects a Vector2")
 	return create_arc({a.center - v^, a.r, a.start, a.sweep})
 }
 
@@ -251,7 +251,7 @@ setup_arc :: proc() {
 }
 
 draw_arc :: proc(
-	pos: rl.Vector2,
+	pos: V2,
 	radius: f32,
 	start: f32,
 	sweep: f32,

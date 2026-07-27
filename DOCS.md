@@ -1,4 +1,4 @@
-# Mini9
+# MINI9
 
 A minimum game is a single `main.rb` file:
 
@@ -31,7 +31,7 @@ See `API_CONVENTIONS.md` for the rules the API follows.
 - [Colors & Palettes](#colors--palettes)
 - [Vectors](#vectors)
 - [Shapes](#shapes)
-- [Textures & Sprites](#textures--sprites)
+- [Textures & Sheets](#textures--sheets)
 - [Input](#input)
 - [Timescale](#timescale)
 - [Sound](#sound)
@@ -192,7 +192,7 @@ Every shape is an object you construct once, then render with `.draw(**opts)`. C
 | `oval(size)` or `oval(pos, size)` | Oval — `size` is v2(w_radius, h_radius) | `color:`, `filled:`, `offset:`, `clip:` |
 | `arc(r, start, sweep)` / `arc(center, ...)` / `arc(x, y, ...)` | Arc — circular wedge, angles in radians | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
 | `poly(verts)` | Poly — `verts` is Array[Vector2], min 3 | `color:`, `filled:`, `thickness:`, `offset:`, `clip:` |
-| `text(str, font)` | Text — see [Text & Fonts](#text--fonts) | `color:`, `outline:`, `align:`, `rotation:`, `scale:`, `spacing:`, `offset:` |
+| `text(str, font)` | Text — see [Text & Fonts](#text--fonts) | `color:`, `outline:`, `rotation:`, `scale:`, `spacing:`, `offset:` |
 
 Plus the screen-clearing primitive:
 
@@ -238,7 +238,7 @@ Text is a shape like any other — construct with `text(str, font)`, render with
 | `t.draw(**opts)` | nil | See options below |
 | `font(path, size=nil)` | Font | `size` required for TTF/OTF; not needed for `.png` bitmap fonts |
 
-`t.draw` options: `offset:`, `align:` (`Text::LEFT`, `Text::CENTER`, `Text::RIGHT`), `rotation:`, `scale:`, `spacing:`, `color:`, `outline:`. `outline:` accepts a Color or `true` (black).
+`t.draw` options: `offset:`, `rotation:`, `scale:`, `spacing:`, `color:`, `outline:`, `origin:`. `outline:` accepts a Color or `true` (black).
 
 **Built-in fonts** (always available):
 
@@ -260,8 +260,8 @@ Text is a shape like any other — construct with `text(str, font)`, render with
 text("Hello", Font::SMALL).draw(offset: v2(10), color: P.yellow)
 MY_FONT = font("assets/pixel.ttf", 16)
 title = text("Custom", MY_FONT)
-title.draw(offset: v2(160, 30), align: Text::CENTER)
-size = title.measure(scale: 2)
+title.draw(offset: v2(160 - title.measure.x/2, 30)) # centered around x=160
+size = title.measure(scale: 2) # measure with a scale factor
 ```
 
 ---
@@ -493,43 +493,33 @@ Filled fills the sector; unfilled draws a ring band of `thickness:`. Negative `s
 
 ---
 
-## Textures & Sprites
+## Textures & Sheets
 
 ### Textures
 
-| Signature | Returns |
-|---|---|
-| `texture(path)` | Texture |
-| `tex.size` | Vector2 |
-| `tex.draw(pos, clip: nil)` | self |
-| `tex.path` | String |
+| Signature | Returns | Notes |
+|---|---|---|
+| `texture(path)` | Texture | |
+| `tex.size` | Vector2 | |
+| `tex.draw(offset: pos, clip: nil)` | self | options: `clip:`, `fliph:`, `flipv:`, `rotation:`, `offset:`, `scale:`, `origin:` |
+| `tex.path` | String | |
 
-### Sprites
+### Sheets
 
-A `Sprite` is an animated region inside a `Texture` atlas.
+A `Sheet` is used to represent an animation inside a `Texture` atlas.
 
 ```ruby
 tex = texture("assets/player.png")
-spr = sprite(tex, size: v2(16))   # 16x16 frames, auto-calculated frame count
-spr.frame = 3
-spr.fliph = true
-spr.draw(v2(100))
+sh = sheet(tex, size: v2(16))   # 16x16 frames, auto-calculated frame count
+sh.draw(offset: v2(100), frame: 3, fliph: true)
 ```
 
 | Signature | Returns | Notes |
 |---|---|---|
-| `sprite(tex, **opts)` | Sprite | |
-| `s.draw(pos, clip: nil)` | self | |
-| `s.size` / `s.size = v2` | Vector2 | Frame size |
-| `s.frame` / `s.frame = n` | Integer | Wraps automatically |
+| `sheet(tex, **opts)` | Sheet | options: `size:`, `frames:`, `atlas:` |
+| `s.draw(**opts)` | self | options: `frame:`, `fliph:`, `flipv:`, `rotation:`, `offset:`, `scale:`, `origin:`, `clip:` |
+| `s.size` | Vector2 | Frame size |
 | `s.frames` | Integer | Total frame count (auto-calculated from texture + size) |
-| `s.fliph` / `s.fliph = yn` | bool | |
-| `s.flipv` / `s.flipv = yn` | bool | |
-| `s.rotation` / `s.rotation = r` | Float | Radians (use `n.to_rad` / `n.to_deg` to convert) |
-| `s.offset` / `s.offset = v2` | Vector2 | Draw offset (pivot) |
-| `s.scale` / `s.scale = v2` | Vector2 | |
-
-`sprite()` options: `size:`, `frame:`, `frames:`, `fliph:`, `flipv:`, `rotation:`, `offset:`, `scale:`, `atlas:`.
 
 ---
 
@@ -667,7 +657,10 @@ WALK = anim(interval: 0.1, values: [0, 1, 2, 3])
 
 def update
   WALK.update
-  PLAYER_SPRITE.frame = WALK.current
+end
+
+def draw
+  PLAYER_SHEET.draw(frame: WALK.current)
 end
 ```
 
@@ -1088,7 +1081,7 @@ PLAYER = obj(
   },
 
   draw: ->(this) {
-    PLAYER_SPRITE.draw(this.pos)
+    PLAYER_SHEET.draw(offset: this.pos)
   }
 )
 
@@ -1131,28 +1124,28 @@ end
 Example:
 
 ```ruby
+SHEET = sheet(PLAYER_TEX, size: v2(16))
 PLAYER = obj(
   pos: v2(100),
-  sprite: sprite(PLAYER_TEX, size: v2(16)),
-  draw: ->(this, state) { this.sprite.draw(offset: this.pos); this.fsm.draw },
+  draw: ->(this, state) {
+    SHEET.draw(offset: this.pos, frame: WALK_ANIM.current)
+    this.fsm.draw
+  },
 
   fsm: fsm(
     default: :idle,
     states: [
       state(:idle,
-        enter: ->(this) { this.sprite.frame = 0 },
+        enter: ->(this) { WALK_ANIM.reset },
         update: ->(this, state) {
           state.transition(:run) if get_axis(%i{a d}, %i{w s}).length > 0
         },
         draw: ->(this) {
-          text("idle", Font::SMALL).draw(this.pos)
+          text("idle", Font::SMALL).draw(offset: this.pos)
         }
       ),
       state(:run,
-        update: ->(this, state) {
-          WALK_ANIM.update
-          this.sprite.frame = WALK_ANIM.frame
-        },
+        update: ->(this, state) { WALK_ANIM.update },
       )
     ]
   )
@@ -1451,7 +1444,7 @@ use(best[0])
 
 ## Numeric Helpers
 
-Mini9 adds these methods to `Numeric` (so `Integer` and `Float` both get them).
+Additional methods on `Numeric` (so `Integer` and `Float` both get them):
 
 | Signature | Returns | Notes |
 |---|---|---|
@@ -1640,11 +1633,12 @@ WASD movement with a walking animation that flips horizontally based on directio
 
 ```ruby
 PLAYER_TEX = texture("assets/player.png")
+SHEET = sheet(PLAYER_TEX, size: v2(16))
 WALK = anim(interval: 0.08, values: [0, 1, 2, 3])
 
 PLAYER = obj(
   pos: v2(160, 120),
-  sprite: sprite(PLAYER_TEX, size: v2(16)),
+  fliph: false,
   speed: 80
 )
 
@@ -1654,17 +1648,16 @@ def update
 
   if dir.length > 0
     WALK.update
-    PLAYER.sprite.frame = WALK.current
-    PLAYER.sprite.fliph = true  if dir.x < 0
-    PLAYER.sprite.fliph = false if dir.x > 0
+    PLAYER.fliph = true  if dir.x < 0
+    PLAYER.fliph = false if dir.x > 0
   else
-    PLAYER.sprite.frame = 0
+    WALK.reset
   end
 end
 
 def draw
   clear(P.black)
-  PLAYER.sprite.draw(PLAYER.pos)
+  SHEET.draw(offset: PLAYER.pos, frame: WALK.current, fliph: PLAYER.fliph)
 end
 ```
 
@@ -1682,6 +1675,9 @@ def update
 end
 
 def ui
-  text("SCORE #{g.score}", Font::SMALL).draw(offset: v2(4), color: P.white)
+  text("SCORE #{g.score}", Font::SMALL).tap do |t|
+    # draw score centered at the top of the screen
+    t.draw(offset: v2(resolution.x/2 - t.measure.x/2, 2), color: P.white)
+  end
 end
 ```

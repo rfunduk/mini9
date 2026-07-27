@@ -1,5 +1,6 @@
 package engine
 
+import "core:math"
 import lin "core:math/linalg"
 import "core:path/slashpath"
 import "core:strings"
@@ -19,7 +20,7 @@ Texture_Kind :: enum {
 
 Texture :: struct {
 	tex:        rl.Texture2D,
-	tex_origin: rl.Vector2, // top-left within tex (0,0 for STANDALONE)
+	tex_origin: V2, // top-left within tex (0,0 for STANDALONE)
 	w, h:       f32, // logical size of this texture (NOT atlas size)
 	kind:       Texture_Kind,
 	status:     Texture_Load_Status,
@@ -159,25 +160,60 @@ ruby_texture_get_size :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 
 ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	pos_val, kwargs: mrb.Value
-	argc := mrb.get_args(state, "o|H", &pos_val, &kwargs)
+	kwargs: mrb.Value
+	argc := mrb.get_args(state, "|H", &kwargs)
 
 	texture := extract_native(Texture, self)
 	if texture == nil || texture.status != .LOADED { return mrb.NIL }
 
-	pos_ptr := extract_native(rl.Vector2, pos_val)
-	if pos_ptr == nil { return mrb.NIL }
-
-	pos := lin.floor(pos_ptr^)
 	did_clip := false
+	fliph := false
+	flipv := false
+	rotation: f32 = 0
+	offset := V2{0, 0}
+	scale := V2{1, 1}
+	origin := V2{0, 0}
 
-	if argc == 2 {
-		did_clip = _clip(_parse_clip_kwarg(state, kwargs), pos)
+	if argc == 1 {
+		val: mrb.Value
+		val = mrb.kwarg(state, kwargs, sym.fliph)
+		if val != mrb.NIL { fliph = mrb.boolean(val) }
+		val = mrb.kwarg(state, kwargs, sym.flipv)
+		if val != mrb.NIL { flipv = mrb.boolean(val) }
+		val = mrb.kwarg(state, kwargs, sym.rotation)
+		if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) * 180.0 / math.PI }
+		val = mrb.kwarg(state, kwargs, sym.offset)
+		if val != mrb.NIL {
+			offset = extract_or_raise(V2, val, "texture: offset must be a Vector2")^
+			offset = lin.floor(offset)
+		}
+		val = mrb.kwarg(state, kwargs, sym.origin)
+		if val != mrb.NIL {
+			origin = extract_or_raise(V2, val, "texture: origin must be a Vector2")^
+			origin = lin.floor(origin)
+		}
+		val = mrb.kwarg(state, kwargs, sym.scale)
+		if val != mrb.NIL { scale = extract_or_raise(V2, val, "texture: scale must be a Vector2")^ }
 	}
 
-	source := rl.Rectangle{texture.tex_origin.x, texture.tex_origin.y, texture.w, texture.h}
-	dest := rl.Rectangle{pos.x, pos.y, texture.w, texture.h}
-	rl.DrawTexturePro(texture.tex, source, dest, {0, 0}, 0, rl.WHITE)
+	did_clip = _clip(_parse_clip_kwarg(state, kwargs), offset)
+	offset = lin.floor(offset + origin)
+
+	source := rl.Rectangle {
+		x      = texture.tex_origin.x,
+		y      = texture.tex_origin.y,
+		width  = fliph ? -texture.w : texture.w,
+		height = flipv ? -texture.h : texture.h,
+	}
+
+	dest := rl.Rectangle {
+		x      = offset.x,
+		y      = offset.y,
+		width  = texture.w * scale.x,
+		height = texture.h * scale.y,
+	}
+
+	rl.DrawTexturePro(texture.tex, source, dest, origin, rotation, rl.WHITE)
 
 	if did_clip { rl.EndScissorMode() }
 
@@ -187,7 +223,7 @@ ruby_texture_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 setup_texture :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Texture")
 	mrb.define_method(g.mrb_state, c, "size", cast(rawptr)ruby_texture_get_size, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_texture_draw, mrb.ARGS_ARG(1, 1))
+	mrb.define_method(g.mrb_state, c, "draw", cast(rawptr)ruby_texture_draw, mrb.ARGS_OPT(1))
 
 }
 

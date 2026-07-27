@@ -1,4 +1,4 @@
-# Mini9 welcome screen when no game loaded
+# welcome screen when no game loaded
 
 resolution(320, 180)
 fps(60)
@@ -74,9 +74,15 @@ end
 
 def ui
   # title
-  text("MINI9", Font::LARGE).draw(offset: v2(160, 12), align: Text::CENTER)
-  text("no main.rb found in target directory", Font::SMALL).draw(offset: v2(160, 32), color: P.light_gray, align: Text::CENTER)
-  text("create one, like this:", Font::SMALL).draw(offset: v2(160, 40), color: P.light_gray, align: Text::CENTER)
+  text("MINI9", Font::LARGE).tap do |t|
+    t.draw(offset: v2(160 - t.measure.x/2, 12))
+  end
+  text("no main.rb found in target directory", Font::SMALL).tap do |t|
+    t.draw(offset: v2(160 - t.measure.x/2, 32), color: P.light_gray)
+  end
+  text("create one, like this:", Font::SMALL).tap do |t|
+    t.draw(offset: v2(160 - t.measure.x/2, 40), color: P.light_gray)
+  end
 
   # snippet box
   SNIPPET_BOX.draw(filled: true, color: P.black)
@@ -84,7 +90,9 @@ def ui
 
   draw_snippet(SNIPPET_BOX.pos + v2(8))
 
-  text("press ESC to quit", Font::SMALL).draw(offset: v2(160, 168), align: Text::CENTER)
+  text("press ESC to quit", Font::SMALL).tap do |t|
+    t.draw(offset: v2(160 - t.measure.x/2, 168))
+  end
 end
 
 def draw_snippet(origin)

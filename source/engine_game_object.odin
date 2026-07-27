@@ -3,7 +3,6 @@ package engine
 import "core:c"
 import b2 "lib:box2d"
 import mrb "lib:mruby"
-import rl "lib:raylib"
 
 Game_Object :: struct {
 	self_val:           mrb.Value, // weak back-ref to the mruby object wrapping this struct
@@ -21,11 +20,11 @@ Game_Object :: struct {
 	sensor:             bool,
 	spin:               bool, // opt-in physics-driven rotation (else fixedRotation)
 	// mover/AABB half extents — for circles this is {r, r}
-	half_size:          rl.Vector2,
+	half_size:          V2,
 	// body center relative to obj.pos (derived from shape kwarg)
-	body_center_offset: rl.Vector2,
+	body_center_offset: V2,
 	// last body-center pushed to box2d — change-detect cache for pre-step sync
-	last_sync_center:   rl.Vector2,
+	last_sync_center:   V2,
 	last_sync_rotation: f32,
 	// true once destroy_body has been called — body flushed at end of step
 	destroy_queued:     bool,
@@ -68,9 +67,9 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	kwargs: mrb.Value
 	argc := mrb.get_args(state, "|H", &kwargs)
 
-	pos_vec := rl.Vector2{0, 0}
+	pos_vec := V2{0, 0}
 	rotation: f32 = 0
-	scale_vec := rl.Vector2{1, 1}
+	scale_vec := V2{1, 1}
 	visible := true
 	// Copied by value so we don't depend on the BodySpec's lifetime past the
 	// kwarg extraction. The BodySpec is bridged (gc_register below) only until
@@ -86,7 +85,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 		val = mrb.kwarg(state, kwargs, sym.pos)
 		if val != mrb.NIL {
-			pos_vec = extract_or_raise(rl.Vector2, val, "obj: pos must be a Vector2")^
+			pos_vec = extract_or_raise(V2, val, "obj: pos must be a Vector2")^
 			mrb.hash_delete_key(state, kwargs, sym.pos)
 		}
 		val = mrb.kwarg(state, kwargs, sym.rotation)
@@ -101,7 +100,7 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 		val = mrb.kwarg(state, kwargs, sym.scale)
 		if val != mrb.NIL {
-			scale_vec = extract_or_raise(rl.Vector2, val, "obj: scale must be a Vector2")^
+			scale_vec = extract_or_raise(V2, val, "obj: scale must be a Vector2")^
 			mrb.hash_delete_key(state, kwargs, sym.scale)
 		}
 		val = mrb.kwarg(state, kwargs, sym.body)
@@ -289,7 +288,7 @@ ruby_go_set_pos :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	// sync to box2d if physics body exists
 	if b2.Body_IsValid(obj.body_id) {
-		v := extract_native(rl.Vector2, pos_val)
+		v := extract_native(V2, pos_val)
 		if v != nil {
 			center := v^ + obj.body_center_offset
 			b2.Body_SetTransform(obj.body_id, center, b2.MakeRot(obj.rotation))

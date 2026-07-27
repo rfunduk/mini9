@@ -121,7 +121,7 @@ ruby_shake_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	// generate random direction for 2D shake
 	angle := rand.float32_range(0, 2 * math.PI)
-	offset := rl.Vector2{value * math.cos(angle), value * math.sin(angle)}
+	offset := V2{value * math.cos(angle), value * math.sin(angle)}
 
 	return create_vector2(offset)
 }

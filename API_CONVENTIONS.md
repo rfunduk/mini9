@@ -1,4 +1,4 @@
-# Mini9 API Conventions
+# MINI9 API Conventions
 
 Internal reference for Ruby API design decisions. Consult before adding or modifying public APIs.
 

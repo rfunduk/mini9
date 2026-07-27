@@ -7,7 +7,7 @@ import mrb "lib:mruby"
 import rl "lib:raylib"
 
 Circ :: struct {
-	center: rl.Vector2,
+	center: V2,
 	r:      f32,
 }
 
@@ -38,7 +38,7 @@ ruby_circ :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	case 1:
 		return create_circ({{0, 0}, f32(mrb.to_f64(args[0]))})
 	case 2:
-		center := extract_native(rl.Vector2, args[0])
+		center := extract_native(V2, args[0])
 		if center == nil {
 			return mrb.raise_error(state, "ArgumentError", "circ(center, radius): center must be Vector2")
 		}
@@ -112,7 +112,7 @@ ruby_circ_contains :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	c := extract_native(Circ, self)
-	p := extract_or_nil(rl.Vector2, p_val)
+	p := extract_or_nil(V2, p_val)
 	if p == nil { return mrb.FALSE }
 	dx := p.x - c.center.x
 	dy := p.y - c.center.y
@@ -124,7 +124,7 @@ ruby_circ_distance :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	p_val: mrb.Value
 	mrb.get_args(state, "o", &p_val)
 	c := extract_native(Circ, self)
-	p := extract_or_nil(rl.Vector2, p_val)
+	p := extract_or_nil(V2, p_val)
 	if p == nil { return mrb.word_boxing_float_value(state, 0) }
 	dx := p.x - c.center.x
 	dy := p.y - c.center.y
@@ -189,7 +189,7 @@ ruby_circ_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	c := extract_native(Circ, self)
-	v := extract_or_raise(rl.Vector2, other, "Circ#+ expects a Vector2")
+	v := extract_or_raise(V2, other, "Circ#+ expects a Vector2")
 	return create_circ({c.center + v^, c.r})
 }
 
@@ -198,7 +198,7 @@ ruby_circ_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	c := extract_native(Circ, self)
-	v := extract_or_raise(rl.Vector2, other, "Circ#- expects a Vector2")
+	v := extract_or_raise(V2, other, "Circ#- expects a Vector2")
 	return create_circ({c.center - v^, c.r})
 }
 
@@ -224,7 +224,7 @@ setup_circ :: proc() {
 }
 
 draw_circle :: proc(
-	pos: rl.Vector2,
+	pos: V2,
 	radius: f32,
 	color: rl.Color = {255, 255, 255, 255},
 	thickness: f32 = 1,

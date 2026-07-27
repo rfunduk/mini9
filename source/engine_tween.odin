@@ -11,7 +11,7 @@ pending_tweens: [dynamic]^Tween_Instance
 
 Tween_Type :: union {
 	f32,
-	rl.Vector2,
+	V2,
 	rl.Color,
 }
 
@@ -55,8 +55,8 @@ create_tween :: proc(value_type: typeid) -> mrb.Value {
 	switch value_type {
 	case f32:
 		tween.value = f32(0)
-	case rl.Vector2:
-		tween.value = rl.Vector2{}
+	case V2:
+		tween.value = V2{}
 	case rl.Color:
 		tween.value = rl.Color{}
 	}
@@ -69,8 +69,8 @@ create_tween :: proc(value_type: typeid) -> mrb.Value {
 }
 
 detect_tween_type :: proc(value: mrb.Value) -> typeid {
-	vec_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[rl.Vector2])
-	if vec_ptr != nil { return rl.Vector2 }
+	vec_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[V2])
+	if vec_ptr != nil { return V2 }
 
 	color_ptr := mrb.data_check_get_ptr(g.mrb_state, value, NATIVE_TO_MRUBY_TYPE[rl.Color])
 	if color_ptr != nil { return rl.Color }
@@ -143,9 +143,9 @@ start_or_queue_tween :: proc(tween: ^Tween_Instance) {
 		append(&pending_tweens, tween)
 	} else {
 		switch &v in tween.value {
-		case rl.Vector2:
-			from_vec := extract_native(rl.Vector2, tween.from)
-			to_vec := extract_native(rl.Vector2, tween.to)
+		case V2:
+			from_vec := extract_native(V2, tween.from)
+			to_vec := extract_native(V2, tween.to)
 			v = from_vec^
 			start_tween(tween, &v.x, to_vec.x, true)
 			start_tween(tween, &v.y, to_vec.y)
@@ -250,7 +250,7 @@ ruby_tween_value :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if tween == nil { return mrb.NIL }
 
 	switch v in tween.value {
-	case rl.Vector2:
+	case V2:
 		return create_vector2(v)
 	case f32:
 		return mrb.word_boxing_float_value(state, f64(v))
@@ -308,7 +308,7 @@ tween_stop :: proc(t: ^Tween_Instance) {
 	switch &v in t.value {
 	case f32:
 		_ = ease.flux_stop(&g.flux, &v)
-	case rl.Vector2:
+	case V2:
 		_ = ease.flux_stop(&g.flux, &v.x) // x component
 		_ = ease.flux_stop(&g.flux, &v.y) // y component
 	case rl.Color:
@@ -346,7 +346,7 @@ tween_time_left :: proc(self: mrb.Value) -> f64 {
 	switch &v in tween.value {
 	case f32:
 		return ease.flux_tween_time_left(g.flux, &v)
-	case rl.Vector2:
+	case V2:
 		x_time := ease.flux_tween_time_left(g.flux, &v.x)
 		y_time := ease.flux_tween_time_left(g.flux, &v.y)
 		return max(x_time, y_time)

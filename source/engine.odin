@@ -19,7 +19,7 @@ _engine_init :: proc(rom_data: ^Rom_Data, rom_path: string = "", hot_reload := f
 		rom_path    = strings.clone(rom_path),
 		title       = strings.clone("mini9"),
 		metrics     = false,
-		resolution  = rl.Vector2{128, 128},
+		resolution  = V2{128, 128},
 		clear_color = rl.Color{0, 0, 0, 255},
 		fps         = 60,
 		run         = true,

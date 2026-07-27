@@ -85,7 +85,7 @@ flush_destroyed_bodies :: proc() {
 sync_user_driven_positions :: proc() {
 	for obj in user_driven_bodies {
 		if !b2.Body_IsValid(obj.body_id) { continue }
-		v := extract_native(rl.Vector2, obj.pos)
+		v := extract_native(V2, obj.pos)
 		if v == nil { continue }
 		new_center := v^ + obj.body_center_offset
 		if new_center == obj.last_sync_center && obj.rotation == obj.last_sync_rotation { continue }
@@ -256,7 +256,7 @@ sync_dynamic_bodies :: proc() {
 		// body would otherwise churn ~1 Vector2 per physics step, saturating
 		// the old-gen and triggering frequent major GC cycles).
 		if obj.pos != mrb.NIL {
-			v := extract_native(rl.Vector2, obj.pos)
+			v := extract_native(V2, obj.pos)
 			if v != nil { v^ = top_left }
 		} else {
 			obj.pos = create_vector2(top_left)
@@ -275,12 +275,12 @@ sync_dynamic_bodies :: proc() {
 
 create_physics_body :: proc(
 	body_type: Body_Type,
-	pos: rl.Vector2,
+	pos: V2,
 	rotation: f32,
 	shape_kind: Physics_Shape_Kind,
-	half_size: rl.Vector2,
+	half_size: V2,
 	radius: f32,
-	center_offset: rl.Vector2,
+	center_offset: V2,
 	layer, mask: u64,
 	density, friction, restitution, drag, ang_drag: f32,
 	sensor: bool,
@@ -351,9 +351,9 @@ shape_descriptor :: proc(
 	obj: ^Game_Object,
 ) -> (
 	kind: Physics_Shape_Kind,
-	half: rl.Vector2,
+	half: V2,
 	radius: f32,
-	offset: rl.Vector2,
+	offset: V2,
 ) {
 	half = obj.half_size
 	offset = obj.body_center_offset
@@ -378,9 +378,9 @@ shape_descriptor :: proc(
 rebuild_body_shape :: proc(
 	obj: ^Game_Object,
 	new_kind: Physics_Shape_Kind,
-	new_half_size: rl.Vector2,
+	new_half_size: V2,
 	new_radius: f32,
-	new_center_offset: rl.Vector2,
+	new_center_offset: V2,
 	new_sensor: bool,
 ) {
 	old := obj.shape_id
@@ -420,7 +420,7 @@ rebuild_body_shape :: proc(
 
 	// Keep the obj visually anchored if the center offset changed: re-pin the
 	// body center to pos + new offset (matches sync_user_driven_positions).
-	if v := extract_native(rl.Vector2, obj.pos); v != nil {
+	if v := extract_native(V2, obj.pos); v != nil {
 		new_center := v^ + new_center_offset
 		b2.Body_SetTransform(obj.body_id, new_center, b2.MakeRot(obj.rotation))
 		obj.last_sync_center = new_center
@@ -430,7 +430,7 @@ rebuild_body_shape :: proc(
 
 // ─── mover API ───
 
-physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 {
+physics_move :: proc(obj: ^Game_Object, vel: V2, dt: f32) -> V2 {
 	translation := vel * dt
 
 	pos := b2.Body_GetPosition(obj.body_id)
@@ -473,9 +473,15 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 		mover_proxy,
 		translation,
 		query_filter,
-		proc "c" (shape_id: b2.ShapeId, point: b2.Vec2, normal: b2.Vec2, fraction: f32, raw_ctx: rawptr) -> f32 {
+		proc "c" (
+			shape_id: b2.ShapeId,
+			point: b2.Vec2,
+			normal: b2.Vec2,
+			fraction: f32,
+			raw_ctx: rawptr,
+		) -> f32 {
 			c := cast(^Cast_Frac_Ctx)raw_ctx
-			if b2.Shape_IsSensor(shape_id) { return -1 } // filter: ignore, keep casting
+			if b2.Shape_IsSensor(shape_id) { return -1 } 	// filter: ignore, keep casting
 			if fraction < c.fraction { c.fraction = fraction }
 			return fraction // clip to closest solid
 		},
@@ -512,7 +518,7 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 		query_filter,
 		proc "c" (shape_id: b2.ShapeId, result: ^b2.PlaneResult, raw_ctx: rawptr) -> bool {
 			c := cast(^Plane_Ctx)raw_ctx
-			if b2.Shape_IsSensor(shape_id) { return true } // sensors don't block sliding
+			if b2.Shape_IsSensor(shape_id) { return true } 	// sensors don't block sliding
 			if !result.hit { return true }
 			if c.count^ >= MAX_COLLISION_PLANES { return false }
 			c.planes[c.count^] = b2.CollisionPlane {
@@ -543,12 +549,12 @@ physics_move :: proc(obj: ^Game_Object, vel: rl.Vector2, dt: f32) -> rl.Vector2 
 	// sync back to game object pos — round to nearest pixel to avoid
 	// sub-pixel drift from box2d float math (285.999 -> 286 not 285)
 	biased := new_center - obj.body_center_offset + 0.5
-	top_left := rl.Vector2{f32(int(biased.x)), f32(int(biased.y))}
+	top_left := V2{f32(int(biased.x)), f32(int(biased.y))}
 
 	// Mutate in place to avoid per-call allocation — same rationale as
 	// sync_dynamic_bodies above.
 	if obj.pos != mrb.NIL {
-		v := extract_native(rl.Vector2, obj.pos)
+		v := extract_native(V2, obj.pos)
 		if v != nil { v^ = top_left }
 	} else {
 		obj.pos = create_vector2(top_left)
@@ -572,7 +578,7 @@ ruby_gravity :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	gravity_val: mrb.Value
 	mrb.get_args(state, "o", &gravity_val)
 
-	if grav := extract_or_nil(rl.Vector2, gravity_val); grav != nil {
+	if grav := extract_or_nil(V2, gravity_val); grav != nil {
 		b2.World_SetGravity(physics_world, {grav.x, grav.y})
 	} else if mrb.float_p(gravity_val) || mrb.integer_p(gravity_val) {
 		b2.World_SetGravity(physics_world, {0, f32(mrb.to_f64(gravity_val))})
@@ -633,13 +639,13 @@ ruby_raycast :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	origin_val := mrb.kwarg(state, kwargs, sym.origin)
 	if origin_val == mrb.NIL { origin_val = create_vector2({}) }
-	origin := extract_or_raise(rl.Vector2, origin_val, "raycast: `origin:` must be a Vector2")
+	origin := extract_or_raise(V2, origin_val, "raycast: `origin:` must be a Vector2")
 
 	dir_val := mrb.kwarg(state, kwargs, sym.direction)
 	if dir_val == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "raycast: missing `direction:`")
 	}
-	dir := extract_or_raise(rl.Vector2, dir_val, "raycast: `direction:` must be a Vector2")
+	dir := extract_or_raise(V2, dir_val, "raycast: `direction:` must be a Vector2")
 
 	mask: u64 = 0xFFFFFFFFFFFFFFFF
 	if v := mrb.kwarg(state, kwargs, sym.mask); v != mrb.NIL {

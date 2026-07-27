@@ -6,8 +6,7 @@ import mrb "lib:mruby"
 import rl "lib:raylib"
 
 Line :: struct {
-	a: rl.Vector2,
-	b: rl.Vector2,
+	a, b: V2,
 }
 
 ruby_line_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -35,14 +34,14 @@ ruby_line :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	switch argc {
 	case 1:
-		bp := extract_native(rl.Vector2, args[0])
+		bp := extract_native(V2, args[0])
 		if bp == nil {
 			return mrb.raise_error(state, "ArgumentError", "line(to): argument must be Vector2")
 		}
 		return create_line({{0, 0}, bp^})
 	case 2:
-		ap := extract_native(rl.Vector2, args[0])
-		bp := extract_native(rl.Vector2, args[1])
+		ap := extract_native(V2, args[0])
+		bp := extract_native(V2, args[1])
 		if ap == nil || bp == nil {
 			return mrb.raise_error(state, "ArgumentError", "line(a, b): both args must be Vector2")
 		}
@@ -109,7 +108,7 @@ ruby_line_add :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	l := extract_native(Line, self)
-	v := extract_or_raise(rl.Vector2, other, "Line#+ expects a Vector2")
+	v := extract_or_raise(V2, other, "Line#+ expects a Vector2")
 	return create_line({l.a + v^, l.b + v^})
 }
 
@@ -118,7 +117,7 @@ ruby_line_subtract :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	other: mrb.Value
 	mrb.get_args(state, "o", &other)
 	l := extract_native(Line, self)
-	v := extract_or_raise(rl.Vector2, other, "Line#- expects a Vector2")
+	v := extract_or_raise(V2, other, "Line#- expects a Vector2")
 	return create_line({l.a - v^, l.b - v^})
 }
 
@@ -135,8 +134,8 @@ setup_line :: proc() {
 }
 
 draw_line :: proc(
-	from: rl.Vector2,
-	to: rl.Vector2,
+	from: V2,
+	to: V2,
 	color: rl.Color = {255, 255, 255, 255},
 	thickness: f32 = 1,
 	clip: Maybe(rl.Rectangle) = nil,

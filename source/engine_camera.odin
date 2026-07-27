@@ -19,7 +19,7 @@ ruby_camera_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	if ptr != nil { mrb.free(state, ptr) }
 }
 
-create_camera :: proc(target: rl.Vector2, zoom: f32, offset: rl.Vector2) -> mrb.Value {
+create_camera :: proc(target: V2, zoom: f32, offset: V2) -> mrb.Value {
 	context = global_context
 
 	initial_camera := rl.Camera2D {
@@ -65,9 +65,9 @@ ruby_camera :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	{
 		val: mrb.Value
 		val = mrb.kwarg(state, kwargs, sym.target)
-		if val != mrb.NIL { target = extract_or_raise(rl.Vector2, val, "camera: target must be a Vector2")^ }
+		if val != mrb.NIL { target = extract_or_raise(V2, val, "camera: target must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.offset)
-		if val != mrb.NIL { offset = extract_or_raise(rl.Vector2, val, "camera: offset must be a Vector2")^ }
+		if val != mrb.NIL { offset = extract_or_raise(V2, val, "camera: offset must be a Vector2")^ }
 		val = mrb.kwarg(state, kwargs, sym.zoom)
 		if val != mrb.NIL { zoom = mrb.to_f64(val) }
 	}
@@ -117,7 +117,7 @@ ruby_camera_set_target :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	if camera == nil { return mrb.NIL }
 
 	if target_val != mrb.NIL {
-		camera.rl_camera.target = extract_or_raise(rl.Vector2, target_val, "camera.target= expects a Vector2")^
+		camera.rl_camera.target = extract_or_raise(V2, target_val, "camera.target= expects a Vector2")^
 	} else {
 		camera.rl_camera.target = g.resolution / 2
 	}
@@ -178,7 +178,7 @@ ruby_camera_set_offset :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	if camera == nil { return mrb.NIL }
 
 	if offset_val != mrb.NIL {
-		camera.rl_camera.offset = extract_or_raise(rl.Vector2, offset_val, "camera.offset= expects a Vector2")^
+		camera.rl_camera.offset = extract_or_raise(V2, offset_val, "camera.offset= expects a Vector2")^
 	} else {
 		camera.rl_camera.offset = g.resolution / 2
 	}
