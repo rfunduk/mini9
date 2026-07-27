@@ -3,6 +3,7 @@
 class GameObject
   include NativeHandle
   include DynamicAttributes
+  attr_reader :parent
 
   def initialize(args={})
     @_attach_keys = []
@@ -21,6 +22,12 @@ class GameObject
 
     @_attach_keys.each { |k| self.send(k)._attach(self) }
   end
+
+  def _attach(parent)
+    @parent = parent
+    self
+  end
+
 
   # Track the key (for hot reload / to_s) before defining the accessor pair.
   def _define_value_field(key, value)
