@@ -132,7 +132,7 @@ ruby_text_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	val = mrb.kwarg(state, kwargs, sym.align)
 	if val != mrb.NIL { align = Text_Align(mrb.to_int(val)) }
 	val = mrb.kwarg(state, kwargs, sym.rotation)
-	if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) }
+	if val != mrb.NIL { rotation = f32(mrb.to_f64(val)) * 180 / math.PI }
 	val = mrb.kwarg(state, kwargs, sym.spacing)
 	if val != mrb.NIL { spacing = f32(mrb.to_f64(val)) }
 	val = mrb.kwarg(state, kwargs, sym.scale)
@@ -165,7 +165,16 @@ ruby_text_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 
 	if outline.a != 0 {
 		for o in OUTLINE_OFFSETS {
-			rl.DrawTextPro(font^, t.str, pos, draw_offset + o, rotation, size, spacing * scale, outline)
+			rl.DrawTextPro(
+				font^,
+				t.str,
+				pos,
+				draw_offset + o * scale,
+				rotation,
+				size,
+				spacing * scale,
+				outline,
+			)
 		}
 	}
 
