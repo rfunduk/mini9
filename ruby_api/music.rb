@@ -1,7 +1,7 @@
 # ENGINE native=Music ruby=Music
 
 class Music
-  include NativeHandle
+  include UniqueHandle
 
   attr_reader :path
 

@@ -10,9 +10,20 @@ end
 
 # a handle to a unique/native thing (Body, Camera, Sound, ...)
 # no meaningful copy. make a new one instead
-module NativeHandle
+module UniqueHandle
   def self.included(base) = base.undef_method(:dup, :clone)
   def inspect = to_s
+end
+
+module Attachable
+  attr_reader :parent
+  def _attach(new)
+    return self if @parent.equal?(new)
+    log "*** #{self.class} reparented #{@parent} -> #{new}" if @parent
+    @parent = new
+    _on_attach(new) if respond_to?(:_on_attach, true)
+    self
+  end
 end
 
 # Mixin for "open" objects whose fields are created on demand: assigning an

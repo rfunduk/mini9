@@ -215,6 +215,8 @@ ruby_obj :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 		}
 	}
 
+	mrb.funcall(g.mrb_state, obj_val, "_attach_children", 0)
+
 	if mrb.respond_to(g.mrb_state, obj_val, mrb.intern_cstr(g.mrb_state, "init")) {
 		mrb.funcall(g.mrb_state, obj_val, "init", 0)
 	}

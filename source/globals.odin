@@ -76,9 +76,9 @@ Engine_Memory :: struct {
 
 sym: struct {
 	accel, align, ang_accel, ang_drag, ang_vel: mrb.Value,
-	atlas, body, bounds, circle, clip, color:   mrb.Value,
-	data, default, delay, density, direction:   mrb.Value,
-	draw, drag, dynamic_:                       mrb.Value,
+	atlas, body, bounds, circle, clip:          mrb.Value,
+	color, data, default, delay, density:       mrb.Value,
+	direction, draw, drag, dynamic_:            mrb.Value,
 	easing, enter, exit:                        mrb.Value,
 	fade_in, fade_out, filled, fliph, flipv:    mrb.Value,
 	font, frame, frames, friction:              mrb.Value,

@@ -9,7 +9,7 @@ timers: [dynamic]^Timer_Instance
 Timer_Instance :: struct {
 	ruby_obj:  mrb.Value,
 	block:     mrb.Value,
-	this_obj:  mrb.Value, // NIL until init(parent) called
+	parent:    mrb.Value,
 	interval:  f64,
 	elapsed:   f64,
 	repeating: bool,
@@ -22,14 +22,13 @@ ruby_timer_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	if ptr == nil { return }
 	t := cast(^Timer_Instance)ptr
 	if t.block != mrb.NIL { mrb.gc_unregister(state, t.block) }
-	if t.this_obj != mrb.NIL { mrb.gc_unregister(state, t.this_obj) }
 	mrb.free(state, ptr)
 }
 
 create_timer :: proc(interval: f64, block: mrb.Value, repeating: bool) -> mrb.Value {
 	t := Timer_Instance {
 		block     = block,
-		this_obj  = mrb.NIL,
+		parent    = mrb.NIL,
 		interval  = interval,
 		elapsed   = 0,
 		repeating = repeating,
@@ -92,18 +91,16 @@ ruby_every :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return obj
 }
 
-// Timer._attach(parent) — auto-called by obj() for fields responding to :_attach
-ruby_timer_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// Timer._on_attach(parent) — auto-called by obj() for fields responding to :_on_attach
+ruby_timer_on_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	this_obj: mrb.Value
-	mrb.get_args(state, "o", &this_obj)
+	parent: mrb.Value
+	mrb.get_args(state, "o", &parent)
 
 	t := extract_native(Timer_Instance, self)
 	if t == nil { return mrb.NIL }
 
-	if t.this_obj != mrb.NIL { mrb.gc_unregister(state, t.this_obj) }
-	t.this_obj = this_obj
-	if this_obj != mrb.NIL { mrb.gc_register(state, this_obj) }
+	t.parent = parent
 
 	return self
 }
@@ -208,7 +205,7 @@ update_timers :: proc() {
 
 fire_timer :: proc(t: ^Timer_Instance) {
 	if t.block == mrb.NIL { return }
-	if !dispatch_yield(t.block, t.this_obj, .TIMER_CALLBACK) {
+	if !dispatch_yield(t.block, t.parent, .TIMER_CALLBACK) {
 		// callback raised — disable to avoid recurring crash on every tick
 		log.warnf("timer callback raised; cancelling timer")
 		t.cancelled = true
@@ -218,7 +215,7 @@ fire_timer :: proc(t: ^Timer_Instance) {
 
 setup_timer :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Timer")
-	mrb.define_method(g.mrb_state, c, "_attach", cast(rawptr)ruby_timer_attach, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "_on_attach", cast(rawptr)ruby_timer_on_attach, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "cancel", cast(rawptr)ruby_timer_cancel, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "cancelled?", cast(rawptr)ruby_timer_cancelled, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "finished?", cast(rawptr)ruby_timer_finished, mrb.ARGS_NONE)

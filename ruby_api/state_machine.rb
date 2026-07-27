@@ -2,12 +2,13 @@
 # ENGINE native=State ruby=State
 
 class FSM
-  include NativeHandle
+  include UniqueHandle
+  include Attachable
   def to_s = "FSM(current: #{state&.name || "<init>"})"
 end
 
 class State
-  include NativeHandle
+  include UniqueHandle
 
   # check state by symbol `s.is?(:idle)`
   def is?(other) = name == other

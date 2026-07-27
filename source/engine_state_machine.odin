@@ -20,7 +20,7 @@ State :: struct {
 }
 
 FSM :: struct {
-	this_obj:      mrb.Value, // GC registered
+	parent:        mrb.Value,
 	current_state: mrb.Value, // Current State ruby object
 	default_name:  mrb.Value, // Symbol
 	states:        mrb.Value, // Array of State objects (linear search - most FSMs have 2-5 states)
@@ -68,7 +68,7 @@ reject_unknown_kwargs :: proc(state: mrb.State, kwargs: mrb.Value, fn_name: stri
 // Must be called with no active Odin defers (raise longjmps past them)
 @(private)
 fsm_require_owner :: proc(state: mrb.State, fsm: ^FSM) {
-	if fsm.this_obj == mrb.NIL {
+	if fsm.parent == mrb.NIL {
 		mrb.raise_error(
 			state,
 			"RuntimeError",
@@ -95,7 +95,6 @@ ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
 		f := cast(^FSM)ptr
-		if f.this_obj != mrb.NIL { mrb.gc_unregister(state, f.this_obj) }
 		if f.states != mrb.NIL { mrb.gc_unregister(state, f.states) }
 		mrb.free(state, ptr)
 	}
@@ -204,7 +203,7 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if states_array == mrb.NIL { states_array = mrb.ary_new(state) }
 
 	f := FSM {
-		this_obj      = mrb.NIL,
+		parent        = mrb.NIL,
 		current_state = mrb.NIL,
 		default_name  = default_name,
 		states        = states_array,
@@ -233,23 +232,18 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return ruby_obj
 }
 
-// FSM._attach(this_obj) - set the object that callbacks receive as first arg
-ruby_fsm_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// FSM._on_attach(parent) - set the parent object
+ruby_fsm_on_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
-	this_obj: mrb.Value
-	mrb.get_args(state, "o", &this_obj)
+	parent_val: mrb.Value
+	mrb.get_args(state, "o", &parent_val)
 
 	fsm := extract_native(FSM, self)
 	if fsm == nil { return mrb.NIL }
+	fsm.parent = parent_val
 
-	// Unregister old this_obj if any
-	if fsm.this_obj != mrb.NIL { mrb.gc_unregister(state, fsm.this_obj) }
-
-	fsm.this_obj = this_obj
-	if this_obj != mrb.NIL { mrb.gc_register(state, this_obj) }
-
-	// Enter the default state now that `this_obj` is wired
+	// Enter the default state now that `parent` is wired
 	if fsm.current_state == mrb.NIL && fsm.default_name != mrb.NIL {
 		do_fsm_transition(state, fsm, fsm.default_name)
 	}
@@ -287,7 +281,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 	if fsm.current_state != mrb.NIL {
 		current := extract_native(State, fsm.current_state)
 		if current != nil && current.exit_proc != mrb.NIL {
-			argv := [3]mrb.Value{fsm.this_obj, fsm.current_state, next_state}
+			argv := [3]mrb.Value{fsm.parent, fsm.current_state, next_state}
 			msg := fmt.tprintf(
 				"%s exit -> %s",
 				mrb.inspect(state, current.name, context.temp_allocator),
@@ -303,7 +297,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 	// Call enter on new state
 	next := extract_native(State, next_state)
 	if next != nil && next.enter_proc != mrb.NIL {
-		argv := [3]mrb.Value{fsm.this_obj, next_state, last_state}
+		argv := [3]mrb.Value{fsm.parent, next_state, last_state}
 		from_name :=
 			last_state == mrb.NIL ? "nil" : mrb.inspect(state, extract_native(State, last_state).name, context.temp_allocator)
 		msg := fmt.tprintf(
@@ -342,7 +336,7 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if current == nil { return mrb.NIL }
 
 	if current.update_proc != mrb.NIL {
-		argv := [2]mrb.Value{fsm.this_obj, fsm.current_state}
+		argv := [2]mrb.Value{fsm.parent, fsm.current_state}
 		msg := fmt.tprintf("%s update", mrb.inspect(state, current.name, context.temp_allocator))
 		dispatch_fsm_callback(current.update_proc, current.update_arity, argv[:], msg)
 	}
@@ -362,7 +356,7 @@ ruby_fsm_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if current == nil { return mrb.NIL }
 
 	if current.draw_proc != mrb.NIL {
-		argv := [2]mrb.Value{fsm.this_obj, fsm.current_state}
+		argv := [2]mrb.Value{fsm.parent, fsm.current_state}
 		msg := fmt.tprintf("%s draw", mrb.inspect(state, current.name, context.temp_allocator))
 		dispatch_fsm_callback(current.draw_proc, current.draw_arity, argv[:], msg)
 	}
@@ -429,7 +423,7 @@ setup_state_machine :: proc() {
 
 	// Setup FSM class
 	fc := mrb.get_data_class(g.mrb_state, "FSM")
-	mrb.define_method(g.mrb_state, fc, "_attach", cast(rawptr)ruby_fsm_attach, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, fc, "_on_attach", cast(rawptr)ruby_fsm_on_attach, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, fc, "update", cast(rawptr)ruby_fsm_update, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, fc, "draw", cast(rawptr)ruby_fsm_draw, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, mrb.ARGS_REQ(1))

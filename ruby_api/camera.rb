@@ -1,7 +1,7 @@
 # ENGINE native=Camera_Instance ruby=Camera
 
 class Camera
-  include NativeHandle
+  include UniqueHandle
 
   # camera properties are implemented in native code
   def active; end

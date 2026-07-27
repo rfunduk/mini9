@@ -10,10 +10,10 @@ def spawner(rate:, count: 1, start: true, &block)
 end
 
 class Spawner
-  include NativeHandle
+  include UniqueHandle
+  include Attachable
 
   attr_accessor :rate, :count
-  attr_reader :parent
 
   def initialize(rate:, count: 1, start: true, block:)
     @rate = rate
@@ -24,11 +24,6 @@ class Spawner
     @timer = nil
     @scheduled = nil
     self.start if start
-  end
-
-  def _attach(parent)
-    @parent = parent
-    self
   end
 
   def start

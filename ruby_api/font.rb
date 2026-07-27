@@ -1,7 +1,7 @@
 # ENGINE native=rl.Font ruby=Font
 
 class Font
-  include NativeHandle
+  include UniqueHandle
 
   def to_s = "Font(#{name}, #{size})"
 end

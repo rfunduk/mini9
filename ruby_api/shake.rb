@@ -1,7 +1,7 @@
 # ENGINE native=Shake_Instance ruby=Shake
 
 class Shake
-  include NativeHandle
+  include UniqueHandle
 
   # called when shake(duration, frequency, amplitude) is invoked
   # duration: time in seconds (float)

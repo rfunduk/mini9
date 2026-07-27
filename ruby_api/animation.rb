@@ -1,7 +1,7 @@
 # ENGINE native=Anim ruby=Anim
 
 class Anim
-  include NativeHandle
+  include UniqueHandle
 
   LOOP = 0
   ONCE = 1

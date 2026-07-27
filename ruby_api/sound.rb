@@ -1,7 +1,7 @@
 # ENGINE native=Sound ruby=Sound
 
 class Sound
-  include NativeHandle
+  include UniqueHandle
 
   attr_reader :path
 

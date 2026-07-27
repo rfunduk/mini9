@@ -1,7 +1,7 @@
 # ENGINE native=Tween_Instance ruby=Tween
 
 class Tween
-  include NativeHandle
+  include UniqueHandle
 
   # easing constants live in `Easing` (e.g. Easing::LINEAR, Easing::CUBIC_IN_OUT)
 

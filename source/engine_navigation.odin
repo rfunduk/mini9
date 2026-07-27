@@ -26,6 +26,7 @@ NAV_WORLD_AABB :: f32(1e9)
 navigators: [dynamic]^Navigator
 
 Navigator :: struct {
+	parent:       mrb.Value,
 	bounds:       [dynamic]rl.Vector2,
 	holes_static: [dynamic][dynamic]rl.Vector2,
 	mask:         u64,
@@ -38,7 +39,6 @@ Navigator :: struct {
 	cursor:       int,
 	path_dirty:   bool,
 	snap:         f32,
-	parent:       mrb.Value,
 }
 
 ruby_navigator_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
@@ -51,7 +51,6 @@ ruby_navigator_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 			break
 		}
 	}
-	if n.parent != mrb.NIL { mrb.gc_unregister(state, n.parent) }
 	delete(n.bounds)
 	for h in n.holes_static { delete(h) }
 	delete(n.holes_static)
@@ -378,9 +377,9 @@ nav_overlap_callback :: proc "c" (shape_id: b2.ShapeId, ctx_ptr: rawptr) -> bool
 @(private = "file")
 get_parent_pos :: proc(n: ^Navigator) -> (rl.Vector2, bool) {
 	if n.parent == mrb.NIL { return {}, false }
-	go := extract_native(Game_Object, n.parent)
-	if go == nil { return {}, false }
-	vp := extract_native(rl.Vector2, go.pos)
+	parent := extract_native(Game_Object, n.parent)
+	if parent == nil { return {}, false }
+	vp := extract_native(rl.Vector2, parent.pos)
 	if vp == nil { return {}, false }
 	return vp^, true
 }
@@ -402,21 +401,13 @@ nav_update_path :: proc(n: ^Navigator) {
 	n.path_dirty = false
 }
 
-// Navigator._attach(parent) — auto-called by obj() for fields responding to :_attach
-ruby_nav_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_nav_on_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
-	this_obj: mrb.Value
-	mrb.get_args(state, "o", &this_obj)
-
+	parent_val: mrb.Value
+	mrb.get_args(state, "o", &parent_val)
 	n := extract_native(Navigator, self)
-	if n == nil { return mrb.NIL }
-
-	// Setting the same parent again is a no-op — avoid churning GC refcounts.
-	if n.parent == this_obj { return self }
-
-	if n.parent != mrb.NIL { mrb.gc_unregister(state, n.parent) }
-	n.parent = this_obj
-	if this_obj != mrb.NIL { mrb.gc_register(state, this_obj) }
+	if n == nil { return self }
+	n.parent = parent_val
 	return self
 }
 
@@ -598,7 +589,7 @@ cleanup_navigation :: proc() {
 
 setup_navigation :: proc() {
 	c := mrb.get_data_class(g.mrb_state, "Navigator")
-	mrb.define_method(g.mrb_state, c, "_attach", cast(rawptr)ruby_nav_attach, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "_on_attach", cast(rawptr)ruby_nav_on_attach, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "target=", cast(rawptr)ruby_nav_set_target, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "target", cast(rawptr)ruby_nav_get_target, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "next_position", cast(rawptr)ruby_nav_next_position, mrb.ARGS_NONE)

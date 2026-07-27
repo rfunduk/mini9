@@ -1,7 +1,8 @@
 # ENGINE native=Timer_Instance ruby=Timer
 
 class Timer
-  include NativeHandle
+  include UniqueHandle
+  include Attachable
 
   # NOTE: methods implemented in native code
 
