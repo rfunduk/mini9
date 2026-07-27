@@ -46,7 +46,7 @@ def get_axis(h = nil, v = nil, horizontal: nil, vertical: nil, gamepad: nil)
       y += 1.0 if down?(v[1], gamepad: gamepad)
     end
 
-    v2(x, y).normalized
+    v2(x, y).normalize
   end
 end
 

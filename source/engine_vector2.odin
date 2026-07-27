@@ -295,20 +295,20 @@ ruby_v2_length_squared :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Va
 	return mrb.word_boxing_float_value(state, f64(lin.length2(self_vec^)))
 }
 
-ruby_v2_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_normalize :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	self_vec := extract_native(rl.Vector2, self)
 	if self_vec == nil { return mrb.NIL }
-	return create_vector2(vector2_normalized(self_vec^))
+	return create_vector2(vector2_normalize(self_vec^))
 }
 
-vector2_normalized :: proc(v: rl.Vector2) -> rl.Vector2 {
+vector2_normalize :: proc(v: rl.Vector2) -> rl.Vector2 {
 	len2 := lin.length2(v)
 	if len2 < 0.001 { return {0, 0} }
 	return v / math.sqrt(len2)
 }
 
-ruby_v2_rotated :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+ruby_v2_rotate :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	angle: f64
 	mrb.get_args(state, "f", &angle)
@@ -513,8 +513,8 @@ setup_vector2 :: proc() {
 	mrb.define_method(g.mrb_state, c, "equal_approx?", cast(rawptr)ruby_v2_equal_approx, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "length", cast(rawptr)ruby_v2_length, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, c, "length_squared", cast(rawptr)ruby_v2_length_squared, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, c, "normalized", cast(rawptr)ruby_v2_normalized, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, c, "rotated", cast(rawptr)ruby_v2_rotated, mrb.ARGS_REQ(1))
+	mrb.define_method(g.mrb_state, c, "normalize", cast(rawptr)ruby_v2_normalize, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, c, "rotate", cast(rawptr)ruby_v2_rotate, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "distance_to", cast(rawptr)ruby_v2_distance_to, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "direction_to", cast(rawptr)ruby_v2_direction_to, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, c, "move_toward", cast(rawptr)ruby_v2_move_toward, mrb.ARGS_REQ(2))

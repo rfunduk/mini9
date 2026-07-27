@@ -19,7 +19,7 @@ def color(*args)
     r, g, b = args[0], args[1], args[2]
     if r.is_a?(Float) && r <= 1.0 && g.is_a?(Float) && g <= 1.0 && b.is_a?(Float) && b <= 1.0
       a = args.size == 4 ? args[3] : 1.0
-      _color_normalized(r, g, b, a)
+      _color_normalize(r, g, b, a)
     else
       a = args.size == 4 ? args[3] : 255
       _color_int(r, g, b, a)

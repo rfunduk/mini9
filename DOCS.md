@@ -372,8 +372,8 @@ Color names come from the `.gpl` file's entries, lowercased (e.g. `effae6` from 
 | `v.sign` | Vector2 | Per-component -1/0/1 |
 | `v.length` | Float | |
 | `v.length_squared` | Float | Cheaper when you only need to compare |
-| `v.normalized` | Vector2 | |
-| `v.rotated(angle)` | Vector2 | Radians |
+| `v.normalize` | Vector2 | |
+| `v.rotate(angle)` | Vector2 | Radians |
 | `v.angle` | Float | Radians |
 | `v.angle_to(other)` | Float | Radians |
 | `v.dot(other)` | Float | |
@@ -488,7 +488,7 @@ Filled fills the sector; unfilled draws a ring band of `thickness:`. Negative `s
 | `p.verts` | Array[Vector2] | |
 | `p.count` | Integer | |
 | `p.contains?(v2)` | bool | Ray-cast point-in-polygon |
-| `p.rotated(angle, [origin]) | Poly | The points rotated around `origin` (or 0, 0) |
+| `p.rotate(angle, [origin]) | Poly | The points rotated around `origin` (or 0, 0) |
 | `p.dup` | Poly | Fresh copy |
 
 ---

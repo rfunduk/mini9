@@ -288,7 +288,7 @@ ruby_get_gamepad_axis_value :: proc "c" (state: mrb.State, self: mrb.Value) -> m
 	if xcode >= 30000 && ycode <= 30003 {
 		x_val := rl.GetGamepadAxisMovement(gamepad_id, rl.GamepadAxis(xcode - 30000))
 		y_val := rl.GetGamepadAxisMovement(gamepad_id, rl.GamepadAxis(ycode - 30000))
-		return create_vector2(vector2_normalized({x_val, y_val}))
+		return create_vector2(vector2_normalize({x_val, y_val}))
 	}
 
 	return create_vector2({0, 0})

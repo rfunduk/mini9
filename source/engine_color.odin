@@ -36,9 +36,9 @@ ruby_color_int :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return create_color(color)
 }
 
-// RUBY FUNCTION: color_normalized(r, g, b, a=1.0) -> returns Color object (normalized values 0-1)
-// @engine_method: name="_color_normalized", aspec=ARGS_ARG(3,1)
-ruby_color_normalized :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// RUBY FUNCTION: _color_normalize(r, g, b, a=1.0) -> returns Color object (normalized values 0-1)
+// @engine_method: name="_color_normalize", aspec=ARGS_ARG(3,1)
+ruby_color_normalize :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	r, g, b, a: f64
 	argc := mrb.get_args(state, "fff|f", &r, &g, &b, &a)
