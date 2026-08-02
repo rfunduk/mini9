@@ -291,7 +291,7 @@ ruby_sound_play :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	instance.active = true
 	instance.play_time = f32(rl.GetTime())
 
-	rl.SetSoundPitch(instance.sound, pitch)
+	rl.SetSoundPitch(instance.sound, pitch * g.timescale)
 	rl.SetSoundVolume(instance.sound, volume)
 	rl.PlaySound(instance.sound)
 
@@ -366,6 +366,11 @@ update_audio_system :: proc(dt: f32) {
 	for sound in g.sounds {
 		for &instance in sound.instances {
 			if !instance.active { continue }
+
+			// apply global time scale to in-world sound pitch; clamp to a tiny
+			// positive value to keep the underlying streaming voice alive even
+			// when timescale hits 0 (pause). Music is intentionally untouched.
+			rl.SetSoundPitch(instance.sound, max(instance.pitch * g.timescale, 0.001))
 
 			// handle fading
 			if instance.fade.time > 0 {
