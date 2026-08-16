@@ -145,20 +145,20 @@ draw_line :: proc(
 
 	did_clip := _clip(clip, f)
 
-	// rotated stretched white-texel quad — batches with the atlas since
-	// DrawLineEx uses RL_LINES mode which forces a batch flush.
+	// DrawRectanglePro batches via the shapes texture; DrawLineEx uses
+	// RL_LINES mode which forces a batch flush.
 	delta := t - f
 	length := lin.length(delta)
 	if length > 0 {
+		// quad centered on the line, nudged a hair along the down/right
+		// perp: lines at integer coords put pixel centers exactly on quad
+		// edges; the nudge resolves those ties down/right deterministically
+		// instead of leaving them to the GPU fill rule
+		perp := V2{-delta.y, delta.x} / length
+		if perp.x + perp.y < 0 { perp = -perp }
 		angle_deg := math.atan2(delta.y, delta.x) * 180.0 / math.PI
-		rl.DrawTexturePro(
-			atlas_texture,
-			atlas_white_uv,
-			{f.x, f.y, length, thickness},
-			{0, thickness / 2},
-			angle_deg,
-			color,
-		)
+		pos := f + 0.01 * perp
+		rl.DrawRectanglePro({pos.x, pos.y, length, thickness}, {0, thickness / 2}, angle_deg, color)
 	}
 
 	if did_clip { rl.EndScissorMode() }
