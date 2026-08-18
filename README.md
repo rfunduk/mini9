@@ -4,6 +4,7 @@ A 2D game framework for writing games with Ruby. More batteries than a fantasy c
 
 See [DOCS.md](DOCS.md) for the full API reference.
 
+
 ### Quick Start
 
 Make a directory with a `main.rb`:
@@ -25,7 +26,16 @@ end
 
 ## Usage
 
-Download latest release, put it in `PATH`. <small>I have no idea if any of this works on Windows and I provide no consideration whatsoever for that case, so sorry.</small>
+Download the most recent release and put it on `PATH`, or take the easy way out with this incantation:
+
+```sh
+curl -fsSL https://rfunduk.github.io/mini9/install.sh | sh
+```
+
+Requires `curl` + `unzip`, and tries to install to `~/.local/bin`, `~/bin`, or `/usr/local/bin`.
+
+<small>Windows? I provide no consideration whatsoever for that case, so sorry.</small>
+
 
 ### Run your game
 
@@ -33,12 +43,14 @@ Download latest release, put it in `PATH`. <small>I have no idea if any of this 
 mini9 path/to/mygame
 ```
 
+
 ### Package a 'cart'
 
 ```bash
 mini9 package --source path/to/mygame --output .
 mini9 mygame.m9
 ```
+
 
 ### Package for web
 
@@ -51,7 +63,9 @@ zip -r mygame.zip mygame
 ```
 
 
+
 ## Dev
+
 
 ### Prerequisites
 
@@ -60,17 +74,20 @@ zip -r mygame.zip mygame
 - `git`, `cmake`, `make`, `cc`, `bison`, `python3`
 - on Linux: `libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev libxkbcommon-dev`, `libwayland-dev wayland-protocols`
 
+
 ### Setup dependencies
 
 ```bash
 bin/build setup
 ```
 
+
 ### Build (`debug` or `release`)
 
 ```bash
 bin/build debug
 ```
+
 
 ### Try it in browser
 
