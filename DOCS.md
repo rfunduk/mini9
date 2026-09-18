@@ -1042,10 +1042,10 @@ SHAKE = shake
 
 def update
   SHAKE.shake(0.3, 20, 4) if pressed?(:space)
+  CAM.offset += SHAKE.offset
 end
 
 def draw
-  CAM.offset = v2(160, 120) + SHAKE.offset
   # ...
 end
 ```

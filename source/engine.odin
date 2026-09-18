@@ -263,10 +263,7 @@ _engine_update :: proc() {
 	mrb.incremental_gc(g.mrb_state)
 	free_all(context.temp_allocator)
 
-	// Hot reload - poll mtimes and reload between frames
-	when ODIN_OS != .JS {
-		if g.hot_reload && should_hot_reload(rl.GetFrameTime()) { perform_hot_reload() }
-	}
+	consider_hot_reload()
 }
 
 _engine_shutdown :: proc() {

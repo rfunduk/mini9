@@ -228,5 +228,7 @@ show_error_overlay :: proc(error_message: string, ctx: string) {
 		)
 
 		rl.EndDrawing()
+
+		if consider_hot_reload() { break }
 	}
 }

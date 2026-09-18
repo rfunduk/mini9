@@ -2,6 +2,9 @@ package engine
 
 import "core:log"
 import mrb "lib:mruby"
+import rl "lib:raylib"
+
+_ :: rl
 
 // Seconds between *.rb mtime scans. Coarse on purpose — saves are human-paced
 // and the scan walks the game dir, so there's no reason to do it every frame.
@@ -10,6 +13,17 @@ HOT_RELOAD_POLL_INTERVAL :: f32(0.25)
 
 @(private = "file")
 poll_accum: f32
+
+consider_hot_reload :: proc() -> bool {
+	when ODIN_OS != .JS {
+		if g.hot_reload && should_hot_reload(rl.GetFrameTime()) {
+			log.debug("[hot-reload] Reloading...")
+			perform_hot_reload()
+			return true
+		}
+	}
+	return false
+}
 
 should_hot_reload :: proc(frame_time: f32) -> bool {
 	poll_accum += frame_time
