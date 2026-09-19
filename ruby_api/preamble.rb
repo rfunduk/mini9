@@ -26,6 +26,41 @@ module Attachable
   end
 end
 
+# Handler proc table + hot-reload swap, shared by GameObject and State.
+# Procs are retained raw in @_procs so reload can re-install them onto a
+# surviving instance; _install_handler_method decides what Ruby-visible
+# surface (if any) a handler gets.
+module Handlers
+  def _init_handlers
+    @_proc_keys = []
+    @_procs = {}
+  end
+
+  def _define_handler(key, val)
+    key = key.to_sym
+    @_proc_keys << key unless @_proc_keys.include?(key)
+    @_procs[key] = val
+    _install_handler_method(key, val)
+  end
+
+  # Singleton method wrapping the raw proc. arity 0 -> bare call; otherwise
+  # `self` is threaded in as the first arg.
+  def _install_handler_method(key, val)
+    arity = val.parameters.length
+    case arity
+    when 0 then define_singleton_method(key) { val.call }
+    else define_singleton_method(key) { |*args| val.call(*args.unshift(self)[0..arity-1]) }
+    end
+  end
+
+  # The raw handler procs, keyed by name. Read by the reload merge.
+  def _proc_table = @_procs
+
+  def _reload_merge!(fresh)
+    fresh._proc_table.each { |key, prc| _define_handler(key, prc) }
+  end
+end
+
 # Mixin for "open" objects whose fields are created on demand: assigning an
 # unknown `foo=` defines a `foo`/`foo=` accessor pair backed by an `@foo` ivar.
 module DynamicAttributes

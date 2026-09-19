@@ -5,20 +5,10 @@ import "core:fmt"
 import "core:log"
 import mrb "lib:mruby"
 
-State :: struct {
-	name:         mrb.Value, // Symbol
-	data:         mrb.Value, // obj() for user data
-	fsm:          mrb.Value, // Parent FSM reference
-	enter_proc:   mrb.Value,
-	update_proc:  mrb.Value,
-	draw_proc:    mrb.Value,
-	exit_proc:    mrb.Value,
-	enter_arity:  i32,
-	update_arity: i32,
-	draw_arity:   i32,
-	exit_arity:   i32,
-}
-
+// States are pure-Ruby GameObjects (see ruby_api/state_machine.rb) — the
+// native side only holds the graph and dispatches by handler name. Handler
+// procs live in the state's @_procs table, which hot reload swaps, so
+// dispatch here always runs fresh code with no proc juggling.
 FSM :: struct {
 	parent:        mrb.Value,
 	current_state: mrb.Value, // Current State ruby object
@@ -26,10 +16,9 @@ FSM :: struct {
 	states:        mrb.Value, // Array of State objects (linear search - most FSMs have 2-5 states)
 }
 
-// Protected call of an FSM enter/exit/update block. `arity` is the cached
-// proc arity from the State struct — trim argv to match (or pass all 3 for
-// variadic / arity > 3). `ctx_msg` is logged before the exception handler
-// on raise so the user sees which transition blew up.
+// Protected call of an FSM enter/exit/update block. `arity` trims argv (or
+// pass all 3 for variadic / arity > 3). `ctx_msg` is logged before the
+// exception handler on raise so the user sees which transition blew up.
 @(private)
 dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: []mrb.Value, ctx_msg: string) -> bool {
 	effective := arity
@@ -40,6 +29,22 @@ dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: []mrb.Value, c
 		handle_ruby_exception(g.mrb_state, exc, .FSM_CALLBACK)
 	}
 	return ok
+}
+
+// Fetch the `kind` handler (:enter/:update/:draw/:exit) from a State's proc
+// table and protected-call it. A missing handler is a silent skip.
+@(private)
+dispatch_state_handler :: proc(state_obj: mrb.Value, kind: mrb.Value, argv: []mrb.Value, ctx_msg: string) -> bool {
+	args := [1]mrb.Value{kind}
+	handler := mrb.funcall_argv(
+		g.mrb_state,
+		state_obj,
+		mrb.symbol(sym._handler_for),
+		1,
+		raw_data(args[:]),
+	)
+	if handler == mrb.NIL { return true }
+	return dispatch_fsm_callback(handler, mrb.safe_proc_arity(handler), argv, ctx_msg)
 }
 
 // Raise ArgumentError if `kwargs` contains any key not in `allowed`.
@@ -77,20 +82,6 @@ fsm_require_owner :: proc(state: mrb.State, fsm: ^FSM) {
 	}
 }
 
-ruby_state_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
-	context = global_context
-	if ptr != nil {
-		s := cast(^State)ptr
-		// unregister GC-registered values
-		if s.data != mrb.NIL { mrb.gc_unregister(state, s.data) }
-		if s.enter_proc != mrb.NIL { mrb.gc_unregister(state, s.enter_proc) }
-		if s.update_proc != mrb.NIL { mrb.gc_unregister(state, s.update_proc) }
-		if s.draw_proc != mrb.NIL { mrb.gc_unregister(state, s.draw_proc) }
-		if s.exit_proc != mrb.NIL { mrb.gc_unregister(state, s.exit_proc) }
-		mrb.free(state, ptr)
-	}
-}
-
 ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil {
@@ -98,89 +89,6 @@ ruby_fsm_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 		if f.states != mrb.NIL { mrb.gc_unregister(state, f.states) }
 		mrb.free(state, ptr)
 	}
-}
-
-// RUBY FUNCTION: state(:name, enter: nil, exit: nil, update: nil, draw: nil, data: nil) -> returns State object
-// @engine_method: name="state", aspec=ARGS_ARG(1,1)
-ruby_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-
-	name_val, kwargs: mrb.Value
-	argc := mrb.get_args(state, "o|H", &name_val, &kwargs)
-
-	if argc >= 2 {
-		reject_unknown_kwargs(state, kwargs, "state", {sym.enter, sym.exit, sym.update, sym.draw, sym.data})
-	}
-
-	// Arena-bound the whole call. create_game_object + mrb.alloc(s) + obj_new
-	// all allocate; without an outer scope, data_obj would lose arena
-	// protection between create_game_object and the gc_register below.
-	arena_idx := mrb.gc_arena_save(g.mrb_state)
-	defer mrb.gc_arena_restore(g.mrb_state, arena_idx)
-
-	enter_proc := mrb.NIL
-	exit_proc := mrb.NIL
-	update_proc := mrb.NIL
-	draw_proc := mrb.NIL
-	data_seed := mrb.NIL
-
-	if argc >= 2 {
-		val: mrb.Value
-		val = mrb.kwarg(state, kwargs, sym.enter)
-		if val != mrb.NIL { enter_proc = val }
-		val = mrb.kwarg(state, kwargs, sym.exit)
-		if val != mrb.NIL { exit_proc = val }
-		val = mrb.kwarg(state, kwargs, sym.update)
-		if val != mrb.NIL { update_proc = val }
-		val = mrb.kwarg(state, kwargs, sym.draw)
-		if val != mrb.NIL { draw_proc = val }
-		val = mrb.kwarg(state, kwargs, sym.data)
-		if val != mrb.NIL { data_seed = val }
-	}
-
-	// Create the data obj for state-specific data
-	pos := create_vector2({0, 0})
-	obj_scale := create_vector2({1, 1})
-	mrb.gc_register(state, pos)
-	mrb.gc_register(state, obj_scale)
-	data_obj := create_game_object(Game_Object{pos = pos, scale = obj_scale, visible = true}, 0, nil)
-
-	if data_seed != mrb.NIL && data_obj != mrb.NIL && mrb.hash_p(data_seed) {
-		keys := mrb.hash_keys(state, data_seed)
-		for i in 0 ..< mrb.ary_len(keys) {
-			k := mrb.ary_entry(keys, i32(i))
-			v := mrb.hash_get(state, data_seed, k)
-			mrb.funcall(state, data_obj, "_define_value_field", 2, k, v)
-		}
-	}
-
-	s := State {
-		name         = name_val,
-		data         = data_obj,
-		fsm          = mrb.NIL, // will be set when added to FSM
-		enter_proc   = enter_proc,
-		update_proc  = update_proc,
-		draw_proc    = draw_proc,
-		exit_proc    = exit_proc,
-		enter_arity  = mrb.safe_proc_arity(enter_proc),
-		update_arity = mrb.safe_proc_arity(update_proc),
-		draw_arity   = mrb.safe_proc_arity(draw_proc),
-		exit_arity   = mrb.safe_proc_arity(exit_proc),
-	}
-	state_ptr := mrb.alloc(g.mrb_state, s)
-
-	// GC register the procs and data
-	if data_obj != mrb.NIL { mrb.gc_register(state, data_obj) }
-	if enter_proc != mrb.NIL { mrb.gc_register(state, enter_proc) }
-	if update_proc != mrb.NIL { mrb.gc_register(state, update_proc) }
-	if draw_proc != mrb.NIL { mrb.gc_register(state, draw_proc) }
-	if exit_proc != mrb.NIL { mrb.gc_register(state, exit_proc) }
-
-	state_class := mrb.class_get(state, "State")
-	ruby_obj := mrb.obj_new(state, state_class, 0, nil)
-	mrb.data_init(ruby_obj, state_ptr, NATIVE_TO_MRUBY_TYPE[State])
-
-	return ruby_obj
 }
 
 // RUBY FUNCTION: fsm(default:, states:) -> returns FSM object
@@ -201,6 +109,19 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	}
 
 	if states_array == mrb.NIL { states_array = mrb.ary_new(state) }
+	if !mrb.array_p(states_array) {
+		mrb.raise_error(state, "ArgumentError", "fsm: states: must be an Array of state(...) objects")
+	}
+
+	// Validate element types before allocating (raise longjmps).
+	set_fsm := mrb.intern_cstr(state, "_set_fsm")
+	length := mrb.ary_len(states_array)
+	for i in 0 ..< length {
+		state_val := mrb.ary_entry(states_array, i32(i))
+		if !mrb.respond_to(state, state_val, set_fsm) {
+			mrb.raise_error(state, "ArgumentError", "fsm: states: must be an Array of state(...) objects")
+		}
+	}
 
 	f := FSM {
 		parent        = mrb.NIL,
@@ -217,16 +138,11 @@ ruby_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	ruby_obj := mrb.obj_new(state, fsm_class, 0, nil)
 	mrb.data_init(ruby_obj, fsm_ptr, NATIVE_TO_MRUBY_TYPE[FSM])
 
-	// Set FSM reference on each state (only if array is valid)
-	if states_array != mrb.NIL && mrb.array_p(states_array) {
-		// Get array length - handles both embedded and heap arrays
-		length := mrb.ary_len(states_array)
-
-		for i in 0 ..< length {
-			state_val := mrb.ary_entry(states_array, i32(i))
-			state_native := extract_or_nil(State, state_val)
-			if state_native != nil { state_native.fsm = ruby_obj }
-		}
+	// Set FSM reference on each state
+	for i in 0 ..< length {
+		state_val := mrb.ary_entry(states_array, i32(i))
+		args := [1]mrb.Value{ruby_obj}
+		mrb.funcall_argv(state, state_val, set_fsm, 1, raw_data(args[:]))
 	}
 
 	return ruby_obj
@@ -251,14 +167,17 @@ ruby_fsm_on_attach :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return self
 }
 
+@(private)
+state_name :: proc(state: mrb.State, state_obj: mrb.Value) -> mrb.Value {
+	return mrb.funcall_argv(state, state_obj, mrb.symbol(sym.name), 0, nil)
+}
+
 find_state_by_name :: proc(state: mrb.State, states_array: mrb.Value, name: mrb.Value) -> mrb.Value {
 	length := mrb.ary_len(states_array)
 
 	for i in 0 ..< length {
 		state_val := mrb.ary_entry(states_array, i32(i))
-		state_native := extract_or_nil(State, state_val)
-		if state_native == nil { continue }
-		if state_native.name.w == name.w { return state_val }
+		if state_name(state, state_val).w == name.w { return state_val }
 	}
 	return mrb.NIL
 }
@@ -279,33 +198,33 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 
 	// Call exit on current state
 	if fsm.current_state != mrb.NIL {
-		current := extract_native(State, fsm.current_state)
-		if current != nil && current.exit_proc != mrb.NIL {
-			argv := [3]mrb.Value{fsm.parent, fsm.current_state, next_state}
-			msg := fmt.tprintf(
-				"%s exit -> %s",
-				mrb.inspect(state, current.name, context.temp_allocator),
-				mrb.inspect(state, next_name, context.temp_allocator),
-			)
-			dispatch_fsm_callback(current.exit_proc, current.exit_arity, argv[:], msg)
-		}
+		current := state_name(state, fsm.current_state)
+		argv := [3]mrb.Value{fsm.parent, fsm.current_state, next_state}
+		msg := fmt.tprintf(
+			"%s exit -> %s",
+			mrb.inspect(state, current, context.temp_allocator),
+			mrb.inspect(state, next_name, context.temp_allocator),
+		)
+		dispatch_state_handler(fsm.current_state, sym.exit, argv[:], msg)
 	}
 
 	last_state := fsm.current_state
 	fsm.current_state = next_state
 
 	// Call enter on new state
-	next := extract_native(State, next_state)
-	if next != nil && next.enter_proc != mrb.NIL {
+	{
+		current := state_name(state, next_state)
+		from_name := "nil"
+		if last_state != mrb.NIL {
+			from_name = mrb.inspect(state, state_name(state, last_state), context.temp_allocator)
+		}
 		argv := [3]mrb.Value{fsm.parent, next_state, last_state}
-		from_name :=
-			last_state == mrb.NIL ? "nil" : mrb.inspect(state, extract_native(State, last_state).name, context.temp_allocator)
 		msg := fmt.tprintf(
 			"%s -> %s enter",
 			from_name,
-			mrb.inspect(state, next.name, context.temp_allocator),
+			mrb.inspect(state, current, context.temp_allocator),
 		)
-		dispatch_fsm_callback(next.enter_proc, next.enter_arity, argv[:], msg)
+		dispatch_state_handler(next_state, sym.enter, argv[:], msg)
 	}
 }
 
@@ -331,15 +250,12 @@ ruby_fsm_update :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if fsm == nil { return mrb.NIL }
 
 	fsm_require_owner(state, fsm)
+	if fsm.current_state == mrb.NIL { return mrb.NIL }
 
-	current := extract_native(State, fsm.current_state)
-	if current == nil { return mrb.NIL }
-
-	if current.update_proc != mrb.NIL {
-		argv := [2]mrb.Value{fsm.parent, fsm.current_state}
-		msg := fmt.tprintf("%s update", mrb.inspect(state, current.name, context.temp_allocator))
-		dispatch_fsm_callback(current.update_proc, current.update_arity, argv[:], msg)
-	}
+	current := state_name(state, fsm.current_state)
+	argv := [2]mrb.Value{fsm.parent, fsm.current_state}
+	msg := fmt.tprintf("%s update", mrb.inspect(state, current, context.temp_allocator))
+	dispatch_state_handler(fsm.current_state, sym.update, argv[:], msg)
 
 	return mrb.NIL
 }
@@ -351,15 +267,12 @@ ruby_fsm_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if fsm == nil { return mrb.NIL }
 
 	fsm_require_owner(state, fsm)
+	if fsm.current_state == mrb.NIL { return mrb.NIL }
 
-	current := extract_native(State, fsm.current_state)
-	if current == nil { return mrb.NIL }
-
-	if current.draw_proc != mrb.NIL {
-		argv := [2]mrb.Value{fsm.parent, fsm.current_state}
-		msg := fmt.tprintf("%s draw", mrb.inspect(state, current.name, context.temp_allocator))
-		dispatch_fsm_callback(current.draw_proc, current.draw_arity, argv[:], msg)
-	}
+	current := state_name(state, fsm.current_state)
+	argv := [2]mrb.Value{fsm.parent, fsm.current_state}
+	msg := fmt.tprintf("%s draw", mrb.inspect(state, current, context.temp_allocator))
+	dispatch_state_handler(fsm.current_state, sym.draw, argv[:], msg)
 
 	return mrb.NIL
 }
@@ -372,55 +285,67 @@ ruby_fsm_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return fsm.current_state
 }
 
-// State.name
-ruby_state_name :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	s := extract_native(State, self)
-	if s == nil { return mrb.NIL }
-	return s.name
-}
-
-// State.data
-ruby_state_data :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	s := extract_native(State, self)
-	if s == nil { return mrb.NIL }
-	return s.data
-}
-
-// State.fsm
-ruby_state_fsm :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
-	context = global_context
-	s := extract_native(State, self)
-	if s == nil { return mrb.NIL }
-	return s.fsm
-}
-
-// State.transition(:name) - convenience for state.fsm.transition(:name)
-ruby_state_transition :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
+// FSM._reload_merge!(fresh) — hot-reload structural sync. Behavior needs no
+// handling here (states are Ruby objects whose proc tables the GameObject
+// merge swaps); this reconciles the graph: states matched by name keep
+// identity and merge, new ones are adopted, default carries over. Current
+// state is re-pinned by name and may dangle detached if renamed away
+// (self-heals on the next transition). enter/exit do NOT refire.
+ruby_fsm_reload_merge :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
-	state_name: mrb.Value
-	mrb.get_args(state, "o", &state_name)
+	fresh_val: mrb.Value
+	mrb.get_args(state, "o", &fresh_val)
 
-	s := extract_native(State, self)
-	if s == nil || s.fsm == mrb.NIL { return mrb.NIL }
+	old_fsm := extract_native(FSM, self)
+	new_fsm := extract_native(FSM, fresh_val)
+	if old_fsm == nil || new_fsm == nil { return mrb.NIL }
 
-	fsm := extract_native(FSM, s.fsm)
-	if fsm == nil { return mrb.NIL }
+	name_sym := mrb.intern_cstr(state, "name")
+	set_fsm_sym := mrb.intern_cstr(state, "_set_fsm")
+	merge_sym := mrb.intern_cstr(state, "_reload_merge!")
 
-	do_fsm_transition(state, fsm, state_name)
-	return mrb.NIL
+	merged := mrb.ary_new(state)
+	mrb.gc_register(state, merged)
+
+	new_len := mrb.ary_len(new_fsm.states)
+	for i in 0 ..< new_len {
+		fresh_state := mrb.ary_entry(new_fsm.states, i32(i))
+		fresh_name := mrb.funcall_argv(state, fresh_state, name_sym, 0, nil)
+		survivor := find_state_by_name(state, old_fsm.states, fresh_name)
+		if survivor != mrb.NIL {
+			args := [1]mrb.Value{fresh_state}
+			mrb.funcall_argv(state, survivor, merge_sym, 1, raw_data(args[:]))
+			mrb.ary_push(state, merged, survivor)
+		} else {
+			args := [1]mrb.Value{self}
+			mrb.funcall_argv(state, fresh_state, set_fsm_sym, 1, raw_data(args[:]))
+			mrb.ary_push(state, merged, fresh_state)
+		}
+	}
+
+	if old_fsm.states != mrb.NIL { mrb.gc_unregister(state, old_fsm.states) }
+	old_fsm.states = merged
+	old_fsm.default_name = new_fsm.default_name
+
+	// Re-pin current by name; a renamed-away current dangles detached.
+	if old_fsm.current_state != mrb.NIL {
+		current_name := mrb.funcall_argv(state, old_fsm.current_state, name_sym, 0, nil)
+		repinned := find_state_by_name(state, merged, current_name)
+		if repinned != mrb.NIL {
+			old_fsm.current_state = repinned
+		} else {
+			log.warnf(
+				"[hot-reload] FSM current state %s removed by reload; keeping it until the next transition",
+				mrb.inspect(state, current_name, context.temp_allocator),
+			)
+		}
+	}
+
+	return self
 }
 
 setup_state_machine :: proc() {
-	// Setup State class
-	sc := mrb.get_data_class(g.mrb_state, "State")
-	mrb.define_method(g.mrb_state, sc, "name", cast(rawptr)ruby_state_name, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, sc, "data", cast(rawptr)ruby_state_data, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, sc, "fsm", cast(rawptr)ruby_state_fsm, mrb.ARGS_NONE)
-	mrb.define_method(g.mrb_state, sc, "transition", cast(rawptr)ruby_state_transition, mrb.ARGS_REQ(1))
-
 	// Setup FSM class
 	fc := mrb.get_data_class(g.mrb_state, "FSM")
 	mrb.define_method(g.mrb_state, fc, "_on_attach", cast(rawptr)ruby_fsm_on_attach, mrb.ARGS_REQ(1))
@@ -428,4 +353,5 @@ setup_state_machine :: proc() {
 	mrb.define_method(g.mrb_state, fc, "draw", cast(rawptr)ruby_fsm_draw, mrb.ARGS_NONE)
 	mrb.define_method(g.mrb_state, fc, "transition", cast(rawptr)ruby_fsm_transition, mrb.ARGS_REQ(1))
 	mrb.define_method(g.mrb_state, fc, "state", cast(rawptr)ruby_fsm_state, mrb.ARGS_NONE)
+	mrb.define_method(g.mrb_state, fc, "_reload_merge!", cast(rawptr)ruby_fsm_reload_merge, mrb.ARGS_REQ(1))
 }
