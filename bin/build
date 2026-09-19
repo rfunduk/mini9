@@ -53,7 +53,7 @@ end
 # ============================================================================
 
 MRUBY_VERSION    = "4.0.0"
-EMSDK_VERSION    = "4.0.13"
+EMSDK_VERSION    = "6.0.9"
 BOX2D_VERSION    = "v3.1.1"
 LIBTESS2_VERSION = "8dbd6483e920311a58c9af10a10beb278efebc36"
 RAYLIB_VERSION   = "6.0"
@@ -531,7 +531,6 @@ def build_web(target)
     -fwasm-exceptions
     -sSUPPORT_LONGJMP=wasm
     -sUSE_GLFW=3
-    -sWASM_BIGINT
     -sWARN_ON_UNDEFINED_SYMBOLS=0
     -sASSERTIONS
     -sALLOW_TABLE_GROWTH=1
