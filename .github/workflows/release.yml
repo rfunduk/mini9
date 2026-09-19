@@ -6,9 +6,8 @@ on:
       - 'v*'
 
 env:
-  # Odin nightly tag + asset naming. Bump when needed.
-  # Verify tag/asset names at https://github.com/odin-lang/Odin/releases
-  ODIN_TAG: dev-2026-05
+  # https://github.com/odin-lang/Odin/releases
+  ODIN_TAG: dev-2026-09
 
 jobs:
   build:
@@ -38,10 +37,16 @@ jobs:
             libwayland-dev libxkbcommon-dev
 
       - name: Install Odin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ASSET="odin-${{ matrix.odin_platform }}-${ODIN_TAG}.tar.gz"
-          curl -fsSL -o odin.tar.gz \
-            "https://github.com/odin-lang/Odin/releases/download/${ODIN_TAG}/${ASSET}"
+          # Asset names churn — resolve via API.
+          URL=$(gh api "repos/odin-lang/Odin/releases/tags/${ODIN_TAG}" --jq '.assets[].browser_download_url | select(contains("${{ matrix.odin_platform }}") and endswith(".tar.gz"))')
+          if [ -z "$URL" ]; then
+            echo "No ${{ matrix.odin_platform }} asset for $ODIN_TAG"
+            exit 1
+          fi
+          curl -fsSL -o odin.tar.gz "$URL"
           mkdir -p "$HOME/odin"
           tar -xzf odin.tar.gz -C "$HOME/odin" --strip-components=1
           echo "$HOME/odin" >> "$GITHUB_PATH"

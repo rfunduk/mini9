@@ -69,7 +69,7 @@ zip -r mygame.zip mygame
 
 ### Prerequisites
 
-- `odin` [2026-05](https://github.com/odin-lang/Odin/releases/tag/dev-2026-05)
+- `odin` [2026-09](https://github.com/odin-lang/Odin/releases/tag/dev-2026-09)
 - `ruby` 3.4+
 - `git`, `cmake`, `make`, `cc`, `bison`, `python3`
 - on Linux: `libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev libxkbcommon-dev`, `libwayland-dev wayland-protocols`
