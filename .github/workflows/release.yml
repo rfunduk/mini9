@@ -7,7 +7,7 @@ on:
 
 env:
   # https://github.com/odin-lang/Odin/releases
-  ODIN_TAG: dev-2026-09
+  ODIN_TAG: dev-2026-10
 
 jobs:
   build:
