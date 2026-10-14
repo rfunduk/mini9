@@ -23,7 +23,6 @@ create_oval :: proc(o: Oval) -> mrb.Value {
 }
 
 // RUBY FUNCTION: oval(size) — centered at v2(0). Or oval(pos, size) — explicit center.
-// size = v2(w_radius, h_radius).
 // @engine_method: name="oval", aspec=ARGS_ANY
 ruby_oval :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context

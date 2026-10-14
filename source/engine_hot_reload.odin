@@ -6,10 +6,8 @@ import rl "lib:raylib"
 
 _ :: rl
 
-// Seconds between *.rb mtime scans. Coarse on purpose — saves are human-paced
-// and the scan walks the game dir, so there's no reason to do it every frame.
 @(private = "file")
-HOT_RELOAD_POLL_INTERVAL :: f32(0.25)
+HOT_RELOAD_POLL_INTERVAL :: f32(0.25) // seconds
 
 @(private = "file")
 poll_accum: f32

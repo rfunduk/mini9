@@ -172,9 +172,7 @@ ruby_save_set :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 find_key_storage :: proc(m: json.Object, k: string) -> (string, bool) {
 	// Odin maps return the caller's key view via lookup, not the stored key.
 	// need to iterate to get the actual owned string to free.
-	for key in m {
-		if key == k { return key, true }
-	}
+	for key in m { if key == k { return key, true } }
 	return "", false
 }
 

@@ -6,16 +6,10 @@ import mrb "lib:mruby"
 import rl "lib:raylib"
 
 // Init-phase textures + all fonts + a white texel get packed into one atlas,
-// so sprite / shape / line / text draws can all share a single bound texture
-// and batch without flushing. Shapes + line() sample the white texel via
-// SetShapesTexture / DrawTexturePro.
-//
-// Post-init texture loads (lazy) bypass the atlas and become standalone —
-// they cost a texture switch each, documented as expected.
+// so sprite / shape / line / text draws can all share a single bound texture and batch.
+// Post-init texture loads (rare) bypass the atlas and become standalone
 
-// 4096 is the WebGL 2 guaranteed minimum and universal on modern desktop
-// hardware. Overflow logs a warning + spills into STANDALONE textures,
-// so going over is survivable — just costs draw calls.
+// 4096 is the WebGL 2 guaranteed minimum and universal on modern desktop hardware
 ATLAS_SIZE :: 4096
 ATLAS_PADDING :: 2
 WHITE_TEXEL_SIZE :: 4

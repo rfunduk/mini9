@@ -88,7 +88,7 @@ ruby_anim :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	dir_val := mrb.kwarg(state, kwargs, sym.direction)
 	if dir_val != mrb.NIL { direction = i32(mrb.to_int(dir_val)) }
 
-	// optional: mode (default LOOP = 0)
+	// optional: mode
 	mode: Animation_Mode = .LOOP
 	mode_val := mrb.kwarg(state, kwargs, sym.mode)
 	if mode_val != mrb.NIL { mode = Animation_Mode(mrb.to_int(mode_val)) }

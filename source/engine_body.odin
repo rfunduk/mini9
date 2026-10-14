@@ -24,11 +24,6 @@ Body_Spec :: struct {
 	spin:               bool,
 }
 
-// shape_val is held alive by the BodySpec's own @__shape ivar (set in body()).
-// While the BodySpec is reachable, so is the shape. obj() bridges the BodySpec
-// across the brief window where it would otherwise be unrooted, then hands the
-// shape to the Body wrapper's @__shape ivar. An unconsumed body() leaks
-// nothing — the BodySpec and its shape are collected normally.
 ruby_bodyspec_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 	context = global_context
 	if ptr != nil { mrb.free(state, ptr) }
@@ -36,7 +31,7 @@ ruby_bodyspec_finalizer :: proc "c" (state: mrb.State, ptr: rawptr) {
 
 // Body wrapper: thin shell pointing back at the parent Game_Object. All
 // physics state still lives in the Game_Object; this is just the ruby
-// surface for body methods. Finalized with the parent.
+// surface for body methods.
 Body :: struct {
 	obj: ^Game_Object,
 }
@@ -160,12 +155,10 @@ ruby_body :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	class := mrb.class_get(g.mrb_state, "BodySpec")
 	val := mrb.obj_new(g.mrb_state, class, 0, nil)
 	mrb.data_init(val, ptr, NATIVE_TO_MRUBY_TYPE[Body_Spec])
-	// Hang the shape on the BodySpec's own @__shape ivar so it stays reachable
-	// for exactly as long as the BodySpec is. The native shape_val field is
-	// invisible to the GC; this ivar is what lets obj()'s bridge — which roots
-	// the BodySpec across the construction window — also protect the shape.
-	// No standalone root here, so an unconsumed body() leaks nothing.
+
+	// we need to keep the spec shape around during the bridge to Game_Object
 	gc_retain(val, "@__shape", spec.shape_val)
+
 	return val
 }
 
@@ -189,7 +182,7 @@ ruby_body_type :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.NIL
 }
 
-// RUBY METHOD: body.shape -> Circ | Rect (the shape passed at construction)
+// RUBY METHOD: body.shape -> Circ | Rect
 ruby_body_shape :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := body_obj(self)
@@ -205,7 +198,7 @@ ruby_body_sensor :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return obj.sensor ? mrb.TRUE : mrb.FALSE
 }
 
-// RUBY METHOD: body.layer -> Integer (1..64; 0 if unset). Single bit only.
+// RUBY METHOD: body.layer -> Integer (1..64; 0 if unset)
 ruby_body_layer :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := body_obj(self)
@@ -219,7 +212,7 @@ ruby_body_layer :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return mrb.fixnum_value(0)
 }
 
-// RUBY METHOD: body.mask -> Integer (raw bitmask). Use bit ops for tests.
+// RUBY METHOD: body.mask -> Integer (bitmask)
 ruby_body_mask :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := body_obj(self)
@@ -235,7 +228,7 @@ ruby_body_spin :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return obj.spin ? mrb.TRUE : mrb.FALSE
 }
 
-// RUBY METHOD: body.destroy -> nil  (queues body destruction at end of step)
+// RUBY METHOD: body.destroy -> nil (queues body destruction at end of step)
 ruby_body_destroy :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := body_obj(self)
@@ -373,8 +366,7 @@ ruby_body_overlaps :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value 
 	return out.distance < 1e-4 ? mrb.TRUE : mrb.FALSE
 }
 
-// Build a local-space b2.ShapeProxy from a shape. count==0 -> unsupported
-// (chain segment); caller decides fallback. Transform applied by ShapeDistance.
+// Build a local-space b2.ShapeProxy from a shape. count==0 -> unsupported (chain segment)
 shape_proxy :: proc "c" (shape_id: b2.ShapeId) -> b2.ShapeProxy {
 	switch b2.Shape_GetType(shape_id) {
 	case .circleShape:
@@ -399,8 +391,6 @@ shape_proxy :: proc "c" (shape_id: b2.ShapeId) -> b2.ShapeProxy {
 }
 
 // RUBY METHOD: body.overlapping -> [GameObject, ...] currently inside this sensor
-// Returns the owning GameObjects (not bodies) so game code matches the on_enter
-// dispatch shape, which also hands callers the obj.
 // Only meaningful for sensor bodies; returns [] otherwise.
 ruby_body_overlapping :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
@@ -424,7 +414,7 @@ ruby_body_overlapping :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	return result
 }
 
-// RUBY METHOD: body.density -> f32 (live from b2 shape)
+// RUBY METHOD: body.density -> f32
 ruby_body_density :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	obj := body_obj(self)

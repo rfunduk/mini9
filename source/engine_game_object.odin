@@ -10,24 +10,20 @@ Game_Object :: struct {
 	scale:              mrb.Value,
 	rotation:           f32,
 	visible:            bool,
-	// optional physics body (zero-value = no physics). The Ruby surface is
-	// `obj.body` — a thin wrapper holding a pointer to this struct.
-	body_id:            b2.BodyId,
+
+	// physics stuff
+	body_val:           mrb.Value, // Body wrapper (mrb.NIL if no physics)
+	body_id:            b2.BodyId, // box2d body
 	shape_id:           b2.ShapeId,
 	body_type:          Body_Type,
-	body_val:           mrb.Value, // Body wrapper (mrb.NIL if no physics)
 	shape_val:          mrb.Value, // Circ/Rect retained for body.shape getter
 	sensor:             bool,
-	spin:               bool, // opt-in physics-driven rotation (else fixedRotation)
-	// mover/AABB half extents — for circles this is {r, r}
-	half_size:          V2,
-	// body center relative to obj.pos (derived from shape kwarg)
-	body_center_offset: V2,
-	// last body-center pushed to box2d — change-detect cache for pre-step sync
-	last_sync_center:   V2,
+	spin:               bool,
+	half_size:          V2, // mover/AABB half extents — for circles this is {r, r}
+	body_center_offset: V2, // body center relative to obj.pos (derived from shape kwarg)
+	last_sync_center:   V2, // last body-center pushed to box2d — change-detect cache for pre-step sync
 	last_sync_rotation: f32,
-	// true once destroy_body has been called — body flushed at end of step
-	destroy_queued:     bool,
+	destroy_queued:     bool, // true once destroy_body has been called — body flushed at end of step
 	layer:              u64,
 	mask:               u64,
 }

@@ -1,50 +1,35 @@
 # welcome screen when no game loaded
 
 resolution(320, 180)
-fps(60)
+
+class Array
+  def i = self.tap { _1[0][0] = "    #{_1[0][0]}" }
+end
+
+class String
+  %w{ magenta yellow blue white orange peach green red }.each do |c|
+    define_method(:"#{c[0]}") { [self, P.send(c.to_sym)] }
+  end
+end
 
 SNIPPET_BOX = rect(v2(24, 58), v2(272, 66))
 
-# token-based syntax highlighting. each line is an array of [text, color]
-# pairs which we draw left-to-right, advancing x by text.measure.x. that
-# gives us correct kerning on the variable-width pixel fonts without any
-# manual measurement.
 SNIPPET = [
-  [['def ',       P.magenta],
-   ['update',     P.yellow]],
+  ['def '.m, 'update'.y],
+    ['quit '.b, 'if '.m, 'pressed?'.b, '('.w, ':escape'.o, ')'.w].i,
+  ['end'.m],
 
-  [['    quit ',  P.blue],
-   ['if ',        P.magenta],
-   ['pressed?',   P.blue],
-   ['(',          P.white],
-   [':escape',    P.orange],
-   [')',          P.white]],
-
-  [['end',        P.magenta]],
-
-  [['def ',       P.magenta],
-   ['draw',       P.yellow]],
-
-  [['    text',   P.blue],
-   ['(',          P.white],
-   ['"hi"',       P.green],
-   [', ',         P.white],
-   ['Font',       P.peach],
-   ['::',         P.white],
-   ['SMALL',      P.peach],
-   [').draw(',    P.white],
-   ['offset:',    P.orange],
-   [' v2',        P.blue],
-   ['(10)',       P.white]],
-
-  [['end',        P.magenta]],
+  ['def '.m, 'draw'.y],
+    ['text'.b, '('.w, '"hi"'.g, ', '.w, 'Font'.p, '::'.w, 'SMALL'.p, ').'.w,
+      'draw'.b, '('.w, 'offset: '.o, 'v2'.b, '('.w, '10'.p, '))'.w].i,
+  ['end'.m],
 ]
 
 g.ball = v2()
 
 TRAIL = particles(
-  max: 100,
-  rate: 50,
+  max: 120,
+  rate: 60,
   lifetime: 4.5,
   pos: v2(0),
   accel: v2(0, 5),

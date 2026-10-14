@@ -320,14 +320,17 @@ ruby_particles :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	if max_v == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "particles: missing required kwarg :max")
 	}
+
 	rate_v := mrb.kwarg(state, kwargs, sym.rate)
 	if rate_v == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "particles: missing required kwarg :rate")
 	}
+
 	life_v := mrb.kwarg(state, kwargs, sym.lifetime)
 	if life_v == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "particles: missing required kwarg :lifetime")
 	}
+
 	pos_v := mrb.kwarg(state, kwargs, sym.pos)
 	if pos_v == mrb.NIL {
 		return mrb.raise_error(state, "ArgumentError", "particles: missing required kwarg :pos")
@@ -462,6 +465,10 @@ ruby_particles_draw :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value
 	context = global_context
 	p := extract_native(Particles_Instance, self)
 	if p == nil { return mrb.NIL }
+
+	// TODO: maybe sort by lifetime? if you have a lot and it wraps around
+	//       you can end up with old ones being drawn on top of new ones
+	//		 (could count where life <= 0 at the same time also, and drop the check)
 
 	parts := p.particles
 	switch p.shape {

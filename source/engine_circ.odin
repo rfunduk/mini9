@@ -240,9 +240,7 @@ draw_circle :: proc(
 		// DrawCircleV bypasses it. 36 segments matches DrawCircleV quality.
 		rl.DrawCircleSector(p, radius, 0, 360, 36, color)
 	} else {
-		// DrawRing (filled annulus) instead of DrawCircleLinesV so the
-		// outline batches with other shape draws — line primitives force a
-		// batch flush -> extra draw call. thickness controls ring width.
+		// ditto for DrawRing instead of DrawCircleLinesV
 		inner := max(radius - thickness, 0)
 		rl.DrawRing(p, inner, radius, 0, 360, 36, color)
 	}

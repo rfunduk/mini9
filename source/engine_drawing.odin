@@ -3,9 +3,9 @@ package engine
 import mrb "lib:mruby"
 import rl "lib:raylib"
 
-// Shared drawing utility: apply a Rect as a scissor region, offset by the
-// caller's draw position. Returns true when scissor was activated — caller
-// must pair with `rl.EndScissorMode()`.
+// Shared drawing helpers
+
+// apply a Rect as a scissor region, offset by the caller's draw position. caller must call `rl.EndScissorMode()`
 _clip :: proc(clip: Maybe(rl.Rectangle), offset: V2) -> bool {
 	cr, ok := clip.?
 	if !ok { return false }

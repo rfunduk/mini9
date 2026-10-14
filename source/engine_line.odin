@@ -145,8 +145,7 @@ draw_line :: proc(
 
 	did_clip := _clip(clip, f)
 
-	// DrawRectanglePro batches via the shapes texture; DrawLineEx uses
-	// RL_LINES mode which forces a batch flush.
+	// DrawRectanglePro uses the shapes texture (batches with atlas), unlike DrawLineEx
 	delta := t - f
 	length := lin.length(delta)
 	if length > 0 {

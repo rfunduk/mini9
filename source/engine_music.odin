@@ -15,7 +15,7 @@ Music_Load_Status :: enum {
 
 Music :: struct {
 	path:      string,
-	file_data: []u8, // stored because raylib streams from this buffer
+	file_data: []u8, // raylib streams from this buffer
 	music:     rl.Music,
 	active:    bool,
 	autoplay:  bool,

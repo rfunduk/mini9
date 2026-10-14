@@ -75,9 +75,7 @@ palette_from_filedata :: proc(path: string, data: []u8) -> mrb.Value {
 	parse_palette_gpl(data, pal)
 	mrb.data_init(ruby_obj, pal, NATIVE_TO_MRUBY_TYPE[Palette])
 
-	// Color values are only referenced from the native slice until
-	// install_color_methods captures them in singleton method closures.
-	// Protect them across the funcall, then drop the temporary roots.
+	// install_color_methods captures colours in closures
 	for pc in pal.colors { mrb.gc_register(g.mrb_state, pc.color) }
 	mrb.funcall(g.mrb_state, ruby_obj, "install_color_methods", 0)
 	for pc in pal.colors { mrb.gc_unregister(g.mrb_state, pc.color) }
@@ -169,9 +167,7 @@ ruby_palette_color_pairs :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.
 	return arr
 }
 
-// Returns a deep-copied independent Palette. Used by preamble to give `P`
-// its own backing so user-driven `P.replace(...)` calls can't mutate
-// Palette::DEFAULT.
+// deep-copy
 ruby_palette_dup :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 	src := extract_native(Palette, self)
@@ -211,13 +207,9 @@ ruby_palette_do_replace :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.V
 	other_pal := extract_native(Palette, other_val)
 	if self_pal == nil || other_pal == nil { return self }
 
-	// Self-replace is a no-op. Without this guard, freeing self.colors
-	// would also wipe other.colors (same pointer) and the copy loop would
-	// see an empty source.
+	// cant replace self with self
 	if self_pal == other_pal { return self }
 
-	// Old singleton methods still root the OLD color values via closures —
-	// safe to free the slice and rebuild it before tearing them down.
 	free_palette_storage(self_pal)
 	delete(self_pal.path)
 

@@ -6,9 +6,7 @@ import "core:math/rand"
 import mrb "lib:mruby"
 import rl "lib:raylib"
 
-// Drawing-only primitive: circular wedge. Angles are radians, CCW from +x
-// (same convention as Vector2#angle). No physics — an arc collider is
-// nonsensical; use circ/rect/poly for collision.
+// circular wedge. Angles are radians, CCW from +x
 Arc :: struct {
 	center: V2,
 	r:      f32,
@@ -271,8 +269,6 @@ draw_arc :: proc(
 	if filled {
 		rl.DrawCircleSector(p, radius, start_deg, end_deg, segs, color)
 	} else {
-		// DrawRing (filled annulus) batches with other shape draws; line
-		// primitives would force a batch flush -> extra draw call.
 		inner := max(radius - thickness, 0)
 		rl.DrawRing(p, inner, radius, start_deg, end_deg, segs, color)
 	}

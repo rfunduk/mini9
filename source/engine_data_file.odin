@@ -35,7 +35,6 @@ file_from_data :: proc(path: string, data: []u8) -> mrb.Value {
 	str := strings.clone_from_bytes(data)
 	file_ptr := mrb.alloc(g.mrb_state, Data_File{path = path, content = str})
 
-	// set @path instance variable
 	path_sym := mrb.intern_cstr(g.mrb_state, "@path")
 	path_val := mrb.str_new_cstr(g.mrb_state, strings.clone_to_cstring(path, context.temp_allocator))
 	mrb.iv_set(g.mrb_state, ruby_obj, path_sym, path_val)

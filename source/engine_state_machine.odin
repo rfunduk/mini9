@@ -5,10 +5,6 @@ import "core:fmt"
 import "core:log"
 import mrb "lib:mruby"
 
-// States are pure-Ruby GameObjects (see ruby_api/state_machine.rb) — the
-// native side only holds the graph and dispatches by handler name. Handler
-// procs live in the state's @_procs table, which hot reload swaps, so
-// dispatch here always runs fresh code with no proc juggling.
 FSM :: struct {
 	parent:        mrb.Value,
 	current_state: mrb.Value, // Current State ruby object
@@ -16,9 +12,7 @@ FSM :: struct {
 	states:        mrb.Value, // Array of State objects (linear search - most FSMs have 2-5 states)
 }
 
-// Protected call of an FSM enter/exit/update block. `arity` trims argv (or
-// pass all 3 for variadic / arity > 3). `ctx_msg` is logged before the
-// exception handler on raise so the user sees which transition blew up.
+// Protected call of an FSM enter/exit/update block
 @(private)
 dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: []mrb.Value, ctx_msg: string) -> bool {
 	effective := arity
@@ -32,17 +26,16 @@ dispatch_fsm_callback :: proc(block: mrb.Value, arity: i32, argv: []mrb.Value, c
 }
 
 // Fetch the `kind` handler (:enter/:update/:draw/:exit) from a State's proc
-// table and protected-call it. A missing handler is a silent skip.
+// table and protected-call it
 @(private)
-dispatch_state_handler :: proc(state_obj: mrb.Value, kind: mrb.Value, argv: []mrb.Value, ctx_msg: string) -> bool {
+dispatch_state_handler :: proc(
+	state_obj: mrb.Value,
+	kind: mrb.Value,
+	argv: []mrb.Value,
+	ctx_msg: string,
+) -> bool {
 	args := [1]mrb.Value{kind}
-	handler := mrb.funcall_argv(
-		g.mrb_state,
-		state_obj,
-		mrb.symbol(sym._handler_for),
-		1,
-		raw_data(args[:]),
-	)
+	handler := mrb.funcall_argv(g.mrb_state, state_obj, mrb.symbol(sym._handler_for), 1, raw_data(args[:]))
 	if handler == mrb.NIL { return true }
 	return dispatch_fsm_callback(handler, mrb.safe_proc_arity(handler), argv, ctx_msg)
 }
@@ -219,11 +212,7 @@ do_fsm_transition :: proc(state: mrb.State, fsm: ^FSM, next_name: mrb.Value) {
 			from_name = mrb.inspect(state, state_name(state, last_state), context.temp_allocator)
 		}
 		argv := [3]mrb.Value{fsm.parent, next_state, last_state}
-		msg := fmt.tprintf(
-			"%s -> %s enter",
-			from_name,
-			mrb.inspect(state, current, context.temp_allocator),
-		)
+		msg := fmt.tprintf("%s -> %s enter", from_name, mrb.inspect(state, current, context.temp_allocator))
 		dispatch_state_handler(next_state, sym.enter, argv[:], msg)
 	}
 }
@@ -285,12 +274,7 @@ ruby_fsm_state :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	return fsm.current_state
 }
 
-// FSM._reload_merge!(fresh) — hot-reload structural sync. Behavior needs no
-// handling here (states are Ruby objects whose proc tables the GameObject
-// merge swaps); this reconciles the graph: states matched by name keep
-// identity and merge, new ones are adopted, default carries over. Current
-// state is re-pinned by name and may dangle detached if renamed away
-// (self-heals on the next transition). enter/exit do NOT refire.
+// FSM._reload_merge!(fresh) - hot-reload structural sync
 ruby_fsm_reload_merge :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Value {
 	context = global_context
 
@@ -328,7 +312,7 @@ ruby_fsm_reload_merge :: proc "c" (state: mrb.State, self: mrb.Value) -> mrb.Val
 	old_fsm.states = merged
 	old_fsm.default_name = new_fsm.default_name
 
-	// Re-pin current by name; a renamed-away current dangles detached.
+	// Re-pin current by name
 	if old_fsm.current_state != mrb.NIL {
 		current_name := mrb.funcall_argv(state, old_fsm.current_state, name_sym, 0, nil)
 		repinned := find_state_by_name(state, merged, current_name)

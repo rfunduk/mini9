@@ -8,15 +8,20 @@ import rl "lib:raylib"
 import rv "lib:rove"
 
 NAV_CIRC_SEGMENTS :: 16
+
 // Distance (px) at which the agent is considered to have reached a
 // path corner and the cursor advances to the next waypoint. Keeps the
 // agent from snapping to every corner; small enough to feel responsive.
 NAV_HYSTERESIS :: f32(1.5)
+
 // Distance (px) at which `arrived?` flips true for the final goal.
 NAV_ARRIVED_EPS :: f32(0.5)
+
 // Distance (px) from the current path segment at which the agent is
 // considered to have drifted off-path and triggers a replan.
+// TODO: seems like quite a bit. maybe base this on resolution or something?
 NAV_DRIFT :: f32(32.0)
+
 // AABB bounds for the "whole world" Box2D query when rebuilding the
 // navmesh. Must exceed the playable area by a wide margin in any game.
 NAV_WORLD_AABB :: f32(1e9)
